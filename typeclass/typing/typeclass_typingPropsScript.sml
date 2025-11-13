@@ -399,7 +399,7 @@ Proof
   gvs[LIST_REL_EL_EQN,kind_ok,kind_arrows_kindType_EQ]
 QED
 
-Triviality LIST_REL3_IMP_helper:
+Theorem LIST_REL3_IMP_helper[local]:
   ∀xs ys zs.
   LIST_REL3 (λx y z. P x y z ⇒ Q x y z) xs ys zs ⇒
   LIST_REL3 P xs ys zs ⇒

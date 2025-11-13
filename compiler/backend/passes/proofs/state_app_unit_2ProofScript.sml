@@ -232,7 +232,7 @@ Proof
   \\ irule env_rel_cons \\ fs []
 QED
 
-Triviality FST_INTRO:
+Theorem FST_INTRO[local]:
   (λ(p1,p2). p1) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -379,7 +379,7 @@ Proof
        \\ gvs []
        \\ Cases_on ‘n' < LENGTH l'’ \\ gvs []
        \\ gvs [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
-    \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def]) 
+    \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
   >~ [‘Update’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -492,7 +492,7 @@ Proof
   \\ rpt $ first_x_assum $ irule_at Any
 QED
 
-Triviality LIST_REL_MAP_MAP:
+Theorem LIST_REL_MAP_MAP[local]:
   ∀xs ys.
     LIST_REL R (MAP f xs) (MAP g ys) =
     LIST_REL (λx y. R (f x) (g y)) xs ys

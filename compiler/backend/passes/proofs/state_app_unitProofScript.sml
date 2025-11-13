@@ -92,7 +92,7 @@ End
 Overload rel1 = “state_app_unit_1Proof$compile_rel”
 Overload rel2 = “state_app_unit_2Proof$compile_rel”
 
-Triviality LIST_REL_rel2_rel1:
+Theorem LIST_REL_rel2_rel1[local]:
   ∀xs zs.
     LIST_REL (λx z. cexp1_rel x z ∧ ∃y. rel2 (exp_of x) y ∧ rel1 y (exp_of z)) xs zs ⇒
     ∃ys. LIST_REL rel2 (MAP exp_of xs) ys ∧ LIST_REL rel1 ys (MAP exp_of zs)
@@ -256,7 +256,7 @@ Proof
   \\ PairCases_on ‘x’ \\ fs []
 QED
 
-Triviality cexp1_rel_eq: (* TODO: delete *)
+Theorem cexp1_rel_eq[local]: (* TODO: delete *)
   x = y ⇒ cexp1_rel x y
 Proof
   rw [] \\ fs []
@@ -476,7 +476,7 @@ Inductive cexp_rel:
 
 End
 
-Triviality NRC_refl:
+Theorem NRC_refl[local]:
   NRC cexp1_rel n x x
 Proof
   Induct_on ‘n’ \\ fs [NRC]
@@ -506,7 +506,7 @@ Proof
   \\ fs [LIST_REL_NRC_0,LIST_REL_NRC_SUC,NRC]
 QED
 
-Triviality NRC_Let:
+Theorem NRC_Let[local]:
   ∀k x x1 y y1.
     NRC cexp1_rel k x x1 ∧ NRC cexp1_rel k y y1 ⇒
     NRC cexp1_rel k (Let x_opt x y) (Let x_opt x1 y1)
@@ -516,7 +516,7 @@ Proof
   \\ rpt $ last_x_assum $ irule_at Any
 QED
 
-Triviality NRC_Handle:
+Theorem NRC_Handle[local]:
   ∀k x x1 y y1.
     NRC cexp1_rel k x x1 ∧ NRC cexp1_rel k y y1 ⇒
     NRC cexp1_rel k (Handle x n y) (Handle x1 n y1)
@@ -526,7 +526,7 @@ Proof
   \\ rpt $ last_x_assum $ irule_at Any
 QED
 
-Triviality NRC_HandleApp:
+Theorem NRC_HandleApp[local]:
   ∀k x x1 y y1.
     NRC cexp1_rel k x x1 ∧ NRC cexp1_rel k y y1 ⇒
     NRC cexp1_rel k (HandleApp x y) (HandleApp x1 y1)
@@ -536,7 +536,7 @@ Proof
   \\ rpt $ last_x_assum $ irule_at Any
 QED
 
-Triviality NRC_If:
+Theorem NRC_If[local]:
   ∀k x x1 y y1 z z1.
     NRC cexp1_rel k x x1 ∧ NRC cexp1_rel k y y1 ∧ NRC cexp1_rel k z z1 ⇒
     NRC cexp1_rel k (If x y z) (If x1 y1 z1)
@@ -546,7 +546,7 @@ Proof
   \\ rpt $ last_x_assum $ irule_at Any
 QED
 
-Triviality NRC_Lam:
+Theorem NRC_Lam[local]:
   ∀k z z1.
     NRC cexp1_rel k z z1 ⇒
     NRC cexp1_rel k (Lam y z) (Lam y z1)
@@ -556,7 +556,7 @@ Proof
   \\ rpt $ last_x_assum $ irule_at Any
 QED
 
-Triviality NRC_Raise:
+Theorem NRC_Raise[local]:
   ∀k z z1.
     NRC cexp1_rel k z z1 ⇒
     NRC cexp1_rel k (Raise z) (Raise z1)
@@ -566,7 +566,7 @@ Proof
   \\ rpt $ last_x_assum $ irule_at Any
 QED
 
-Triviality NRC_App:
+Theorem NRC_App[local]:
   ∀k xs ys.
     LIST_REL (NRC cexp1_rel k) xs ys ⇒
     NRC cexp1_rel k (App f xs) (App f ys)
@@ -578,7 +578,7 @@ Proof
   \\ irule cexp1_rel_App \\ fs []
 QED
 
-Triviality NRC_Letrec:
+Theorem NRC_Letrec[local]:
   ∀k xs ys x y.
     MAP FST xs = MAP FST ys ∧
     MAP (FST ∘ SND) xs = MAP (FST ∘ SND) ys ∧
@@ -607,7 +607,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality NRC_Case:
+Theorem NRC_Case[local]:
   ∀k x x1 xs xs1.
     OPTREL (λ(a,x) (b,x1). a = b ∧ NRC cexp1_rel k x x1) x x1 ∧
     MAP FST xs = MAP FST xs1 ∧
@@ -673,7 +673,7 @@ Proof
   \\ first_assum $ irule_at Any \\ fs [NRC_refl]
 QED
 
-Triviality NRC_REFL:
+Theorem NRC_REFL[local]:
   ∀n. R x x ⇒ NRC R n x x
 Proof
   Induct \\ fs [NRC] \\ metis_tac []

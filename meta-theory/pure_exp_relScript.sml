@@ -89,7 +89,7 @@ Definition FF_def:
   FF b s = { (e1, e2) | unfold_rel s (e1, e2) b }
 End
 
-Triviality monotone_similarity:
+Theorem monotone_similarity[local]:
   monotone (FF b)
 Proof
   fs [monotone_def,FF_def,unfold_rel_def] >>
@@ -128,7 +128,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality monotone_bisimilarity:
+Theorem monotone_bisimilarity[local]:
   monotone (λs. { (e1,e2) | (e1,e2) IN FF b s ∧ (e2,e1) IN FF b (opp s) })
 Proof
   fs [monotone_def,FF_def,unfold_rel_def,opp_def] >>

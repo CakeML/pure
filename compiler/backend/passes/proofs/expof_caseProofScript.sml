@@ -273,7 +273,7 @@ Proof
     \\ irule_at Any PAIR)
 QED
 
-Triviality freevars_lets_for':
+Theorem freevars_lets_for'[local]:
   ∀xs n x y.
     freevars (exp_of' p_2) = freevars (exp_of p_2) ⇒
     freevars (lets_for' n x y xs (exp_of' p_2)) =

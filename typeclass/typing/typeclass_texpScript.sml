@@ -185,7 +185,7 @@ Termination
   rw[] >> gs[]
 End
 
-Triviality MAX_SET_LE:
+Theorem MAX_SET_LE[local]:
   FINITE s ∧ (∀y. y ∈ s ⇒ y ≤ x) ⇒
   MAX_SET s ≤ x
 Proof
@@ -195,7 +195,7 @@ Proof
   simp[GREATER_EQ]
 QED
 
-Triviality MAX_SET_LT:
+Theorem MAX_SET_LT[local]:
   FINITE s ∧ (∀y. y ∈ s ⇒ y < x) ∧ 0 < x ⇒
   MAX_SET s < x
 Proof
@@ -295,7 +295,7 @@ Proof
     GSYM pure_cexpTheory.cepat_vars_l_correct]
 QED
 
-Triviality texp_wf_strong_helper:
+Theorem texp_wf_strong_helper[local]:
   (∀(e:'a texp). texp_wf_strong e ⇔
     (texp_wf e ∧ texp_Lits_wf e)) ∧
   (∀(es:'a texp list). EVERY texp_wf_strong es ⇔

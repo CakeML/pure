@@ -33,7 +33,7 @@ val r = translate var_setTheory.empty_vars_def;
 
 val res = translate_no_ind pure_namesTheory.extract_names_def;
 
-Triviality extract_names_ind:
+Theorem extract_names_ind[local]:
   extract_names_ind (:α)
 Proof
   once_rewrite_tac [fetch "-" "extract_names_ind_def"]
@@ -74,7 +74,7 @@ val r = translate delay_arg_def;
 val r = translate monad_to_thunk_def;
 val r = translate_no_ind pure_to_thunkTheory.to_thunk_def;
 
-Triviality to_thunk_ind:
+Theorem to_thunk_ind[local]:
   to_thunk_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_thunk_ind_def"]

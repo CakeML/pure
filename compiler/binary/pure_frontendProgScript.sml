@@ -128,7 +128,7 @@ val r = translate App_Lam_to_Lets_def;
 
 val r = translate_no_ind inline_def;
 
-Triviality inline_ind:
+Theorem inline_ind[local]:
   inline_ind (:'a)
 Proof
   once_rewrite_tac[fetch "-" "inline_ind_def"] >>

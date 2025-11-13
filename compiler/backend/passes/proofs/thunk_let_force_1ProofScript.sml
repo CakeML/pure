@@ -27,7 +27,7 @@ Definition dest_Var_def[simp]:
   dest_Var (Var n:lhs) = n
 End
 
-Triviality MAP_filter_clash_NONE:
+Theorem MAP_filter_clash_NONE[local]:
   ∀m. MAP (filter_clash NONE) m = m
 Proof
   Induct \\ fs [filter_clash_def,name_clash_def]
@@ -326,7 +326,7 @@ Proof
   \\ drule_all e_rel_semantics \\ fs []
 QED
 
-Triviality let_force_Delay:
+Theorem let_force_Delay[local]:
   let_force m e = Delay e' ⇒ ∃e0. e = Delay e0
 Proof
   simp[Once $ DefnBase.one_line_ify NONE let_force_def] >>

@@ -122,7 +122,7 @@ Proof
     )
 QED
 
-Triviality app_bisimilarity_plug:
+Theorem app_bisimilarity_plug[local]:
   ∀c x y. (x ≃ y) T ∧ closed (plug c x) ⇒ (plug c x ≃ plug c y) T
 Proof
   rw[app_bisimilarity_eq]
@@ -199,7 +199,7 @@ Definition wh_to_cons_def:
   wh_to_cons  wh_Error = wh_Err
 End
 
-Triviality app_bisimilarity_wh_to_cons:
+Theorem app_bisimilarity_wh_to_cons[local]:
   ∀x y. (x ≃ y) T ⇒ wh_to_cons (eval_wh x) = wh_to_cons (eval_wh y)
 Proof
   rw[Once app_bisimilarity_iff_alt2] >>
@@ -220,7 +220,7 @@ Definition step_eval_wh_def:
     | NONE => NONE
 End
 
-Triviality step_eval_wh_eq:
+Theorem step_eval_wh_eq[local]:
   ∀l e1 e2. eval_wh e1 = eval_wh e2 ⇒ step_eval_wh l e1 = step_eval_wh l e2
 Proof
   Cases >> rw[step_eval_wh_def] >>
@@ -246,7 +246,7 @@ Proof
   Induct >> rw[BindAllocsC_def, BindAllocs_def, plug_def]
 QED
 
-Triviality freevars_BindAllocs:
+Theorem freevars_BindAllocs[local]:
   ∀n e. freevars (BindAllocs n e) ⊆ freevars e
 Proof
   Induct >> rw[BindAllocs_def] >>
@@ -342,7 +342,7 @@ Proof
     )
 QED
 
-Triviality not_app_bisimilarity_IMP_not_step_eval_wh:
+Theorem not_app_bisimilarity_IMP_not_step_eval_wh[local]:
   ∀e1 e2.
     ¬ (e1 ≃ e2) T ∧ closed e1 ∧ closed e2
   ⇒ ∃l. step_eval_wh l e1 ≠ step_eval_wh l e2
@@ -573,7 +573,7 @@ Proof
   goal_assum drule >> simp[]
 QED
 
-Triviality interp_simps[simp]:
+Theorem interp_simps[local,simp]:
   (∀k st. interp wh_Diverge k st = Div) ∧
   (∀x. interp (wh_Constructor "Ret" [x]) Done [] = Ret Termination) ∧
   (∀k st. interp wh_Error k st = Ret Error)

@@ -18,7 +18,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality MAPi_ID[simp]:
+Theorem MAPi_ID[local,simp]:
   ∀l. MAPi (λn v. v) l = l
 Proof
   Induct >> rw[combinTheory.o_DEF]
@@ -157,14 +157,14 @@ Proof
   simp[subst_lets_for, combinTheory.o_DEF]
 QED
 
-Triviality patguards_subst_FST:
+Theorem patguards_subst_FST[local]:
   patguards eps = (gd,binds) ⇒
   FST (patguards (MAP (subst f ## I) eps)) = subst f gd
 Proof
   metis_tac[patguards_subst,FST]
 QED
 
-Triviality patguards_subst_SND:
+Theorem patguards_subst_SND[local]:
   patguards eps = (gd,binds) ⇒
   SND (patguards (MAP (subst f ## I) eps)) =
     MAP (I ## subst f) binds
@@ -364,7 +364,7 @@ Proof
   irule exp_eq_Lam_cong >> first_x_assum irule >> simp[]
 QED
 
-Triviality subst1_lets_for_closed:
+Theorem subst1_lets_for_closed[local]:
   ¬ MEM var (MAP SND vs) ∧ closed x
   ⇒ subst1 var x (lets_for cn ar v vs e) =
     subst1 var x (lets_for cn ar v vs (subst1 var x e))
@@ -373,7 +373,7 @@ Proof
   PairCases_on `h` >> gvs[lets_for_def, subst1_def]
 QED
 
-Triviality subst1_lets_for_cexp_closed:
+Theorem subst1_lets_for_cexp_closed[local]:
   ¬ MEM var (MAP SND vs) ∧ closed x
   ⇒ subst1 var x (lets_for cn v vs e) =
     subst1 var x (lets_for cn v vs (subst1 var x e))
@@ -503,7 +503,7 @@ Proof
   once_rewrite_tac[exp_eq_sym] >> irule lets_for_exp_eq_lemma >> simp[]
 QED
 
-Triviality exp_eq_FOLDR_cong_base_case:
+Theorem exp_eq_FOLDR_cong_base_case[local]:
   e ≅ e' ∧ (∀x y y'. y ≅ y' ⇒  f x y ≅ f x y') ⇒
   FOLDR f e l ≅ FOLDR f e' l
 Proof

@@ -435,7 +435,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality ALOOKUP_REVERSE_lemma:
+Theorem ALOOKUP_REVERSE_lemma[local]:
   ∀vs ws.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ⇒
@@ -1195,7 +1195,7 @@ QED
 Overload v_inv_rel = ``λv w. v_inv v ∧ v_rel v w``
 Overload exp_inv_rel = ``λx y. exp_inv x ∧ closed x ∧ exp_rel x y``
 
-Triviality exp_inv_rel_eval:
+Theorem exp_inv_rel_eval[local]:
   exp_inv_rel x y ==>
     ($= +++ v_inv_rel) (eval x) (eval y)
 Proof
@@ -1203,7 +1203,7 @@ Proof
   Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
 QED
 
-Triviality exp_inv_rel_subst:
+Theorem exp_inv_rel_subst[local]:
   ∀vs x ws y.
     LIST_REL v_inv_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ∧

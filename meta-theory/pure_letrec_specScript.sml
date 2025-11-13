@@ -198,7 +198,7 @@ Proof
   >- (irule letrec_spec_Letrec \\ fs [] \\ simp [Once LIST_REL_SWAP])
 QED
 
-Triviality mk_letrec_neq[simp]:
+Theorem mk_letrec_neq[local,simp]:
   mk_letrec b i x ≠ Lam v t ∧
   mk_letrec b i x ≠ App x1 x2 ∧
   mk_letrec b i x ≠ Prim p ps ∧
@@ -211,7 +211,7 @@ Proof
   \\ fs [Apps_def]
 QED
 
-Triviality EVERY_FLOOKUP_closed_lemma:
+Theorem EVERY_FLOOKUP_closed_lemma[local]:
   EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
   (∀n v.
      FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
@@ -515,10 +515,10 @@ Proof
   \\ fs [FLOOKUP_DEF]
 QED
 
-Triviality eval_wh_Constructor_NIL_bisim =
+Theorem eval_wh_Constructor_NIL_bisim[local] =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Triviality LIST_REL_letrec_spec_closed:
+Theorem LIST_REL_letrec_spec_closed[local]:
   ∀xs ys. LIST_REL (letrec_spec i) xs ys ∧ EVERY closed xs ⇒ EVERY closed ys
 Proof
   Induct \\ rw [] \\ fs []
@@ -611,7 +611,7 @@ Definition wh_Closures_def:
   wh_Closures (v::vs) e = wh_Closure v (Lams vs e)
 End
 
-Triviality eval_wh_to_Apps_div:
+Theorem eval_wh_to_Apps_div[local]:
   ∀xs x k.
     eval_wh_to k x = wh_Diverge ⇒
     eval_wh_to k (Apps x xs) = wh_Diverge
@@ -625,7 +625,7 @@ Definition mk_body_def:
     subst1 i.fname (mk_rec b i) (if b then subst1 i.arg i.const i.rhs else i.rhs)
 End
 
-Triviality ignore_FDIFF:
+Theorem ignore_FDIFF[local]:
   DISJOINT (FDOM f) m ⇒ FDIFF f m = f
 Proof
   fs [fmap_EXT,FDIFF_def,DRESTRICT_DEF]
@@ -1431,7 +1431,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality call_with_arg_T_with:
+Theorem call_with_arg_T_with[local]:
   ∀b i R x y.
     call_with_arg b i R x y ⇒ b ⇒
     call_with_arg b (i with <|const := c; rhs := rhs1|>) R x y

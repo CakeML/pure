@@ -74,13 +74,13 @@ Proof
     )
 QED
 
-Triviality apps_ok_freevars_subst:
+Theorem apps_ok_freevars_subst[local]:
   ∀apps x. apps_ok apps ⇒ freevars (subst apps x) = freevars x
 Proof
   rw[freevars_equiv, apps_ok_freevars_l_subst]
 QED
 
-Triviality lams_ok_imps:
+Theorem lams_ok_imps[local]:
   ∀apps xs ys. lams_ok apps xs ys ⇒
   MAP FST xs = MAP FST ys ∧ LENGTH xs = LENGTH ys ∧ FDOM apps ⊆ set (MAP FST xs)
 Proof
@@ -88,7 +88,7 @@ Proof
   last_x_assum drule >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[]
 QED
 
-Triviality lams_ok_imp_freevars:
+Theorem lams_ok_imp_freevars[local]:
   ∀apps xs ys.
     lams_ok apps xs ys ∧ apps_ok apps
   ⇒ MAP (λ(fn,e). freevars e) xs = MAP (λ(fn,e). freevars e) ys
@@ -137,7 +137,7 @@ Proof
   irule letrec_lam_subst >> simp[]
 QED
 
-Triviality letrec_rel_lam_subst1:
+Theorem letrec_rel_lam_subst1[local]:
   letrec_rel letrec_lam x y ∧
   letrec_rel letrec_lam a b ⇒
   letrec_rel letrec_lam (subst1 s a x) (subst1 s b y)

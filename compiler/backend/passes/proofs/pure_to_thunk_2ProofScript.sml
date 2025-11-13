@@ -194,7 +194,7 @@ Proof
   \\ rpt $ goal_assum drule
 QED
 
-Triviality MEM_EQ_MEM_MAP_explode:
+Theorem MEM_EQ_MEM_MAP_explode[local]:
   ∀h1 f. MEM f h1 ⇔ MEM (explode f) (MAP explode h1)
 Proof
   Induct \\ fs []
@@ -252,7 +252,7 @@ Proof
   \\ rpt (irule_at Any thunk_case_projProofTheory.compile_rel_Var \\ fs [])
 QED
 
-Triviality freevars_Disj':
+Theorem freevars_Disj'[local]:
   ∀xs. f ≠ v ⇒ f ∉ freevars (Disj' (Force (Var v)) xs)
 Proof
   Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []

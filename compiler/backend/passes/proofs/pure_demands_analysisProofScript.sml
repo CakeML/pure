@@ -2642,7 +2642,7 @@ Proof
   simp[]
 QED
 
-Triviality find_IfDisj:
+Theorem find_IfDisj[local]:
   find e1 c ∅ ds e2 NONE ⇒
   find (IfDisj s p1 e1) c ∅ ds (IfDisj s p1 e2) NONE
 Proof
@@ -3611,7 +3611,7 @@ QED
 
 (********** Prove that analysis only inserts well-defined Seqs **********)
 
-Triviality empty_map_simps[simp]:
+Theorem empty_map_simps[local,simp]:
   map_ok (empty compare) ∧
   cmp_of (empty compare) = compare ∧
   to_fmap (empty compare) = FEMPTY ∧

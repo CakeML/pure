@@ -751,7 +751,7 @@ Proof
   \\ rgs [Once exp_rel_cases]
 QED
 
-Triviality exp_rel_subst_LIST_REL:
+Theorem exp_rel_subst_LIST_REL[local]:
   exp_rel q q' ∧
   LIST_REL (λ(s,v) (s',v'). s = s' ∧ v_rel v v') r r' ⇒
     ($= +++ v_rel) (eval (subst r q)) (eval (subst r' q'))
@@ -764,7 +764,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality thunk_exists[simp,local]:
+Theorem thunk_exists[simp,local]:
   ∃k. is_anyThunk k
 Proof
   qrefine `Thunk _` \\ simp [is_anyThunk_def, dest_anyThunk_def]
@@ -1264,7 +1264,7 @@ Proof
   \\ Cases_on `next_delayed x v c s` \\ Cases_on `next (ck + x) w d t` \\ gvs []
 QED
 
-Triviality interp_action_return:
+Theorem interp_action_return[local]:
   interp (INR (Monadic Ret [Lit (Str y)]))
     (BC (Lam "v" (Monad Ret [Delay (Var "v")])) cont) st =
   interp (INR (Monadic Ret [Delay $ Value $ Atom $ Str y])) cont st

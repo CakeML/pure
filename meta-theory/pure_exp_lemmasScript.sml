@@ -717,13 +717,13 @@ Proof
   gvs[DELETE_DEF, closed_def] >> rw[] >> gvs[SUBSET_DIFF_EMPTY]
 QED
 
-Triviality FDOMSUB_EQ_FDIFF:
+Theorem FDOMSUB_EQ_FDIFF[local]:
   M \\ x = FDIFF M {x}
 Proof
   rw [REWRITE_RULE [pred_setTheory.EXTENSION] fmap_EXT, FDIFF_def, DRESTRICT_DEF, DOMSUB_FAPPLY_NEQ]
 QED
 
-Triviality FDOM_FLOOKUP:
+Theorem FDOM_FLOOKUP[local]:
   x IN FDOM m <=> FLOOKUP m x <> NONE
 Proof
   Cases_on `FLOOKUP m x` \\ fs [FLOOKUP_DEF]

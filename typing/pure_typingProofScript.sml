@@ -53,7 +53,7 @@ Inductive type_wh:
   (type_ok (SND ns) db t ⇒ type_wh ns db st env wh_Diverge t)
 End
 
-Triviality type_wh_PrimTy_eq_wh_Atom:
+Theorem type_wh_PrimTy_eq_wh_Atom[local]:
   type_wh ns db st env wh (PrimTy pt) ∧ pt ≠ Bool ⇒
     wh = wh_Diverge ∨ ∃a. wh = wh_Atom a
 Proof
@@ -61,7 +61,7 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
-Triviality type_wh_PrimTy_Bool_eq_wh_Constructor:
+Theorem type_wh_PrimTy_Bool_eq_wh_Constructor[local]:
   type_wh ns db st env wh (PrimTy Bool) ⇒
     wh = wh_Diverge ∨ wh = wh_Constructor "True" [] ∨
     wh = wh_Constructor "False" []
@@ -71,14 +71,14 @@ Proof
   >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
 QED
 
-Triviality type_wh_Function_eq_wh_Closure:
+Theorem type_wh_Function_eq_wh_Closure[local]:
   type_wh ns db st env wh (Function ft rt) ⇒
     wh = wh_Diverge ∨ ∃x body. wh = wh_Closure x body
 Proof
   rw[type_wh_cases] >> gvs[Once type_tcexp_cases]
 QED
 
-Triviality type_wh_TypeCons_eq_wh_Constructor:
+Theorem type_wh_TypeCons_eq_wh_Constructor[local]:
   type_wh ns db st env wh (TypeCons id ts) ⇒
     wh = wh_Diverge ∨ ∃cname es. wh = wh_Constructor cname es
 Proof
@@ -86,7 +86,7 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
-Triviality type_wh_Array_eq_Loc:
+Theorem type_wh_Array_eq_Loc[local]:
   type_wh ns db st env wh (Array t) ⇒
     wh = wh_Diverge ∨ ∃a n. wh = wh_Atom (Loc n) ∧ oEL n st = SOME t
 Proof
@@ -94,7 +94,7 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
-Triviality type_wh_Tuple_eq_wh_Constructor:
+Theorem type_wh_Tuple_eq_wh_Constructor[local]:
   type_wh ns db st env wh (Tuple ts) ⇒
     wh = wh_Diverge ∨ ∃es. wh = wh_Constructor "" es
 Proof
@@ -103,7 +103,7 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
-Triviality type_wh_Exception_eq_wh_Constructor:
+Theorem type_wh_Exception_eq_wh_Constructor[local]:
   type_wh ns db st env wh Exception ⇒
     wh = wh_Diverge ∨ ∃cn es. wh = wh_Constructor cn es
 Proof
@@ -334,7 +334,7 @@ Proof
 QED
 
 
-Triviality MAPi_ID[simp]:
+Theorem MAPi_ID[local,simp]:
   ∀l. MAPi (λn v. v) l = l
 Proof
   Induct >> rw[combinTheory.o_DEF]

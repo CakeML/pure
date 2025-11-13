@@ -144,13 +144,13 @@ val _ = (length (hyp r) = 0) orelse fail (); (* no side conditions *)
 
 val _ = add_preferred_thy "-";
 
-Triviality PRECONDITION_INTRO:
+Theorem PRECONDITION_INTRO[local]:
   (b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)
 Proof
   Cases_on `b` \\ SIMP_TAC std_ss [PRECONDITION_def]
 QED
 
-Triviality EXISTS_eq:
+Theorem EXISTS_eq[local]:
   ∀xs. EXISTS P xs ⇔ MEMBER T (MAP P xs)
 Proof
   fs [GSYM MEMBER_INTRO]
@@ -229,7 +229,7 @@ val r = translate
   |> SPEC_ALL
   |> MATCH_MP PRECONDITION_INTRO)
 
-Triviality pure_oc_side:
+Theorem pure_oc_side[local]:
   pure_oc_side s t v = pure_wfs s
 Proof
   reverse $ Cases_on ‘pure_wfs s’ \\ simp []
@@ -248,7 +248,7 @@ val _ = pure_oc_side |> update_precondition;
 
 val r = translate pure_unificationTheory.pure_ext_s_check;
 
-Triviality pure_ext_s_check_side:
+Theorem pure_ext_s_check_side[local]:
   pure_ext_s_check_side s t v = pure_wfs s
 Proof
   rewrite_tac [fetch "-" "pure_ext_s_check_side_def"]
@@ -256,7 +256,7 @@ QED
 
 val _ = pure_ext_s_check_side |> update_precondition;
 
-Triviality pure_unify_lemma:
+Theorem pure_unify_lemma[local]:
   (pure_unify s t1 t2 =
      if PRECONDITION (pure_wfs s) then
       (case (pure_walk s t1,pure_walk s t2) of
@@ -312,7 +312,7 @@ QED
 
 val r = translate_no_ind pure_unify_lemma;
 
-Triviality pure_unify_ind:
+Theorem pure_unify_ind[local]:
   pure_unify_ind
 Proof
   rewrite_tac [fetch "-" "pure_unify_ind_def"]
@@ -335,7 +335,7 @@ val _ = pure_unify_ind |> update_precondition;
 val pure_unify_ind_lemma =
   pure_unify_ind |> REWRITE_RULE [fetch "-" "pure_unify_ind_def"];
 
-Triviality pure_unify_side:
+Theorem pure_unify_side[local]:
   (∀s t1 t2. pure_unify_side s t1 t2 ⇔ pure_wfs s) ∧
   (∀s ts1 ts2. pure_unifyl_side s ts1 ts2 ⇔ pure_wfs s)
 Proof
@@ -378,7 +378,7 @@ Proof
   \\ simp []
 QED
 
-Triviality pure_walkstar_eta:
+Theorem pure_walkstar_eta[local]:
   MAP (pure_walkstar s) = MAP $ λx. pure_walkstar s x
 Proof
   AP_TERM_TAC \\ fs [FUN_EQ_THM]
@@ -429,7 +429,7 @@ QED
 
 val _ = subst_constraint_side |> update_precondition;
 
-Triviality infer_bind:
+Theorem infer_bind[local]:
   infer_bind (g : ('a,'e) inferM) f = λs.
     case g s of
     | Err e => Err e
@@ -465,7 +465,7 @@ val r = translate pure_inferenceTheory.infer_top_level_def;
 
 val r = translate pure_typingTheory.freetyvars_ok_def;
 
-Triviality type_wf_eq:
+Theorem type_wf_eq[local]:
   type_wf typedefs v ⇔
      case v of
        TypeVar n => T
@@ -493,7 +493,7 @@ Definition every_pair_def:
   (every_pair P ((x,y)::xs) ⇔ P x y ∧ every_pair P xs)
 End
 
-Triviality intro_every_pair:
+Theorem intro_every_pair[local]:
   EVERY P xs ⇔ every_pair (λx y. P (x,y)) xs
 Proof
   Induct_on ‘xs’ \\ fs [FORALL_PROD,every_pair_def]

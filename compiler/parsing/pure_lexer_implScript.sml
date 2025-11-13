@@ -293,14 +293,14 @@ Termination
       gs[])
 End
 
-Triviality EVERY_isDigit_imp:
+Theorem EVERY_isDigit_imp[local]:
   EVERY isDigit x ⇒ MAP UNHEX x = MAP unhex_alt x
 Proof
   rw[]>>match_mp_tac LIST_EQ>>
   fs[EL_MAP,EVERY_EL,unhex_alt_def,isDigit_def,isHexDigit_def]
 QED
 
-Triviality toNum_rw:
+Theorem toNum_rw[local]:
   ∀x. EVERY isDigit x ⇒ toNum x = num_from_dec_string_alt x
 Proof
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_dec_string_def,
@@ -310,13 +310,13 @@ Proof
   metis_tac[rich_listTheory.EVERY_REVERSE]
 QED
 
-Triviality EVERY_isHexDigit_imp:
+Theorem EVERY_isHexDigit_imp[local]:
   EVERY isHexDigit x ⇒ MAP UNHEX x = MAP unhex_alt x
 Proof
   rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def]
 QED
 
-Triviality num_from_hex_string_rw:
+Theorem num_from_hex_string_rw[local]:
   ∀x. EVERY isHexDigit x ⇒ num_from_hex_string x = num_from_hex_string_alt x
 Proof
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_hex_string_def,
@@ -326,12 +326,12 @@ Proof
   metis_tac[rich_listTheory.EVERY_REVERSE]
 QED
 
-Triviality EVERY_IMPLODE:
+Theorem EVERY_IMPLODE[local]:
   ∀ls P. EVERY P (IMPLODE ls) ⇔ EVERY P ls
 Proof Induct>>fs[]
 QED
 
-Triviality read_while_P_lem:
+Theorem read_while_P_lem[local]:
   ∀ ls rest P x y.
     EVERY P rest ∧ read_while P ls rest = (x,y) ⇒ EVERY P x
 Proof

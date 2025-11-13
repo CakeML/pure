@@ -82,13 +82,13 @@ Proof
   drule well_typed_program_imps >> gvs[pure_tcexp_lemmasTheory.cexp_wf_tcexp_wf]
 QED
 
-Triviality PAIR_ID:
+Theorem PAIR_ID[local]:
   (λ(p1,p2). (p1,p2)) = I
 Proof
   simp[FUN_EQ_THM] >> PairCases >> simp[]
 QED
 
-Triviality exp_eq_itree_eq:
+Theorem exp_eq_itree_eq[local]:
   e1 ≅ e2 ∧ closed e1 ∧ closed e2 ⇒ itree_of e1 = itree_of e2
 Proof
   rw[] >> dxrule_all $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> strip_tac >>

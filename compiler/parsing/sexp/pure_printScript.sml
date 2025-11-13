@@ -71,21 +71,21 @@ Definition str_of_def:
   str_of x = vs2str [sexp_of x] []
 End
 
-Triviality str_of_test1:
+Theorem str_of_test1[local]:
   str_of (Lam () [«x»;«y»] (Prim () (AtomOp Add) [Var () «x»; Var () «y»])) =
     "\n(lam (x y) (+ x y))\n\n"
 Proof
   EVAL_TAC
 QED
 
-Triviality str_of_test2:
+Theorem str_of_test2[local]:
   str_of (Letrec () [(«x»,(Prim () (AtomOp Add) [Var () «x»; Var () «y»]))]
            (Var () «y»)) = "\n(letrec (x (+ x y)) y)\n\n"
 Proof
   EVAL_TAC
 QED
 
-Triviality str_of_test3:
+Theorem str_of_test3[local]:
   str_of (Case () (App () (Var () «f») [Prim () (AtomOp (Lit (Int 7))) []]) «xs»
             [(«nil»,[],Var () «xs»);
              («cons»,[«y»;«ys»],Var () «ys»)] NONE) =
@@ -227,14 +227,14 @@ Definition parse_prog_def:
       Letrec () values main
 End
 
-Triviality parse_cexp_test1:
+Theorem parse_cexp_test1[local]:
   parse_cexp "(+ a b)" =
     Prim () (AtomOp Add) [Var () «a»; Var () «b»]
 Proof
   EVAL_TAC
 QED
 
-Triviality parse_cexp_test2:
+Theorem parse_cexp_test2[local]:
   parse_cexp "(let a (int 6) (+ a b))" =
      Let () «a» (Prim () (AtomOp (Lit (Int 6))) [])
        (Prim () (AtomOp Add) [Var () «a»; Var () «b»])

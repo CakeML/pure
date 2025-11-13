@@ -355,7 +355,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality NOT_NONE_UNIT:
+Theorem NOT_NONE_UNIT[local]:
   (x ≠ NONE) ⇔ x = SOME ()
 Proof
   Cases_on ‘x’ \\ fs []
@@ -629,7 +629,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality App_Lam_to_Lets_allvars:
+Theorem App_Lam_to_Lets_allvars[local]:
   App_Lam_to_Lets exp = SOME exp1 ⇒
   allvars (exp_of exp) = allvars (exp_of exp1)
 Proof
@@ -655,7 +655,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Triviality MAP2_lemma:
+Theorem MAP2_lemma[local]:
   ∀vbs vbs1.
     LENGTH vbs = LENGTH vbs1 ⇒
     MAP FST (MAP2 (λ(v,_) x. (v,x)) vbs vbs1) = MAP FST vbs ∧
@@ -832,7 +832,7 @@ Definition wf_mem_def:
                cexp_wf ce ∧ letrecs_distinct (exp_of ce)
 End
 
-Triviality BIGUNION_set_SUBSET:
+Theorem BIGUNION_set_SUBSET[local]:
   BIGUNION (set xs) ⊆ z ⇔ EVERY (λx. x ⊆ z) xs
 Proof
   Induct_on ‘xs’ \\ gvs []
@@ -847,7 +847,7 @@ Proof
   \\ gvs [AC UNION_COMM UNION_ASSOC]
 QED
 
-Triviality cexp_Lets_append:
+Theorem cexp_Lets_append[local]:
   ∀xs ys x. Lets a (xs ++ ys) x = Lets a xs (Lets a ys x)
 Proof
   Induct \\ gvs [Lets_def,FORALL_PROD]
@@ -946,7 +946,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality freevars_Disj:
+Theorem freevars_Disj[local]:
   freevars (Disj v xs) ⊆ {v}
 Proof
   Induct_on ‘xs’ \\ gvs [Disj_def]
@@ -970,7 +970,7 @@ Proof
   metis_tac[avoid_set_ok_subset]
 QED
 
-Triviality App_Lam_to_Lets_avoid_set_ok:
+Theorem App_Lam_to_Lets_avoid_set_ok[local]:
   App_Lam_to_Lets e = SOME e' ⇒
   avoid_set_ok vars e = avoid_set_ok vars e'
 Proof
@@ -1627,7 +1627,7 @@ Proof
   dxrule_all freshen_global_boundvars >> simp[]
 QED
 
-Triviality freshen_cexp_disjoint_lemma:
+Theorem freshen_cexp_disjoint_lemma[local]:
   freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ∧
   cexp_wf e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ∧
   s ⊆ set_of ns
@@ -1647,7 +1647,7 @@ Proof
   \\ gvs [cexp_wf_def]
 QED
 
-Triviality if_lemma:
+Theorem if_lemma[local]:
   boundvars (if b then Seq Fail x else x) = boundvars x ∧
   barendregt (if b then Seq Fail x else x) = barendregt x ∧
   letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
@@ -1666,7 +1666,7 @@ Proof
   rw [] \\ irule inline_rel_Prim \\ gvs [inline_rel_refl]
 QED
 
-Triviality inline_rel_rows_of:
+Theorem inline_rel_rows_of[local]:
   ∀xs1 ys1.
     inline_rel xs x y ∧
     MAP FST xs1 = MAP FST ys1 ∧

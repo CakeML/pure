@@ -1050,7 +1050,7 @@ Proof
   simp[]
 QED
 
-Triviality cons_types_not_Exception:
+Theorem cons_types_not_Exception[local]:
   cons_types (Atom $ TypeCons c) l ≠ Atom Exception
 Proof
   rw[cons_types_EQ_Atom]
@@ -1093,7 +1093,7 @@ Proof
   )
 QED
 
-Triviality APPEND_ASSOC_four:
+Theorem APPEND_ASSOC_four[local]:
   ks ++ db1 ++ tks ++ db2 = (ks ++ db1) ++ tks ++ db2
 Proof
   metis_tac[APPEND_ASSOC]
@@ -1992,13 +1992,13 @@ Proof
   )
 QED
 
-Triviality MAP_FST_tshift_env:
+Theorem MAP_FST_tshift_env[local]:
   MAP FST (tshift_env n env) = MAP FST env
 Proof
   simp[MAP_MAP_o,combinTheory.o_DEF,FST_THM,LAMBDA_PROD]
 QED
 
-Triviality APPEND_SING_APPEND:
+Theorem APPEND_SING_APPEND[local]:
   l ++ [x] ++ l' = l ++ x::l'
 Proof
   metis_tac[APPEND_ASSOC,APPEND]

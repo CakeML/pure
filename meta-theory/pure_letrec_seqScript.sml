@@ -119,7 +119,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality MAP_FST_mk_bind:
+Theorem MAP_FST_mk_bind[local]:
   MAP FST (MAP mk_bind binds) = MAP FST binds
 Proof
   Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_bind_def]
@@ -149,7 +149,7 @@ Definition obl_syntax_def:
       set (MAP FST (FILTER SND args)) ⊆ freevars body) binds
 End
 
-Triviality IMP_obl_syntax[simp]:
+Theorem IMP_obl_syntax[local,simp]:
   obligation binds ⇒ obl_syntax binds
 Proof
   fs [obligation_def,obl_syntax_def,EVERY_MEM,FORALL_PROD,SF SFY_ss]
@@ -176,7 +176,7 @@ Proof
   metis_tac [freevars_mk_seqs_syntax,IMP_obl_syntax]
 QED
 
-Triviality FDOM_UPDATES_EQ:
+Theorem FDOM_UPDATES_EQ[local]:
   ∀b1. FDOM (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) = set (MAP FST b1)
 Proof
   fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
@@ -462,7 +462,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality EVERY_FLOOKUP_closed_lemma:
+Theorem EVERY_FLOOKUP_closed_lemma[local]:
   EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
   (∀n v.
      FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
@@ -494,7 +494,7 @@ Proof
   \\ Induct_on ‘xs’ \\ fs [FORALL_PROD]
 QED
 
-Triviality subst_funs_Seq_Zero:
+Theorem subst_funs_Seq_Zero[local]:
   (∀n v. FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec xs x)) xs) n = SOME v ⇒
          closed v) ⇒
   subst_funs xs (Seq Zero x) = Seq Zero (subst_funs xs x)
@@ -561,10 +561,10 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality eval_wh_Constructor_NIL_bisim =
+Theorem eval_wh_Constructor_NIL_bisim[local] =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Triviality IMP_Seq_Zero:
+Theorem IMP_Seq_Zero[local]:
   closed y ∧ (x ≃ y) F ⇒ (x ≃ Seq Zero y) F
 Proof
   rw []
@@ -625,7 +625,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality freevars_mk_seqs':
+Theorem freevars_mk_seqs'[local]:
   freevars (mk_seqs vs e) =
   set (MAP FST (FILTER SND vs)) UNION freevars e
 Proof
@@ -1386,7 +1386,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality FLOOKUP_FLOOKUP_IMP_LIST_REL:
+Theorem FLOOKUP_FLOOKUP_IMP_LIST_REL[local]:
   EVERY (λb. FST (f b) = FST (g b) ∧ P (SND (f b)) (SND (g b))) binds ⇒
   (∀k v1 v2.
      FLOOKUP (FEMPTY |++ MAP f binds) k = SOME v1 ∧
@@ -1441,7 +1441,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality Seq_Zero:
+Theorem Seq_Zero[local]:
   ∀x y. x ≈ y ⇒ Seq Zero x ≈ y
 Proof
   rw [] \\ irule exp_eq_trans
@@ -1549,7 +1549,7 @@ Proof
       \\ irule_at Any EQ_REFL)
 QED
 
-Triviality FDIFF_LIST_FUPDATE:
+Theorem FDIFF_LIST_FUPDATE[local]:
   FDIFF (FEMPTY |++ ys) P = FEMPTY |++ (FILTER (λ(x,y). ~P x) ys)
 Proof
   fs [fmap_eq_flookup,FLOOKUP_FDIFF,GSYM FILTER_REVERSE,
@@ -1557,7 +1557,7 @@ Proof
   \\ rw [] \\ fs [IN_DEF]
 QED
 
-Triviality subst_mk_seqs:
+Theorem subst_mk_seqs[local]:
   ∀args m.
     DISJOINT (FDOM m) (set (MAP FST args)) ⇒
     subst m (mk_seqs args e) = mk_seqs args (subst m e)
@@ -1587,7 +1587,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality Apps_cong1:
+Theorem Apps_cong1[local]:
   ∀xs f g. f ≈ g ⇒ Apps f xs ≈ Apps g xs
 Proof
   Induct \\ fs [Apps_def]
@@ -1622,7 +1622,7 @@ Proof
   \\ PairCases \\ Cases_on ‘h1’ \\ fs [mk_seqs_def]
 QED
 
-Triviality mk_seqs_cong:
+Theorem mk_seqs_cong[local]:
   ∀args x y. x ≈ y ⇒ mk_seqs args x ≈ mk_seqs args y
 Proof
   Induct
@@ -1725,7 +1725,7 @@ Proof
   \\ fs []
 QED
 
-Triviality ALOOKUP_IMP_FLOOKUP:
+Theorem ALOOKUP_IMP_FLOOKUP[local]:
   ALOOKUP bs f = SOME (args,body) ∧ obl_syntax binds ∧
   set bs ⊆ set binds ⇒
   FLOOKUP (FEMPTY |++
@@ -1760,7 +1760,7 @@ Proof
   \\ qexists_tac ‘f’ \\ fs []
 QED
 
-Triviality mk_seqs_eq_Seqs:
+Theorem mk_seqs_eq_Seqs[local]:
   ∀args e. mk_seqs args e = Seqs (MAP (Var o FST) (FILTER SND args)) e
 Proof
   Induct \\ fs [mk_seqs_def]

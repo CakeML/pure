@@ -156,7 +156,7 @@ Proof
   gvs[SUBSET_DEF] >> metis_tac[]
 QED
 
-Triviality boundvars_FOLDR_Let_SUBSET:
+Theorem boundvars_FOLDR_Let_SUBSET[local]:
   boundvars (FOLDR (λ(u,e) A. Let (explode u) e A) acc binds) ⊆
     boundvars acc ∪ IMAGE explode (set (MAP FST binds)) ∪
     BIGUNION (set $ MAP (boundvars o SND) binds)
@@ -200,7 +200,7 @@ Proof
   Induct_on `cnars` >> rw[IfDisj_def, letrecs_distinct_def]
 QED
 
-Triviality ALOOKUP_MAP_3':
+Theorem ALOOKUP_MAP_3'[local]:
   ALOOKUP (MAP (λ(k,v1,v2). (k,v1,f v1 v2)) l) =
   OPTION_MAP (λ(v1,v2). (v1, f v1 v2)) o ALOOKUP l
 Proof
@@ -962,7 +962,7 @@ Proof
   simp[freshen_bind_def, combinTheory.o_DEF, UNCURRY]
 QED
 
-Triviality freshen_aux_list_LENGTH:
+Theorem freshen_aux_list_LENGTH[local]:
   ∀l m avoid l' avoid'.
     freshen_aux_list m l avoid = (l', avoid')
   ⇒ LENGTH l' = LENGTH l
@@ -1640,7 +1640,7 @@ Definition varmap_rel_def:
       FLOOKUP fmap (explode k) = SOME (explode v))
 End
 
-Triviality fresh_boundvar_rel:
+Theorem fresh_boundvar_rel[local]:
   varmap_rel varmap m ∧
   vars_ok avoid ∧
   fresh_boundvar x varmap avoid = ((y,varmap'), avoid')
@@ -1654,14 +1654,14 @@ Proof
   drule_all fresh_boundvar_varmap >> strip_tac >> simp[FLOOKUP_SIMP] >> rw[]
 QED
 
-Triviality ALOOKUP_MAP_explode_FST:
+Theorem ALOOKUP_MAP_explode_FST[local]:
   ALOOKUP (MAP (λ(a,b). (explode a,b)) l) (explode k) = ALOOKUP l k
 Proof
   Induct_on `l` >> rw[] >>
   pairarg_tac >> gvs[]
 QED
 
-Triviality fresh_boundvars_rel:
+Theorem fresh_boundvars_rel[local]:
   ∀xs varmap avoid ys varmap' avoid' m.
   varmap_rel varmap m ∧
   vars_ok avoid ∧

@@ -905,7 +905,7 @@ Proof
   first_x_assum drule >> simp[]
 QED
 
-Triviality new_vars_SUBSET:
+Theorem new_vars_SUBSET[local]:
   BIGUNION (FRANGE as) ⊆ BIGUNION (FRANGE as') ∧ cs ⊆ cs' ∧
   pure_vars it ⊆ pure_vars it' ∧
   v ∈ new_vars as cs it ⇒
@@ -914,7 +914,7 @@ Proof
   rw[new_vars_def] >> gvs[SUBSET_DEF] >> metis_tac[]
 QED
 
-Triviality new_vars_SUBSET_minfer:
+Theorem new_vars_SUBSET_minfer[local]:
   BIGUNION (FRANGE as) ⊆ BIGUNION (FRANGE as') ∧ cs ⊆ cs' ∧
   pure_vars it ⊆ new_vars as cs Exception ⇒
   ∀n. n ∈ new_vars as cs it ⇒ n ∈ new_vars as' cs' it'
@@ -922,7 +922,7 @@ Proof
   rw[new_vars_def] >> gvs[SUBSET_DEF, pure_vars] >> metis_tac[]
 QED
 
-Triviality pure_vars_csubst_EMPTY_suff:
+Theorem pure_vars_csubst_EMPTY_suff[local]:
   (∀it. it ∈ FRANGE s ⇒ pure_vars it = {}) ∧
   pure_vars t ⊆ FDOM s ⇒
   pure_vars (csubst s t) = {}
@@ -932,7 +932,7 @@ Proof
   simp[IMAGE_EQ_SING, SUBSET_DIFF_EMPTY]
 QED
 
-Triviality freedbvars_isubst_EMPTY_suff:
+Theorem freedbvars_isubst_EMPTY_suff[local]:
   ∀it its.
     freedbvars it ⊆ count (LENGTH its) ∧
     EVERY ( λit. freedbvars it = {}) its
@@ -943,7 +943,7 @@ Proof
   gvs[EVERY_EL]
 QED
 
-Triviality shift_shift_let_lemma:
+Theorem shift_shift_let_lemma[local]:
   ∀it t sub vs1 vs2.
     type_of (csubst (ishift vs1 o_f sub) it) = SOME t ∧
     freedbvars it ⊆ count vs1 ⇒
@@ -966,7 +966,7 @@ Proof
   simp[tshift_tshift] >> simp[GSYM tshift_tshift] >> simp[GSYM shift_db_shift_db]
 QED
 
-Triviality subset_union:
+Theorem subset_union[local]:
   a ⊆ c ⇒ a ⊆ b ∪ c
 Proof
   rw[SUBSET_DEF]
@@ -3615,7 +3615,7 @@ QED
 
 (******************** Constraint solving ********************)
 
-Triviality constraints_ok_subst_constraint:
+Theorem constraints_ok_subst_constraint[local]:
   constraints_ok ns (set (MAP to_mconstraint cs)) ∧
   pure_wfs sub ∧ (∀it. it ∈ FRANGE sub ⇒ itype_ok ns 0 it) ⇒
   constraints_ok ns (set (MAP to_mconstraint (MAP (subst_constraint sub) cs)))
@@ -3629,7 +3629,7 @@ Proof
   rpt $ irule_at Any itype_ok_pure_walkstar >> gvs[itype_ok_def]
 QED
 
-Triviality isubst_irrelevance:
+Theorem isubst_irrelevance[local]:
   pure_vars (isubst its it) ⊆ s ⇒
   isubst (MAP
     (λt. if pure_vars t ⊆ s then t else any) its) it =
@@ -3641,7 +3641,7 @@ Proof
   gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
 QED
 
-Triviality pure_unify_FEMPTY:
+Theorem pure_unify_FEMPTY[local]:
   pure_unify FEMPTY t1 t2 = SOME s ⇒
     pure_wfs s ∧
     pure_walkstar s t1 = pure_walkstar s t2 ∧
@@ -3652,7 +3652,7 @@ Proof
   gvs[pure_uP, pure_allvars]
 QED
 
-Triviality subst_constraint_DISJOINT_FDOM:
+Theorem subst_constraint_DISJOINT_FDOM[local]:
   ∀s c. pure_wfs s ⇒
     DISJOINT (FDOM s) (mactivevars (to_mconstraint (subst_constraint s c)))
 Proof
@@ -3667,7 +3667,7 @@ Proof
   metis_tac[DISJOINT_ALT, pure_walkstar_vars_notin]
 QED
 
-Triviality mactivevars_subst_constraint:
+Theorem mactivevars_subst_constraint[local]:
   pure_wfs s ⇒
   mactivevars (to_mconstraint (subst_constraint s c)) ⊆
   mactivevars (to_mconstraint c) ∪ pure_substvars s
@@ -3697,7 +3697,7 @@ Proof
     )
 QED
 
-Triviality msubst_vars_FUNION:
+Theorem msubst_vars_FUNION[local]:
   ∀t s.
     pure_wfs s ∧ pure_wfs t ∧
     DISJOINT (FDOM t) (pure_substvars s)
@@ -3716,7 +3716,7 @@ Proof
     )
 QED
 
-Triviality pure_substvars_FUNION:
+Theorem pure_substvars_FUNION[local]:
   DISJOINT (FDOM s1) (FDOM s2) ⇒
   pure_substvars (FUNION s1 s2) = pure_substvars s1 ∪ pure_substvars s2
 Proof
@@ -3724,7 +3724,7 @@ Proof
   simp[AC UNION_ASSOC UNION_COMM]
 QED
 
-Triviality satisfies_FUNION:
+Theorem satisfies_FUNION[local]:
   ∀c. DISJOINT (FDOM t) (pure_substvars s) ∧ pure_wfs s ∧ pure_wfs t ∧
     satisfies tds s (to_mconstraint (subst_constraint t c)) ⇒
     satisfies tds (FUNION t s) (to_mconstraint c)
@@ -3740,7 +3740,7 @@ Proof
     )
 QED
 
-Triviality constraint_vars_subst_constraint_SUBSET:
+Theorem constraint_vars_subst_constraint_SUBSET[local]:
   pure_substvars s ⊆ X ∧ pure_wfs s ∧
   constraint_vars (to_mconstraint c) ⊆ X
   ⇒ constraint_vars (to_mconstraint (subst_constraint s c)) ⊆ X

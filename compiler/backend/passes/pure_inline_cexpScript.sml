@@ -14,7 +14,7 @@ Libs
 (* heuristic for deciding when to inline *)
 Type heuristic = “:'a cexp -> bool”
 
-Triviality cexp_size_lemma:
+Theorem cexp_size_lemma[local]:
   ∀vbs.
     list_size (cexp_size (K 0)) (MAP SND vbs) ≤
     list_size (pair_size mlstring_size (cexp_size (K 0))) vbs
@@ -54,7 +54,7 @@ Definition heuristic_insert_Rec_def:
       | _ => m
 End
 
-Triviality size_lemma:
+Theorem size_lemma[local]:
   ∀bs.
     list_size (λx. cexp_size (K 0) (SND (SND x))) bs ≤
     list_size (pair_size mlstring_size
@@ -167,7 +167,7 @@ Definition inline_all_def:
     in dead_let inlined_e
 End
 
-Triviality cexp_size_lemma2:
+Theorem cexp_size_lemma2[local]:
   ∀xs e.
     MEM e xs ⇒
     cexp_size (K 0) e ≤ list_size (cexp_size (K 0)) xs

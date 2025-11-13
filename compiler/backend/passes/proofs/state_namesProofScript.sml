@@ -11,7 +11,7 @@ Libs
   BasicProvers dep_rewrite
 
 
-Triviality LESS_EQ_list_max:
+Theorem LESS_EQ_list_max[local]:
   ∀xs n. n ≤ list_max xs ⇔ n = 0 ∨ ∃x. MEM x xs ∧ n ≤ x
 Proof
   Induct \\ fs [list_max_def]
@@ -54,7 +54,7 @@ Proof
     \\ metis_tac [LESS_EQ_REFL,PAIR])
 QED
 
-Triviality isStringThere_aux_lemma:
+Theorem isStringThere_aux_lemma[local]:
   ∀xs ts ys.
     LENGTH xs ≤ LENGTH ys ⇒
     (isStringThere_aux (strlit (ts ++ xs)) (strlit (ts ++ ys))

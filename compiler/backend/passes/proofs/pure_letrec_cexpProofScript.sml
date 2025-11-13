@@ -13,20 +13,20 @@ Libs
 
 (********************)
 val _ = temp_delsimps ["nested_rows_def"]
-Triviality letrec_recurse_Lams:
+Theorem letrec_recurse_Lams[local]:
   ∀l f e. letrec_recurse f (Lams l e) = Lams l (letrec_recurse f e)
 Proof
   Induct >> rw[letrec_recurse_def, Lams_def]
 QED
 
-Triviality letrec_recurse_Apps:
+Theorem letrec_recurse_Apps[local]:
   ∀l f e. letrec_recurse f (Apps e l) =
     Apps (letrec_recurse f e) (MAP (letrec_recurse f) l)
 Proof
   Induct >> rw[letrec_recurse_def, Apps_def]
 QED
 
-Triviality letrec_recurse_rows_of:
+Theorem letrec_recurse_rows_of[local]:
   ∀n k l f. letrec_recurse f (rows_of n k l) =
     rows_of n (letrec_recurse f k)
             (MAP (λ(c,vs,e). (c, vs, letrec_recurse f e)) l)
@@ -57,7 +57,7 @@ Proof
       DISJ_IMP_THM, FORALL_AND_THM] >> metis_tac[]
 QED
 
-Triviality letrec_recurse_FOLDR_Let:
+Theorem letrec_recurse_FOLDR_Let[local]:
   (∀vnm e. MEM (vnm,e) binds ⇒ letrec_recurse f e = e) ⇒
   letrec_recurse f (FOLDR (λ(u,e) A. Let (explode u) e A) body binds) =
   FOLDR (λ(u,e) A. Let (explode u) e A) (letrec_recurse f body) binds
@@ -67,7 +67,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality patguards_binds_letrec_recurse_fixpoints:
+Theorem patguards_binds_letrec_recurse_fixpoints[local]:
   ∀eps gd binds vnm e.
     patguards eps = (gd, binds) ∧
     (∀e p. MEM (e,p) eps ⇒ letrec_recurse f e = e) ∧
@@ -86,7 +86,7 @@ Proof
       letrec_recurse_def] >> metis_tac[]
 QED
 
-Triviality letrec_recurse_nested_rows:
+Theorem letrec_recurse_nested_rows[local]:
   letrec_recurse f (nested_rows (Var v) pes) =
   nested_rows (Var v) (MAP (λ(p,e). (p, letrec_recurse f e)) pes)
 Proof
@@ -390,7 +390,7 @@ Proof
       simp[lookup_list_delete, cepat_vars_l_correct])
 QED
 
-Triviality letrec_recurse_IfDisj:
+Theorem letrec_recurse_IfDisj[local]:
   letrec_recurse g (IfDisj n p1 x) =
   IfDisj n p1 (letrec_recurse g x)
 Proof
@@ -555,7 +555,7 @@ QED
 
 (********** Splitting **********)
 
-Triviality exp_of_make_Letrecs_cexp:
+Theorem exp_of_make_Letrecs_cexp[local]:
   ∀fns.
     exp_of (make_Letrecs_cexp fns e) =
       make_Letrecs (MAP (MAP (λ(fn,e). (explode fn,exp_of e))) fns) (exp_of e)
@@ -592,7 +592,7 @@ Proof
   CASE_TAC >> gvs[wf_insert]
 QED
 
-Triviality to_nums_set_eq:
+Theorem to_nums_set_eq[local]:
   set l1 = set l2 ⇒ to_nums l l1 = to_nums l l2
 Proof
   rw[] >> irule $ iffRL spt_eq_thm >> simp[] >>
@@ -604,7 +604,7 @@ Proof
   Cases_on `lookup n (to_nums l l2)` >> gvs[] >> res_tac >> fs[]
 QED
 
-Triviality top_sort_set_eq:
+Theorem top_sort_set_eq[local]:
   ∀l1 l2.
     MAP FST l1 = MAP FST l2 ∧
     LIST_REL (λa b. set a = set b) (MAP SND l1) (MAP SND l2)
@@ -622,7 +622,7 @@ Proof
   first_x_assum drule >> simp[]
 QED
 
-Triviality top_sort_aux_sets:
+Theorem top_sort_aux_sets[local]:
   ∀ns reach acc. ∃res.
     top_sort_aux ns reach acc = res ++ acc ∧
     set (FLAT res) = set ns
@@ -634,7 +634,7 @@ Proof
   gvs[EXTENSION] >> metis_tac[]
 QED
 
-Triviality top_sort_sets:
+Theorem top_sort_sets[local]:
   ∀l. set (FLAT (top_sort l)) = set (MAP FST l)
 Proof
   rw[top_sort_def] >>

@@ -25,7 +25,7 @@ Definition rows_of_def:
       (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v k rest)
 End
 
-Triviality list_size_cepat_size_MAPi:
+Theorem list_size_cepat_size_MAPi[local]:
   list_size (λx. cepat_size (SND x)) (MAPi ( λi p. f i, p) ps) = list_size cepat_size ps
 Proof
   Induct_on ‘ps’ using SNOC_INDUCT >> rw[] >>

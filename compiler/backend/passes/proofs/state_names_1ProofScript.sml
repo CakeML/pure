@@ -233,7 +233,7 @@ Proof
   \\ fs [env_rel_def,SUBSET_DEF]
 QED
 
-Triviality FST_INTRO:
+Theorem FST_INTRO[local]:
   (λ(p1,p2). p1) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -497,7 +497,7 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
-Triviality LIST_REL_MAP_MAP:
+Theorem LIST_REL_MAP_MAP[local]:
   ∀xs ys.
     LIST_REL R (MAP f xs) (MAP g ys) =
     LIST_REL (λx y. R (f x) (g y)) xs ys

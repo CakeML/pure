@@ -233,7 +233,7 @@ Proof
   rw [env_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
 QED
 
-Triviality FST_INTRO:
+Theorem FST_INTRO[local]:
   (λ(p1,p2). p1) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -485,7 +485,7 @@ Proof
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
 QED
 
-Triviality step_n_lets_for_lemma =
+Theorem step_n_lets_for_lemma[local] =
   step_n_lets_for |> Q.SPECL [‘xs’,‘[]’,‘0’] |> SIMP_RULE std_ss [LENGTH,APPEND]
 
 Theorem env_rel_zip:

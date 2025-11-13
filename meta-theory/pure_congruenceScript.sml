@@ -134,26 +134,26 @@ Inductive Howe:
   (∀vars x e2.
      R vars (Var x) e2 ⇒
      Howe R vars (Var x) e2)
- 
+
 [Howe2:]
   (∀x e1 e1' e2 vars.
      Howe R (x INSERT vars) e1 e1' ∧
      R vars (Lam x e1') e2 ⇒
      Howe R vars (Lam x e1) e2)
- 
+
 [Howe3:]
   (∀e1 e1' e3 vars.
      Howe R vars e1 e1' ∧
      Howe R vars e2 e2' ∧
      R vars (App e1' e2') e3 ⇒
      Howe R vars (App e1 e2) e3)
- 
+
 [Howe4:]
   (∀es es' e op vars.
     LIST_REL (Howe R vars) es es' ∧
     R vars (Prim op es') e ⇒
     Howe R vars (Prim op es) e)
- 
+
 [Howe5:]
   (∀ves ves' e e' e2.
     Howe R (vars ∪ set (MAP FST ves)) e e' ∧
@@ -733,7 +733,7 @@ Proof
   \\ imp_res_tac Howe_open_similarity_IMP_closed
 QED
 
-Triviality perm_exp_IN_Exps:
+Theorem perm_exp_IN_Exps[local]:
   freevars ce2 ⊆ {y} ⇒ perm_exp x y ce2 ∈ Exps {x}
 Proof
   fs [Exps_def]
@@ -849,7 +849,7 @@ Proof
   >- (gvs[] >> metis_tac[UNION_COMM, UNION_ASSOC, INSERT_SING_UNION])
 QED
 
-Triviality closed_Letrec_funs:
+Theorem closed_Letrec_funs[local]:
   ∀ fs e f.
     closed (Letrec fs e) ∧
     MEM f fs
@@ -2271,7 +2271,7 @@ Proof
   \\ match_mp_tac exp_eq_subst \\ fs []
 QED
 
-Triviality subst_eq_bind:
+Theorem subst_eq_bind[local]:
   (∀n v. FLOOKUP m n = SOME v ⇒ closed v) ⇒
   subst m e = bind m e
 Proof
@@ -2367,7 +2367,7 @@ Proof
   \\ match_mp_tac exp_eq_perm \\ fs [closed_def]
 QED
 
-Triviality Lam_Lam:
+Theorem Lam_Lam[local]:
   (Lam x e1 ≅? Lam y e2) b ⇔
   ∀xv yv. closed xv ∧ closed yv ⇒ (subst1 y yv (Lam x e1) ≅? subst1 x xv (Lam y e2)) b
 Proof
@@ -2386,7 +2386,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality subst_subst_lemma:
+Theorem subst_subst_lemma[local]:
   closed y1 ∧ closed y2 ⇒
   ((subst1 x y1 e1 ≅? subst1 y y2 e2) b ⇔
    ∀xv yv. closed xv ∧ closed yv ⇒
@@ -2788,7 +2788,7 @@ Proof
   \\ qspec_then ‘[a;b;c]’ mp_tac Let_Prim \\ rw []
 QED
 
-Triviality Letrec_Prim_closed:
+Theorem Letrec_Prim_closed[local]:
   ∀l p xs b. EVERY (λfb. freevars (SND fb) ⊆ set (MAP FST l)) l
          /\ EVERY (\e. freevars e ⊆ set (MAP FST l)) xs ==>
     (Letrec l (Prim p xs) ≅? Prim p (MAP (Letrec l) xs)) b
@@ -2914,7 +2914,7 @@ Proof
   \\ Induct \\ Cases_on ‘es’ \\ fs []
 QED
 
-Triviality Apps_Lams_lemma:
+Theorem Apps_Lams_lemma[local]:
   EVERY (λv. closed (f v)) vs ⇒
   eval_wh (Apps (Lams vs e) (MAP f vs)) =
   eval_wh (subst (FEMPTY |++ MAP (λv. (v, f v)) vs) e)

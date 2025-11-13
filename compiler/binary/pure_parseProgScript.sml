@@ -109,7 +109,7 @@ val el_side = Q.prove(`
   Induct_on ‘x’ \\ Cases_on ‘l’ \\ simp [Once (fetch"-""el_side_def")])
   |> update_precondition;
 
-Triviality and_to_if:
+Theorem and_to_if[local]:
   (xs ≠ [] ∧ c ⇔ if xs = [] then F else c) ∧
   ((b ⇒ c) ⇔ if b then c else T)
 Proof
@@ -119,7 +119,7 @@ QED
 
 val r = translate (pure_lexer_implTheory.next_sym_alt_def |> RW [and_to_if]);
 
-Triviality read_while_thm':
+Theorem read_while_thm'[local]:
   ∀cs s cs' s'. read_while P cs s = (s', cs') ⇒ STRLEN s' ≥ STRLEN s
 Proof
   Induct >> rw[] >>
@@ -151,7 +151,7 @@ val r = translate purePEGTheory.purePEG_def;
 
 val r = translate (def_of_const ``validAddSym``);
 
-Triviality validaddsym_side_lemma:
+Theorem validaddsym_side_lemma[local]:
   ∀x. validaddsym_side x = T
 Proof
   simp[fetch "-" "validaddsym_side_def"]
@@ -231,7 +231,7 @@ val r = translate (def_of_const “cst_to_ast$mkFunTy”);
 
 val r = translate_no_ind (def_of_const “cst_to_ast$astType”);
 
-Triviality asttype_ind:
+Theorem asttype_ind[local]:
   asttype_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "asttype_ind_def"]
@@ -250,7 +250,7 @@ val _ = asttype_ind |> update_precondition;
 
 val res = translate_no_ind cst_to_astTheory.optLAST_def;
 
-Triviality optlast_ind:
+Theorem optlast_ind[local]:
   optlast_ind (:α) (:γ) (:β)
 Proof
   once_rewrite_tac [fetch "-" "optlast_ind_def"]
@@ -283,7 +283,7 @@ val r = translate (def_of_const “cst_to_ast$tok_action”);
 
 val r = translate cst_to_astTheory.handlePrecs_def;
 
-Triviality OPT_MMAP_eq:
+Theorem OPT_MMAP_eq[local]:
   ∀xs f. OPT_MMAP f xs = OPT_MMAP I (MAP f xs)
 Proof
   Induct \\ fs [OPT_MMAP_def]
@@ -303,7 +303,7 @@ val r = translate_no_ind
   (def_of_const “cst_to_ast$astExp”
    |> ONCE_REWRITE_RULE [OPT_MMAP_eq]);
 
-Triviality astexp_ind:
+Theorem astexp_ind[local]:
   astexp_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "astexp_ind_def"]
@@ -330,7 +330,7 @@ val r = translate_no_ind
   (def_of_const “ast_to_cexp$translate_type”
    |> ONCE_REWRITE_RULE [OPT_MMAP_eq]);
 
-Triviality translate_type_ind:
+Theorem translate_type_ind[local]:
   translate_type_ind
 Proof
   once_rewrite_tac [fetch "-" "translate_type_ind_def"]
@@ -344,7 +344,7 @@ QED
 
 val _ = translate_type_ind |> update_precondition;
 
-Triviality translate_type_side:
+Theorem translate_type_side[local]:
   ∀x y z. translate_type_side x y z
 Proof
   ho_match_mp_tac (latest_ind ())
@@ -355,7 +355,7 @@ QED
 
 val _ = translate_type_side |> update_precondition;
 
-Triviality FRONT_alt_def:
+Theorem FRONT_alt_def[local]:
   FRONT (h::t) = if NULL t then [] else h::FRONT t
 Proof
   rw[FRONT_DEF] >> gvs[] >> Cases_on `t` >> gvs[]

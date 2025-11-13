@@ -463,7 +463,7 @@ End
 
 (******************** Lemmas ********************)
 
-Triviality maunion_comm:
+Theorem maunion_comm[local]:
   ∀x y. maunion x y = maunion y x
 Proof
   rw[maunion_def] >>
@@ -519,7 +519,7 @@ Proof
   simp[miscTheory.toAList_domain]
 QED
 
-Triviality domain_list_insert_alt:
+Theorem domain_list_insert_alt[local]:
   domain (list_insert xs t) = set xs ∪ domain t
 Proof
   rw[EXTENSION, domain_list_insert]
@@ -559,7 +559,7 @@ Proof
   gvs[FLOOKUP_DEF] >> metis_tac[]
 QED
 
-Triviality infer_bind_alt_def:
+Theorem infer_bind_alt_def[local]:
   ∀g f.
     infer_bind g f = λs. case g s of Err e => Err e | OK ((a,b,c),s') => f (a,b,c) s'
 Proof
@@ -636,7 +636,7 @@ val _ = simpLib.register_frag inferM_ss;
 
 val inferM_rws = SF inferM_ss;
 
-Triviality infer_ignore_bind_simps[simp]:
+Theorem infer_ignore_bind_simps[local,simp]:
   (do _ <- ( λs. Err e) ; foo od = \s. Err e) ∧
   (do _ <- ( λs. OK ((),s)) ; foo od = foo)
 Proof

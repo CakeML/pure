@@ -1788,7 +1788,7 @@ Proof
       gvs [exp_size_def, boundvars_def])
 QED
 
-Triviality less_1_lemma[simp]:
+Theorem less_1_lemma[local,simp]:
   n < 1 ⇔ n = 0:num
 Proof
   fs []
@@ -1860,7 +1860,7 @@ Proof
       \\ drule_all ALOOKUP_ALL_DISTINCT_MEM \\ gvs []))
 QED
 
-Triviality exp_rel_result_map_Diverge:
+Theorem exp_rel_result_map_Diverge[local]:
   ∀xs ys k.
     LENGTH xs = LENGTH ys ∧
     (∀n. n < LENGTH ys ⇒ exp_rel (EL n xs) (EL n ys)) ∧

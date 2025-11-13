@@ -59,19 +59,19 @@ Definition decode_utype_def[nocompute]:
   decode_utypes _ = NONE
 End
 
-Triviality I_o_f:
+Theorem I_o_f[local]:
   ∀m. I o_f m = m
 Proof
   rw[GSYM fmap_EQ_THM]
 QED
 
-Triviality option_map_case:
+Theorem option_map_case[local]:
   ∀f opt. OPTION_MAP f opt = case opt of NONE => NONE | SOME a => SOME $ f a
 Proof
   gen_tac >> Cases >> simp[]
 QED
 
-Triviality option_bind_case:
+Theorem option_bind_case[local]:
   ∀x f. OPTION_BIND x f = case x of NONE => NONE | SOME y => f y
 Proof
   Cases >> simp[]

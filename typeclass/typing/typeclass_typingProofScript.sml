@@ -601,7 +601,7 @@ Proof
   gvs[SmartApp_def,freevars_cexp_def,dest_App_def,SF ETA_ss]
 QED
 
-Triviality LIST_REL_pred_tsubst:
+Theorem LIST_REL_pred_tsubst[local]:
   ∀ps qs.
     LIST_REL (λ(c,t) (c',t'). c = c' ∧ tsubst subs t = t')
       ((cl,t)::ps) ((cl',t')::qs) ⇔
@@ -740,14 +740,14 @@ Proof
   simp[translate_predicates_LIST_REL]
 QED
 
-Triviality ALOOKUP_APPEND_EQ:
+Theorem ALOOKUP_APPEND_EQ[local]:
   ALOOKUP l x = ALOOKUP l' x ⇒
   ALOOKUP (l ++ r) x = ALOOKUP (l' ++ r) x
 Proof
   rw[ALOOKUP_APPEND]
 QED
 
-Triviality INTER_EMPTY_IN_NOTIN:
+Theorem INTER_EMPTY_IN_NOTIN[local]:
   (a ∩ b = EMPTY) ⇔ (∀x. x ∈ a ⇒ x ∉ b)
 Proof
   simp[IN_DEF,INTER_DEF,EXTENSION,IMP_DISJ_THM]
@@ -1250,7 +1250,7 @@ Proof
   )
 QED
 
-Triviality CONS_APPEND_APPEND:
+Theorem CONS_APPEND_APPEND[local]:
   x::(l ++ m ++ r) = x::l ++ m ++ r
 Proof
   simp[]
@@ -1283,13 +1283,13 @@ Proof
   metis_tac[]
 QED
 
-Triviality FST_3:
+Theorem FST_3[local]:
   (λ(p1,p1',p2). p1) = FST
 Proof
   simp[GSYM LAMBDA_PROD,GSYM pure_miscTheory.FST_THM]
 QED
 
-Triviality FST_o_FST:
+Theorem FST_o_FST[local]:
   (λ((p1,p2),p2'). p1) = (FST o FST)
 Proof
   simp[combinTheory.o_DEF,FST,LAMBDA_PROD]
@@ -1390,7 +1390,7 @@ Proof
   >- metis_tac[tcexp_exhaustive_cepat_List]
 QED
 
-Triviality MAP_PROD_EQ_MAP_FST:
+Theorem MAP_PROD_EQ_MAP_FST[local]:
   MAP (λ(ks,t). (ks, f ks t)) l = MAP ($, h) l' ⇔
   (l' = MAP (λ(ks,t). f ks t) l ∧ EVERY ($= h o FST) l)
 Proof
@@ -1422,14 +1422,14 @@ Proof
   >- metis_tac[tcexp_exhaustive_cepat_List]
 QED
 
-Triviality DISJOINT_NOT_IN_R:
+Theorem DISJOINT_NOT_IN_R[local]:
   DISJOINT a b ⇔ (∀x. x ∈ a ⇒ x ∉ b)
 Proof
   rw[DISJOINT_DEF,EXTENSION] >>
   metis_tac[]
 QED
 
-Triviality DISJOINT_NOT_IN_L:
+Theorem DISJOINT_NOT_IN_L[local]:
   DISJOINT a b ⇔ (∀x. x ∈ b ⇒ x ∉ a)
 Proof
   rw[DISJOINT_DEF,EXTENSION] >>
@@ -2359,7 +2359,7 @@ Proof
   )
 QED
 
-Triviality ALL_DISTINCT_APPEND_DISJOINT:
+Theorem ALL_DISTINCT_APPEND_DISJOINT[local]:
   ALL_DISTINCT (a ++ b) ⇔
     ALL_DISTINCT a ∧ ALL_DISTINCT b ∧
     DISJOINT (set a) (set b)
@@ -2512,7 +2512,7 @@ Proof
   simp[]
 QED
 
-Triviality LENGTH_SUM_1:
+Theorem LENGTH_SUM_1[local]:
   (∀x. MEM x xs ⇒ f x = 1) ⇒
   SUM (MAP f xs) = LENGTH xs
 Proof
@@ -2731,7 +2731,7 @@ Proof
   )
 QED
 
-Triviality translate_methods_aux_lem:
+Theorem translate_methods_aux_lem[local]:
   ∀n.
   LENGTH l ≤ len ⇒
   translate_methods_aux cons len n l =
@@ -2756,13 +2756,13 @@ Proof
   rw[LIST_EQ_REWRITE]
 QED
 
-Triviality Functions_CONS_alt:
+Theorem Functions_CONS_alt[local]:
   Functions (at::ats) t = Functions [at] (Functions ats t)
 Proof
   simp[Functions_def]
 QED
 
-Triviality Cons_eq_cons_types:
+Theorem Cons_eq_cons_types[local]:
   Cons t t' = cons_types t [t']
 Proof
   simp[cons_types_def]
@@ -2995,7 +2995,7 @@ Proof
   simp[kind_ok,LLOOKUP_THM,specialises_def,subst_db_def]
 QED
 
-Triviality class_map_super_accessors_entailment_kind_ok_aux:
+Theorem class_map_super_accessors_entailment_kind_ok_aux[local]:
   ∀cl_map' c ent rest.
   ALL_DISTINCT (MAP FST cl_map) ∧
   class_map_kind_ok tds cl_map ∧
@@ -3253,7 +3253,7 @@ Proof
   )
 QED
 
-Triviality ALL_DISTINCT_method_names_EL_LT_IMP_class_EQ:
+Theorem ALL_DISTINCT_method_names_EL_LT_IMP_class_EQ[local]:
   ALL_DISTINCT (method_names cl_map) ∧
   i < j ∧ j < LENGTH cl_map ∧
   EL i cl_map = (clname,cl) ∧
@@ -3423,7 +3423,7 @@ Proof
   simp[]
 QED
 
-Triviality SmartLam_EQ_LENGHT_LT_IMP:
+Theorem SmartLam_EQ_LENGHT_LT_IMP[local]:
   SmartLam () vs e = SmartLam () vs' e' ∧
   LENGTH vs < LENGTH vs' ⇒
   ∃us. vs' = vs ++ us ∧
@@ -3461,14 +3461,14 @@ Proof
   gvs[]
 QED
 
-Triviality NOT_EMPTY_IMP_LENGTH_SUC:
+Theorem NOT_EMPTY_IMP_LENGTH_SUC[local]:
   l ≠ [] ⇒ ∃n. LENGTH l = SUC n
 Proof
   Cases_on `l` >>
   simp[]
 QED
 
-Triviality SmartLam_EQ_LENGTH_EQ_IMP:
+Theorem SmartLam_EQ_LENGTH_EQ_IMP[local]:
   SmartLam () vs e = SmartLam () vs' e' ∧
   LENGTH vs = LENGTH vs' ⇒
   vs = vs' ∧ e = e'
@@ -4396,7 +4396,7 @@ Proof
   rw[] >> simp[]
 QED
 
-Triviality type_tcexp_env_extensional_weak:
+Theorem type_tcexp_env_extensional_weak[local]:
   ALOOKUP env = ALOOKUP env' ∧
   type_tcexp ns db st env e t ⇒
   type_tcexp ns db st env' e t
@@ -4406,7 +4406,7 @@ Proof
   simp[]
 QED
 
-Triviality type_tcexp_env_shift_extensional_weak_LIST_REL:
+Theorem type_tcexp_env_shift_extensional_weak_LIST_REL[local]:
   ALOOKUP new_env = ALOOKUP env' ∧
   LIST_REL
     (λ(fn,body) (vars,scheme).
@@ -4430,7 +4430,7 @@ Proof
   simp[ELIM_UNCURRY,SRULE[ELIM_UNCURRY] ALOOKUP_MAP_2]
 QED
 
-Triviality type_tcexp_weaken_env_shift_LIST_REL:
+Theorem type_tcexp_weaken_env_shift_LIST_REL[local]:
   LIST_REL
     (λ(p1,p2) (p1',p2').
        type_tcexp trans_ns p1' (MAP (tshift (LENGTH p1')) st)

@@ -19,7 +19,7 @@ Definition max_name_def:
     else 0
 End
 
-Triviality max_name_test:
+Theorem max_name_test[local]:
   max_name (strlit "hello") = 0 ∧
   max_name (strlit "ignore") = 1 ∧
   max_name (strlit "ignore'") = 2
