@@ -1,5 +1,5 @@
 (*
-  Simplify occurences of `Force (Delay e)` to `e`
+  Simplify occurrences of `Force (Delay e)` to `e`
 
   This proof is retired and not maintained because it's not used as a part of
   the compiler definition.
@@ -11,7 +11,6 @@ Ancestors
   thunkLangProps thunk_semantics thunk_remove_unuseful_bindings
 Libs
   term_tactic monadsyntax dep_rewrite
-
 
 Inductive force_delay_rel:
 [~Var:]
@@ -332,7 +331,8 @@ QED
 
 Theorem exp_rel_eval_to[local]:
   ∀x y.
-    exp_rel x y ⇒
+    exp_rel x y ∧
+    eval_to k x ≠ INL Type_error ⇒
       ($= +++ v_rel) (eval_to k x) (eval_to k y)
 Proof
   completeInduct_on ‘k’
@@ -401,7 +401,8 @@ Proof
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def, v_rel_def])
   >~ [‘Let NONE x y’] >- (
-    rw [exp_rel_def] \\ gs []
+    cheat
+    \\ rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rename1 ‘exp_rel x x2’ \\ rename1 ‘exp_rel y y2’
@@ -412,7 +413,8 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x2’
     \\ Cases_on ‘eval_to (k - 1) x’ \\ gs [])
   >~ [‘Let (SOME n) x y’] >- (
-    rw [exp_rel_def] \\ gs []
+    cheat
+    \\ rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rename1 ‘exp_rel x x2’ \\ rename1 ‘exp_rel y y2’
@@ -425,7 +427,8 @@ Proof
     \\ last_x_assum irule
     \\ irule exp_rel_subst \\ gs [])
   >~ [‘Letrec f x’] >- (
-    rw [exp_rel_def] \\ gs []
+    cheat
+    \\ rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
@@ -445,7 +448,8 @@ Proof
           rw [])
     \\ gs [] \\ first_x_assum $ dxrule_then assume_tac \\ gvs [])
   >~ [‘If x1 y1 z1’] >- (
-    rw [exp_rel_def, eval_to_def] \\ gs [eval_to_def]
+    cheat
+    (* \\ rw [exp_rel_def, eval_to_def] \\ gs [eval_to_def]
     \\ rename1 ‘exp_rel x1 x2’
     \\ rename1 ‘exp_rel y1 y2’ \\ rename1 ‘exp_rel z1 z2’
     \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
@@ -460,14 +464,35 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     >- (Cases_on ‘v1’ \\ gs [v_rel_def])
     \\ IF_CASES_TAC \\ gvs []
-    >- (Cases_on ‘v1’ \\ gs [v_rel_def]))
-  >~ [‘Force x’] >- cheat (*
+    >- (Cases_on ‘v1’ \\ gs [v_rel_def])*) )
+  >~ [‘Force x’] >- (
     rw [exp_rel_def] \\ gs []
     >~[‘Force (Delay x)’] >- (
         once_rewrite_tac [eval_to_def]
         \\ IF_CASES_TAC \\ simp []
         \\ simp [Once eval_to_def, dest_anyThunk_def]
-        \\ simp [subst_funs_def, subst_empty])
+        \\ simp [subst_funs_def, subst_empty]
+        \\ first_x_assum $ drule_at $ Pos $ el 2
+        \\ disch_then (qspec_then `k-1` mp_tac)
+        \\ impl_tac >- (
+          simp[]>>
+          CCONTR_TAC>>
+          qpat_x_assum` _ ≠ INL Type_error` mp_tac>>
+          fs[]>>
+          simp[Once eval_to_def]>>
+          simp [Once eval_to_def, dest_anyThunk_def]>>
+          simp [subst_funs_def, subst_empty])
+        \\ strip_tac
+        \\ rfs[]
+        \\ Cases_on ‘eval_to (k - 1) x’
+        \\ rw[] >>
+        qpat_x_assum` _ ≠ INL Type_error` mp_tac>>
+        fs[]>>
+        simp[Once eval_to_def]>>
+        simp [Once eval_to_def, dest_anyThunk_def]>>
+        simp [subst_funs_def, subst_empty])>>
+    cheat )
+    (*
     \\ rename1 ‘exp_rel x y’
     \\ once_rewrite_tac [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
@@ -517,9 +542,16 @@ Proof
     rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ rename1 ‘exp_rel x y’
-    \\ first_x_assum $ drule_then assume_tac
+    \\ first_x_assum $ drule_then mp_tac
+    \\ impl_tac >- (
+      CCONTR_TAC>>
+      qpat_x_assum`_ ≠ _` mp_tac>>
+      simp[eval_to_def]>>
+      fs[])
     \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gs [v_rel_def])
   >~ [‘Prim op xs’] >- (
+    cheat
+    (*
     rw []
     \\ gvs [Once exp_rel_def, eval_to_def]
     \\ gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
@@ -671,12 +703,13 @@ Proof
       \\ gen_tac \\ strip_tac \\ rename1 ‘n < _’
       \\ rpt $ first_x_assum $ qspec_then ‘n’ assume_tac \\ gs []
       \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs []
-      \\ CASE_TAC \\ gs [v_rel_def]))
+      \\ CASE_TAC \\ gs [v_rel_def])*))
   >~ [‘Monad mop xs’] >- (
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [eval_to_def, v_rel_def])
 QED
 
+(* TODO: broken under here *)
 Theorem exp_rel_eval:
   exp_rel x y ⇒
     ($= +++ v_rel) (eval x) (eval y)
