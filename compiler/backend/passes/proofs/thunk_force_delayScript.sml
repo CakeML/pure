@@ -4,6 +4,7 @@
   This proof is retired and not maintained because it's not used as a part of
   the compiler definition.
 *)
+
 Theory thunk_force_delay
 Ancestors
   string option sum pair list alist finite_map pred_set rich_list
@@ -401,8 +402,7 @@ Proof
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def, v_rel_def])
   >~ [‘Let NONE x y’] >- (
-    cheat
-    \\ rw [exp_rel_def] \\ gs []
+    rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rename1 ‘exp_rel x x2’ \\ rename1 ‘exp_rel y y2’
@@ -411,10 +411,10 @@ Proof
     \\ last_assum $ dxrule_then assume_tac
     \\ last_x_assum $ dxrule_then assume_tac
     \\ Cases_on ‘eval_to (k - 1) x2’
-    \\ Cases_on ‘eval_to (k - 1) x’ \\ gs [])
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ gs []
+    \\ fs[eval_to_def])
   >~ [‘Let (SOME n) x y’] >- (
-    cheat
-    \\ rw [exp_rel_def] \\ gs []
+    rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rename1 ‘exp_rel x x2’ \\ rename1 ‘exp_rel y y2’
@@ -424,32 +424,39 @@ Proof
     \\ last_assum $ dxrule_then assume_tac
     \\ Cases_on ‘eval_to (k - 1) x2’
     \\ Cases_on ‘eval_to (k - 1) x’ \\ gs []
-    \\ last_x_assum irule
-    \\ irule exp_rel_subst \\ gs [])
+    \\ fs[eval_to_def, exp_rel_subst])
+   
   >~ [‘Letrec f x’] >- (
-    cheat
-    \\ rw [exp_rel_def] \\ gs []
+    rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
     \\ first_x_assum irule
     \\ simp [subst_funs_def, closed_subst, MAP_MAP_o, combinTheory.o_DEF,
              LAMBDA_PROD, GSYM FST_THM]
-    \\ irule exp_rel_subst
-    \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP]
-    \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [v_rel_def, LIST_REL_EL_EQN, EL_MAP]
-    \\ rename1 ‘MAP FST f = MAP FST g’
-    \\ ‘∀i. i < LENGTH f ⇒ FST (EL i f) = FST (EL i g)’
-      by (rw [] >>
-          ‘i < LENGTH f’ by gs [] >>
-          dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
-          ‘i < LENGTH g’ by gs [] >>
-          dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
-          rw [])
-    \\ gs [] \\ first_x_assum $ dxrule_then assume_tac \\ gvs [])
+    \\ strip_tac
+    >- (
+      CCONTR_TAC
+      \\ fs[eval_to_def]
+      \\ metis_tac[subst_def, subst_funs_def]
+      )
+    >- (
+      irule exp_rel_subst
+      \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP]
+      \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [v_rel_def, LIST_REL_EL_EQN, EL_MAP]
+      \\ rename1 ‘MAP FST f = MAP FST g’
+      \\ ‘∀i. i < LENGTH f ⇒ FST (EL i f) = FST (EL i g)’
+        by (rw [] >>
+            ‘i < LENGTH f’ by gs [] >>
+            dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
+            ‘i < LENGTH g’ by gs [] >>
+            dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
+            rw [])
+      \\ gs [] \\ first_x_assum $ dxrule_then assume_tac \\ gvs []))
+
   >~ [‘If x1 y1 z1’] >- (
-    cheat
-    (* \\ rw [exp_rel_def, eval_to_def] \\ gs [eval_to_def]
+    cheat (*
+    \\ rw [exp_rel_def, eval_to_def] \\ gs [eval_to_def]
     \\ rename1 ‘exp_rel x1 x2’
     \\ rename1 ‘exp_rel y1 y2’ \\ rename1 ‘exp_rel z1 z2’
     \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
@@ -464,7 +471,10 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     >- (Cases_on ‘v1’ \\ gs [v_rel_def])
     \\ IF_CASES_TAC \\ gvs []
-    >- (Cases_on ‘v1’ \\ gs [v_rel_def])*) )
+    >- (Cases_on ‘v1’ \\ gs [v_rel_def])
+    *)
+)
+
   >~ [‘Force x’] >- (
     rw [exp_rel_def] \\ gs []
     >~[‘Force (Delay x)’] >- (
@@ -485,13 +495,17 @@ Proof
         \\ strip_tac
         \\ rfs[]
         \\ Cases_on ‘eval_to (k - 1) x’
-        \\ rw[] >>
-        qpat_x_assum` _ ≠ INL Type_error` mp_tac>>
-        fs[]>>
-        simp[Once eval_to_def]>>
-        simp [Once eval_to_def, dest_anyThunk_def]>>
-        simp [subst_funs_def, subst_empty])>>
-    cheat )
+        \\ rw[]
+        \\ qpat_x_assum` _ ≠ INL Type_error` mp_tac
+        \\ fs[]
+        \\ simp[Once eval_to_def]
+        \\ simp [Once eval_to_def, dest_anyThunk_def]
+        \\ simp [subst_funs_def, subst_empty])
+
+    >~[`Force x`] >-(
+      cheat
+    ))
+
     (*
     \\ rename1 ‘exp_rel x y’
     \\ once_rewrite_tac [eval_to_def]
