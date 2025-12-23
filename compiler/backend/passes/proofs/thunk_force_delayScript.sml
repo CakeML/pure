@@ -341,9 +341,11 @@ Proof
   >~ [‘Var v’] >- (
     rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
+
   >~ [‘Value v’] >- (
     rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
+
   >~ [‘App g y’] >- (
     gvs [Once exp_rel_def, eval_to_def, PULL_EXISTS] \\ rw []
     \\ rename1 ‘exp_rel y x’ \\ rename1 ‘exp_rel g f’
@@ -398,9 +400,11 @@ Proof
     \\ rename1 ‘n < _’
     \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by simp []
     \\ gs [EL_MAP])
+
   >~ [‘Lam s x’] >- (
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def, v_rel_def])
+
   >~ [‘Let NONE x y’] >- (
     rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
@@ -413,6 +417,7 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x2’
     \\ Cases_on ‘eval_to (k - 1) x’ \\ gs []
     \\ fs[eval_to_def])
+
   >~ [‘Let (SOME n) x y’] >- (
     rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
@@ -455,12 +460,10 @@ Proof
       \\ gs [] \\ first_x_assum $ dxrule_then assume_tac \\ gvs []))
 
   >~ [‘If x1 y1 z1’] >- (
-    cheat (*
-    \\ rw [exp_rel_def, eval_to_def] \\ gs [eval_to_def]
+    rw [exp_rel_def, eval_to_def] \\ gs [eval_to_def]
     \\ rename1 ‘exp_rel x1 x2’
     \\ rename1 ‘exp_rel y1 y2’ \\ rename1 ‘exp_rel z1 z2’
     \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
-    \\ last_x_assum kall_tac \\ last_x_assum kall_tac \\ last_x_assum kall_tac
     \\ rpt $ first_assum $ dxrule_then assume_tac
     \\ last_x_assum kall_tac \\ last_x_assum kall_tac \\ gvs []
     \\ Cases_on ‘eval_to (k - 1) x2’
@@ -468,103 +471,131 @@ Proof
     \\ rename1 ‘v_rel v1 w1’
     \\ IF_CASES_TAC \\ gvs [v_rel_def]
     \\ IF_CASES_TAC \\ gvs [v_rel_def]
-    \\ IF_CASES_TAC \\ gs []
-    >- (Cases_on ‘v1’ \\ gs [v_rel_def])
-    \\ IF_CASES_TAC \\ gvs []
-    >- (Cases_on ‘v1’ \\ gs [v_rel_def])
-    *)
-)
+    \\ IF_CASES_TAC \\ gs [])
 
   >~ [‘Force x’] >- (
     rw [exp_rel_def] \\ gs []
-    >~[‘Force (Delay x)’] >- (
+    >~[‘Force (Delay x)’] >-(
         once_rewrite_tac [eval_to_def]
         \\ IF_CASES_TAC \\ simp []
         \\ simp [Once eval_to_def, dest_anyThunk_def]
         \\ simp [subst_funs_def, subst_empty]
-        \\ first_x_assum $ drule_at $ Pos $ el 2
+        \\ first_assum $ drule_at $ Pos $ el 2
         \\ disch_then (qspec_then `k-1` mp_tac)
-        \\ impl_tac >- (
-          simp[]>>
-          CCONTR_TAC>>
-          qpat_x_assum` _ ≠ INL Type_error` mp_tac>>
-          fs[]>>
-          simp[Once eval_to_def]>>
-          simp [Once eval_to_def, dest_anyThunk_def]>>
-          simp [subst_funs_def, subst_empty])
-        \\ strip_tac
-        \\ rfs[]
-        \\ Cases_on ‘eval_to (k - 1) x’
-        \\ rw[]
-        \\ qpat_x_assum` _ ≠ INL Type_error` mp_tac
-        \\ fs[]
-        \\ simp[Once eval_to_def]
-        \\ simp [Once eval_to_def, dest_anyThunk_def]
-        \\ simp [subst_funs_def, subst_empty])
-
+        \\ impl_tac
+        >-(
+          simp[]
+          \\ CCONTR_TAC
+          \\ qpat_x_assum` _ ≠ INL Type_error` mp_tac
+          \\ fs[]
+          \\ simp[Once eval_to_def]
+          \\ simp [Once eval_to_def, dest_anyThunk_def]
+          \\ simp [subst_funs_def, subst_empty])
+        >-(
+          strip_tac
+          \\ Cases_on ‘eval_to (k - 1) x'’
+          \\ rw[]
+          \\ qpat_x_assum` _ ≠ INL Type_error` mp_tac
+          \\ simp[Once eval_to_def]
+          \\ simp [Once eval_to_def, dest_anyThunk_def]
+          \\ simp [subst_funs_def, subst_empty]))
     >~[`Force x`] >-(
-      cheat
-    ))
+      rename1 ‘exp_rel x y’
+      \\ once_rewrite_tac [eval_to_def]
+      \\ IF_CASES_TAC \\ gs []
+      \\ last_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
+      \\ last_assum $ drule_then assume_tac
+      \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gvs []
+      >~[`x''=x'`] >-(
+        `x'' ≠ Type_error` suffices_by fs[]
+        \\ CCONTR_TAC
+        \\ qpat_x_assum `eval_to k x = INL x''` MP_TAC
+        \\ fs[Once $ eval_to_def, exp_rel_def, v_rel_def]
+        \\ Cases_on `eval_to k x` \\ gvs[])
+      >~[`dest_Tick y'`] >-(
+        `dest_Tick y' = NONE` by (Cases_on `y` \\ Cases_on `y'` \\ gs[Once $ eval_to_def])
+        \\ gs[subst_funs_def, Once $ eval_to_def])
 
-    (*
-    \\ rename1 ‘exp_rel x y’
-    \\ once_rewrite_tac [eval_to_def]
-    \\ IF_CASES_TAC \\ gs []
-    \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
-    \\ last_x_assum $ dxrule_then assume_tac
-    \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gs []
-    \\ rename1 ‘v_rel v w’
-    \\ Cases_on ‘dest_Tick w’ \\ gs []
-    >- (
-      ‘dest_Tick v = NONE’
-        by (Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
-            \\ gs [Once v_rel_def])
-      \\ gs []
-      \\ Cases_on ‘v’ \\ gvs [dest_anyThunk_def, v_rel_def]
-      >~[‘Recclosure _ _’]
-      >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-          \\ ‘OPTREL exp_rel
-              (ALOOKUP (REVERSE xs) s)
-              (ALOOKUP (REVERSE ys) s)’
-            by (irule LIST_REL_OPTREL
-                \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
-          \\ gs [OPTREL_def]
-          \\ rename1 ‘exp_rel x0 y0’
-          \\ ‘MEM (s, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
-          \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
-          \\ first_assum $ dxrule_then assume_tac
-          \\ Cases_on ‘x0’ \\ gvs [ok_bind_def, exp_rel_def]
-          >~[‘subst_funs ys e2’]
-          >- (last_x_assum irule \\ simp [subst_funs_def]
-              \\ irule exp_rel_subst \\ simp []
-              \\ gs [FORALL_PROD]
-              \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP]
-              \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [v_rel_def, LIST_REL_EL_EQN, EL_MAP]
-              \\ gs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
-              \\ rw []
-              >- (
-                 rename [‘n < _’, ‘MAP FST xs = MAP FST ys’]
-                 \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gs []
-                 \\ gvs [EL_MAP])
-              \\ last_x_assum $ drule_then irule))
-      \\ gs [subst_funs_def, subst_empty])
-    \\ Cases_on ‘v’ \\ gs [v_rel_def, exp_rel_def, PULL_EXISTS, dest_Tick_def]*)
-  >~ [‘Delay x’] >- (
-    rw [Once exp_rel_cases] \\ gs []
-    \\ simp [eval_to_def, v_rel_def])
-  >~ [‘MkTick x’] >- (
-    rw [exp_rel_def] \\ gs []
-    \\ simp [eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ first_x_assum $ drule_then mp_tac
-    \\ impl_tac >- (
-      CCONTR_TAC>>
-      qpat_x_assum`_ ≠ _` mp_tac>>
-      simp[eval_to_def]>>
-      fs[])
-    \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gs [v_rel_def])
+      >~[`dest_Tick y''`] >-(
+        Cases_on `dest_Tick y''` \\ Cases_on `dest_Tick y'`
+        \\ gs [v_rel_def, exp_rel_def, PULL_EXISTS, dest_Tick_def]
+        >- (
+          (*dest_Tick y'' = NONE ∧ dest_Tick y' = NONE*)
+          cheat
+        )
+        >- (
+          (*dest_Tick y'' = NONE ∧ dest_Tick y' = SOME*)
+          cheat
+        )
+        >- (
+          (*dest_Tick y'' = SOME ∧ dest_Tick y' = NONE*)
+          cheat
+        )
+        >- (
+          (*dest_Tick y'' = SOME ∧ dest_Tick y' = SOME*)
+          cheat
+        )
+      )
+      )
+
+      (*
+        ‘dest_Tick v = NONE’
+          by (Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
+              \\ gs [Once v_rel_def])
+        \\ gs []
+        \\ Cases_on ‘v’ \\ gvs [dest_anyThunk_def, v_rel_def]
+        >~[‘Recclosure _ _’]
+        >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
+            \\ ‘OPTREL exp_rel
+                (ALOOKUP (REVERSE xs) s)
+                (ALOOKUP (REVERSE ys) s)’
+              by (irule LIST_REL_OPTREL
+                  \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
+            \\ gs [OPTREL_def]
+            \\ rename1 ‘exp_rel x0 y0’
+            \\ ‘MEM (s, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
+            \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
+            \\ first_assum $ dxrule_then assume_tac
+            \\ Cases_on ‘x0’ \\ gvs [ok_bind_def, exp_rel_def]
+            >~[‘subst_funs ys e2’]
+            >- (last_x_assum irule \\ simp [subst_funs_def]
+                \\ irule exp_rel_subst \\ simp []
+                \\ gs [FORALL_PROD]
+                \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP]
+                \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [v_rel_def, LIST_REL_EL_EQN, EL_MAP]
+                \\ gs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+                \\ rw []
+                >- (
+                   rename [‘n < _’, ‘MAP FST xs = MAP FST ys’]
+                   \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gs []
+                   \\ gvs [EL_MAP])
+                \\ last_x_assum $ drule_then irule))
+        \\ gs [subst_funs_def, subst_empty])
+      >~[`dest_Tick y''`] >-(
+        rename1 ‘v_rel v w’
+        \\ Cases_on ‘dest_Tick w’ \\ gs []
+        \\ Cases_on ‘v’ \\ gs [v_rel_def, exp_rel_def, PULL_EXISTS, dest_Tick_def])
+    >~ [‘Delay x’] >- (
+      rw [Once exp_rel_cases] \\ gs []
+      \\ simp [eval_to_def, v_rel_def])
+    >~ [‘MkTick x’] >- (
+      rw [exp_rel_def] \\ gs []
+      \\ simp [eval_to_def]
+      \\ rename1 ‘exp_rel x y’
+      \\ first_x_assum $ drule_then mp_tac
+      \\ impl_tac >- (
+        CCONTR_TAC>>
+        qpat_x_assum`_ ≠ _` mp_tac>>
+        simp[eval_to_def]>>
+        fs[])
+      \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gs [v_rel_def])
+      ))
+    )
+    *)
+
   >~ [‘Prim op xs’] >- (
     cheat
+
     (*
     rw []
     \\ gvs [Once exp_rel_def, eval_to_def]
@@ -717,7 +748,9 @@ Proof
       \\ gen_tac \\ strip_tac \\ rename1 ‘n < _’
       \\ rpt $ first_x_assum $ qspec_then ‘n’ assume_tac \\ gs []
       \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs []
-      \\ CASE_TAC \\ gs [v_rel_def])*))
+      \\ CASE_TAC \\ gs [v_rel_def])*)
+  )
+
   >~ [‘Monad mop xs’] >- (
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [eval_to_def, v_rel_def])
