@@ -370,6 +370,7 @@ Proof
   metis_tac[]
 QED
 
+
 Theorem exp_rel_eval_to[local]:
   ∀x y.
     exp_rel x y ∧
@@ -441,46 +442,45 @@ Proof
           >- ((*eval_to k (EL n ys) = INR x*)
               IF_CASES_TAC \\ gs[]))
       >-((*LHS = INR _ *)
-          cheat))
-
-
-      (*
-        \\ first_x_assum $ drule_all_then assume_tac
-        \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
-        \\ rw [] \\ gs [SF SFY_ss])
-      \\ ‘∀n. n < LENGTH ys ⇒
-            ($= +++ v_rel) (eval_to k (EL n xs))
-                               (eval_to k (EL n ys))’
-        by rw []
-      \\ last_x_assum kall_tac
-      \\ IF_CASES_TAC \\ gs []
-      >- (
-        IF_CASES_TAC \\ gs []
-        >- (
-          first_x_assum $ drule_then assume_tac
-          \\ last_x_assum $ drule_then assume_tac
-          \\ rename1 ‘eval_to _ (EL m ys) = INL Type_error’
-          \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs [])
-        \\ first_x_assum (drule_then assume_tac)
-        \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
-        \\ IF_CASES_TAC \\ gvs [])
-      \\ rw [] \\ gs [SF SFY_ss]
-      >- (
-        first_x_assum $ drule_then assume_tac \\ gs []
-        \\ rename1 ‘n < _’
-        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-      >- (
-        first_x_assum $ drule_then assume_tac \\ gs []
-        \\ rename1 ‘n < _’
-        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-      >- (
-        gvs [EVERY2_MAP, LIST_REL_EL_EQN] \\ rw []
-        \\ first_x_assum (drule_all_then assume_tac)
-        \\ Cases_on ‘eval_to k (EL n ys)’
-        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gvs []
-        \\ rename1 ‘INL err’ \\ Cases_on ‘err’ \\ gs []))
-    *)
-
+        IF_CASES_TAC \\ gs[o_DEF]
+        >-(
+          Cases_on `eval_to k (EL n xs)`
+          >- (
+            Cases_on `x`
+            >- (
+              qpat_x_assum `∀n. eval_to k (EL n xs) = INL Type_error ⇒ ¬(n < LENGTH ys)` mp_tac \\ fs[]
+              \\ qexists `n` \\ fs[])
+            >- (
+              qpat_x_assum `∀n. eval_to k (EL n xs) = INL Diverge ⇒ ¬(n < LENGTH ys)` mp_tac \\ fs[]
+              \\ qexists `n` \\ fs[]))
+          >- (
+            `eval_to k (EL n xs) ≠ INL Type_error` by fs[]
+            \\ res_tac \\ metis_tac[SUM_REL_THM])
+        )
+      >-(
+          IF_CASES_TAC \\ gs[]
+          >-(
+            `exp_rel (EL n xs) (EL n ys)` by res_tac
+            \\ rpt $ first_x_assum $ qspec_then `n` assume_tac
+            \\ gvs[]
+            \\ res_tac
+            \\ qpat_x_assum `eval_to k (EL n ys) = INL Diverge` assume_tac
+            \\ fs[]
+            \\ Cases_on `eval_to k (EL n xs)` \\ fs[]
+          )
+          >-(
+            simp[MAP_MAP_o]
+            \\ simp[LIST_REL_MAP]
+            \\ simp[LIST_REL_EL_EQN]
+            \\ rw[]
+            \\ rpt $ first_x_assum $ qspec_then `n` assume_tac
+            \\ gvs[]
+            \\ res_tac
+            \\ Cases_on `eval_to k (EL n xs)` \\ fs[]
+            >-(Cases_on `x` \\ fs[])
+            \\ Cases_on `eval_to k (EL n ys)` \\ fs[])
+          )
+        ))
     >-( (* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘exp_rel x y’
@@ -493,7 +493,6 @@ Proof
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN, v_rel_def]
       \\ IF_CASES_TAC \\ gs []
       \\ rw [v_rel_def])
-
     >-( (* Proj *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘exp_rel x y’
@@ -505,7 +504,6 @@ Proof
       \\ rename1 ‘v_rel v w’
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN, v_rel_def]
       \\ IF_CASES_TAC \\ gs [])
-
     >-( (* AtomOp *)
       Cases_on ‘k = 0’ \\ gs []
       >- ( (*k = 0*)
@@ -531,7 +529,15 @@ Proof
       \\ Cases_on ‘k’ \\ gs [arithmeticTheory.ADD1]
       \\ rename1 ‘eval_to k’
       \\ ‘∀n. n < LENGTH ys ⇒
-          ($= +++ v_rel) (eval_to k (EL n xs)) (eval_to k (EL n ys))’ by (cheat) (*rest of proof works*)
+          ($= +++ v_rel) (eval_to k (EL n xs)) (eval_to k (EL n ys))’ by (
+            rpt strip_tac
+            \\ res_tac
+            \\ first_x_assum irule \\ fs[]
+            \\ drule bind_not_error
+            \\ fs[result_map_def, AllCaseEqs(), MEM_MAP] 
+            \\ fs[MEM_EL]
+            \\ metis_tac[]
+        ) (*rest of proof works*)
       (*\\ qpat_x_assum ‘∀x y. exp_rel _ _ ⇒ _’ kall_tac*)
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -719,9 +725,9 @@ Proof
               rw [])
         \\ gs [] \\ first_x_assum $ dxrule_then assume_tac \\ gvs []))
 
-    >~ [‘Delay x’] >- (
-      rw [Once exp_rel_cases] \\ gs []
-      \\ simp [eval_to_def, v_rel_def])
+  >~ [‘Delay x’] >- (
+    rw [Once exp_rel_cases] \\ gs []
+    \\ simp [eval_to_def, v_rel_def])
 
   >~ [‘Force x’] >- (
     rw [exp_rel_def] \\ gs []
@@ -756,8 +762,7 @@ Proof
       \\ once_rewrite_tac [eval_to_def]
       \\ IF_CASES_TAC \\ gs []
       \\ last_x_assum $ drule
-      \\ impl_tac
-        >- (CCONTR_TAC \\ fs[Once $ eval_to_def])
+      \\ impl_tac >- (CCONTR_TAC \\ fs[Once $ eval_to_def])
       \\ strip_tac
       \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gvs []
       \\ rename1 ‘v_rel v w’
@@ -802,8 +807,7 @@ Proof
                    \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gs []
                    \\ gvs [EL_MAP])
                 \\ last_x_assum $ drule_then irule)))
-
-        >~[`Thunk _ _`] >-(
+        >~[`Thunk _`] >-(
             simp[subst_funs_def]
             \\ last_x_assum $ qspec_then `k-1` assume_tac
             \\ `eval_to (k-1) x ≠ INL Type_error` by (
@@ -813,34 +817,35 @@ Proof
                 \\ `eval_to k x = INL Type_error` by (
                   qspecl_then [`k-1`, `x`, `k`] assume_tac eval_to_mono \\ fs[])
                 \\ fs[Once $ eval_to_def])
-            \\ `k-1 < k` by fs[]
-            \\ Cases_on `eval_to (k-1) e` \\ Cases_on `eval_to (k-1) y'` \\ gs[bind_not_error]
-            >- (cheat)
+            \\ `eval_to (k-1) e ≠ INL Type_error ⇒
+                ($= +++ v_rel) (eval_to (k − 1) e) (eval_to (k − 1) y')` by (
+                `k-1 < k` by fs[]
+                \\ res_tac)
+            \\ Cases_on `eval_to (k-1) y'` \\ Cases_on `eval_to (k-1) e` \\ fs[]
             >- (
-              qsuff_tac `is_anyThunk y''`
-              >- (strip_tac \\ fs[])
-              >- (
-                Cases_on `y''` \\ simp[is_anyThunk_def, dest_anyThunk_def, dest_Thunk_def, v_rel_anyThunk]
-                \\ cheat
-              )
-            )
+              first_x_assum irule
+              \\ Cases_on `x''` \\ fs[]
+              \\ qpat_x_assum `eval_to k (Force x) ≠ _` mp_tac \\ simp[Once eval_to_def]
+              \\ fs[dest_anyThunk_def, subst_funs_def])
             >- (
-              Cases_on `is_anyThunk y''` \\ Cases_on `is_anyThunk y'''` \\ gs[]
+              Cases_on `is_anyThunk y''` \\ fs[]
+              \\ qpat_x_assum `eval_to k (Force x) ≠ _` mp_tac \\ simp[Once eval_to_def]
+              \\ fs[dest_anyThunk_def, subst_funs_def])
+            >- (
+              Cases_on `is_anyThunk y''` \\ Cases_on `is_anyThunk y'''`\\ gs[]
+              \\ `eval_to (k-1) e ≠ INL Type_error` by fs[] \\ res_tac
               >- (
                 qpat_x_assum `¬ is_anyThunk y'''` mp_tac \\ fs[]
                 \\ mp_tac v_rel_anyThunk \\ strip_tac
-                \\ `is_anyThunk y'' ⇔ is_anyThunk y'''` by (
+                \\ `is_anyThunk y''' ⇔ is_anyThunk y''` by (
                   first_x_assum irule \\ fs[])
                   \\ fs[])
               >- (
                 qpat_x_assum `¬ is_anyThunk y''` mp_tac \\ fs[]
                 \\ mp_tac v_rel_anyThunk \\ strip_tac
-                `is_anyThunk y'' ⇔ is_anyThunk y'''` by (
+                \\ `is_anyThunk y''' ⇔ is_anyThunk y''` by (
                   first_x_assum irule \\ fs[])
-                  \\ fs[])))
-          )
-        )
-
+                  \\ fs[]))))
       >~[`dest_Tick w = SOME _`] >-(
         Cases_on ‘v’ \\ gs [v_rel_def, dest_Tick_def]
         \\ `k-1 < k` by simp []
@@ -853,53 +858,14 @@ Proof
             \\ `eval_to (k-1) x = eval_to k x` by simp[eval_to_mono] \\ fs[])
         >- (
           strip_tac
-          \\ last_assum $ irule
-          \\ conj_tac \\ fs[exp_rel_def]
-          \\ simp[Once $ eval_to_def] \\ IF_CASES_TAC \\ fs[]
-          \\ simp[Once $ eval_to_def]
-          \\ CASE_TAC \\ gs[bind_not_error]
-          \\ Cases_on `v'` \\ gs[dest_anyThunk_def]
-          cheat
-          (*stuck*)))
-      )
-
-    (*old proof -- Force case *)
-      (*
-       ‘dest_Tick v = NONE’
-          by (Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
-              \\ gs [Once v_rel_def])
-        \\ gs []
-        \\ Cases_on ‘v’ \\ gvs [dest_anyThunk_def, v_rel_def]
-        >~[‘Recclosure _ _’]
-        >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-            \\ ‘OPTREL exp_rel
-                (ALOOKUP (REVERSE xs) s)
-                (ALOOKUP (REVERSE ys) s)’
-              by (irule LIST_REL_OPTREL
-                  \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
-            \\ gs [OPTREL_def]
-            \\ rename1 ‘exp_rel x0 y0’
-            \\ ‘MEM (s, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
-            \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
-
-            \\ first_assum $ dxrule_then assume_tac
-            \\ Cases_on ‘x0’ \\ gvs [ok_bind_def, exp_rel_def]
-            >~[‘subst_funs ys e2’]
-
-            >- (
-                last_x_assum irule \\ simp [subst_funs_def]
-                \\ irule exp_rel_subst \\ simp []
-                \\ gs [FORALL_PROD]
-                \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP]
-                \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [v_rel_def, LIST_REL_EL_EQN, EL_MAP]
-                \\ gs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
-                \\ rw []
-                >- (
-                   rename [‘n < _’, ‘MAP FST xs = MAP FST ys’]
-                   \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gs []
-                   \\ gvs [EL_MAP])
-                \\ last_x_assum $ drule_then irule))
-        \\ gs [subst_funs_def, subst_empty]) *)
+          \\ `exp_rel (Force (Value v')) (Force (Value x'))` by
+              metis_tac[SUM_REL_THM, exp_rel_def]
+          \\ `eval_to (k-1) (Force (Value v')) ≠ INL Type_error` by (
+              CCONTR_TAC
+              \\ qpat_x_assum `eval_to k (Force x) ≠ _` mp_tac \\ fs[Once eval_to_def]
+              \\ Cases_on `k ≤ 1` \\ fs[]
+              \\ simp[Once eval_to_def])
+          \\ metis_tac[]))))
 
     >~ [‘Value v’] >- (
     rw [Once exp_rel_cases]
@@ -934,7 +900,6 @@ Proof
     by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
   \\ ‘eval_to (MAX k j) y = eval_to j y’
     by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
-  \\ gs []
 QED
 
 Theorem exp_rel_apply_closure[local]:
