@@ -912,62 +912,34 @@ Proof
   )
 QED
 
-
 Theorem exp_rel_apply_closure[local]:
-  exp_rel x y ∧
+  exp_rel v1 w1 ∧
   v_rel v2 w2 ∧
-  eval x ≠ INL Type_error ∧
-  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel exp_rel (f x) (g y)) ⇒
-    next_rel v_rel exp_rel (apply_closure x v2 f) (apply_closure y w2 g)
+  apply_closure v1 v2 f ≠ Err ∧
+  f (INL Type_error) = Err ∧
+  (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
+    next_rel v_rel exp_rel (f x) (g y)) ⇒
+  next_rel v_rel exp_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
 Proof
-  rw [apply_closure_def] >> simp[with_value_def] >>
-  dxrule_then assume_tac exp_rel_eval >>
-  Cases_on `eval x` >> Cases_on `eval y` >> gs[exp_rel_eval_to]
-  >- (Cases_on `x''` >> fs[])
+  rw [apply_closure_def] >> fs[with_value_def] >>
+  Cases_on`eval v1 = INL Type_error` >- fs[]>>
+  drule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval v1` >> Cases_on `eval w1` >>
+  gvs[exp_rel_eval_to]
   >- (
-    Cases_on `dest_anyClosure y'` >> Cases_on `dest_anyClosure y''` >> fs[next_rel_def]
-    >-(
-      CASE_TAC >> CASE_TAC >>
-      `x' = Type_error` by (
-        Cases_on `y'` >> fs[dest_anyClosure_def] >>
-        Cases_on `ALOOKUP (REVERSE l) s` >> fs[] >> Cases_on `x''` >> fs[]) >>
-      CCONTR_TAC >> qpat_x_assum `v_rel y' y''` mp_tac >> fs[v_rel_def] >>
-      Cases_on `y'` >>  Cases_on `y''` >> fs[v_rel_def,dest_anyClosure_def] >> rpt strip_tac >>
-      `ALOOKUP (REVERSE l) s = SOME _` by fs[]
-      Cases_on `ALOOKUP (REVERSE l) s` >> fs[]
-      >-(
-        Cases_on `ALOOKUP (REVERSE l') s` >> fs[] >> Cases_on `x''` >> fs[]
-        
-      )
-      >-(
-        Cases_on `x''` >> fs[] >>
-        `EXISTS ($¬ o ok_bind) (MAP SND l)` by (
-          `∃n. n < LENGTH l ∧ EL n l = (s, Var s'')` by simp[ALOOKUP_SOME_REVERSE_EL] >>
-          `MEM (Var s'') (MAP SND l)` by (
-            qspecl_then [`n`, `l`] assume_tac EL_MEM >> res_tac >>
-            `MEM (s, Var s'') l` by metis_tac[] >>
-            `EL n (MAP SND l) = SND (EL n l)` by simp[EL_MAP] >>
-            ` Var s'' = SND (EL n l)` by fs[] >> pop_assum (fn x => pure_rewrite_tac[x]) >>
-            metis_tac[MEM_MAP])>>
-          simp[EXISTS_MEM] >> qexists `(Var s'')` >> simp[ok_bind_def]
-          ) >> 
-        fs[])
-      )
-    ) 
-    >-()
-    >-()
-  )
-
-  (* Old proof
-  Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
-  >- (CASE_TAC >> gvs[]) >>
-  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
-  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
+    rename1`INL xx`>>
+    Cases_on `xx` >> fs[])
   >- (
-    first_x_assum irule
-    \\ irule exp_rel_eval
-    \\ irule exp_rel_subst \\ gs [])
-  >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
+    Cases_on`y`
+    \\ Cases_on`y'`
+    \\ gvs [v_rel_def, dest_anyClosure_def]
+    >- (
+      first_x_assum irule \\ simp[]
+      \\ irule exp_rel_eval
+      \\ CONJ_TAC >- metis_tac[]
+      \\ irule exp_rel_subst \\ gs [])
+    >- (
+      rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
       \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
@@ -979,36 +951,38 @@ Proof
       \\ drule_then assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
       \\ gvs [EVERY_EL, EL_MAP]
       \\ first_x_assum irule
+      \\ simp[]
       \\ irule exp_rel_eval
+      \\ CONJ_TAC >- metis_tac[]
       \\ irule exp_rel_subst
       \\ simp [EVERY2_MAP, LAMBDA_PROD, v_rel_def, MAP_MAP_o, combinTheory.o_DEF,
                GSYM FST_THM]
-      \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EVERY_EL, EL_MAP, LIST_EQ_REWRITE])
-  *)
+      \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EVERY_EL, EL_MAP, LIST_EQ_REWRITE]))
 QED
 
 Theorem exp_rel_rel_ok[local]:
-  rel_ok T v_rel exp_rel
+  rel_ok F v_rel exp_rel
 Proof
   rw [rel_ok_def, v_rel_def, exp_rel_def]
   \\ rw [exp_rel_apply_closure]
 QED
 
 Theorem exp_rel_sim_ok[local]:
-  sim_ok T v_rel exp_rel
+  sim_ok F v_rel exp_rel
 Proof
   rw [sim_ok_def, exp_rel_eval, exp_rel_subst]
 QED
 
 Theorem exp_rel_semantics[local]:
   exp_rel x y ∧
-  closed x ⇒
+  closed x ∧
+  safe_itree (semantics x Done []) ⇒
     semantics x Done [] = semantics y Done []
 Proof
   strip_tac
   \\ irule sim_ok_semantics \\ gs []
   \\ first_assum (irule_at Any)
-  \\ qexists_tac ‘T’ \\ gs []
+  \\ qexists_tac ‘F’ \\ gs []
   \\ irule_at Any exp_rel_rel_ok
   \\ irule_at Any exp_rel_sim_ok
 QED
@@ -1066,7 +1040,8 @@ QED
 
 Theorem force_delay_semantics:
   force_delay_rel x y ∧
-  closed x ⇒
+  closed x ∧
+  safe_itree (semantics x Done []) ⇒
     semantics x Done [] = semantics y Done []
 Proof
   strip_tac
@@ -1076,5 +1051,4 @@ Proof
   \\ dxrule_then assume_tac clean_rel_semantics
   \\ gs [closed_def]
 QED
-
 
