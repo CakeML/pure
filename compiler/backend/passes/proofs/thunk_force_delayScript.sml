@@ -370,7 +370,6 @@ Proof
   metis_tac[]
 QED
 
-
 Theorem exp_rel_eval_to[local]:
   ∀x y.
     exp_rel x y ∧
@@ -537,8 +536,7 @@ Proof
             \\ fs[result_map_def, AllCaseEqs(), MEM_MAP] 
             \\ fs[MEM_EL]
             \\ metis_tac[]
-        ) (*rest of proof works*)
-      (*\\ qpat_x_assum ‘∀x y. exp_rel _ _ ⇒ _’ kall_tac*)
+        ) 
       \\ IF_CASES_TAC \\ gs []
       >- (
         rename1 ‘m < LENGTH ys’
@@ -884,32 +882,83 @@ Proof
       \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gs [v_rel_def])
 QED
 
-(* TODO: broken under here *)
 Theorem exp_rel_eval:
-  exp_rel x y ⇒
+  exp_rel x y ∧ (eval x ≠ INL Type_error) ⇒
     ($= +++ v_rel) (eval x) (eval y)
 Proof
   strip_tac
+  \\ `eval_to u x ≠ INL Type_error` by fs[eval_not_error]
   \\ simp [eval_def]
   \\ dxrule_then assume_tac exp_rel_eval_to \\ simp []
   \\ DEEP_INTRO_TAC some_intro
   \\ DEEP_INTRO_TAC some_intro \\ rw [] \\ gs []
-  \\ rename1 ‘_ (eval_to k x) (eval_to j y)’
-  \\ first_x_assum (qspec_then ‘MAX k j’ assume_tac)
-  \\ ‘eval_to (MAX k j) x = eval_to k x’
-    by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
-  \\ ‘eval_to (MAX k j) y = eval_to j y’
-    by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
+  >- (
+    rename1 ‘_ (eval_to k x) (eval_to j y)’
+    \\ first_x_assum (qspec_then ‘MAX k j’ assume_tac)
+    \\ ‘eval_to (MAX k j) x = eval_to k x’
+      by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
+    \\ ‘eval_to (MAX k j) y = eval_to j y’
+      by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
+    \\ qsuff_tac `eval_to (MAX k j) x ≠ INL Type_error` \\ fs[]
+    \\ irule eval_not_error \\ fs[]
+  )
+  >- (
+    rename1 ‘_ (eval_to k x) _’
+    \\ first_x_assum (qspec_then ‘MAX k j’ assume_tac)
+    \\ ‘eval_to (MAX k j) x = eval_to k x’
+        by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
+    \\ qsuff_tac `eval_to (MAX k j) x ≠ INL Type_error` \\ fs[]
+    \\ irule eval_not_error \\ fs[]
+  )
 QED
+
 
 Theorem exp_rel_apply_closure[local]:
   exp_rel x y ∧
   v_rel v2 w2 ∧
+  eval x ≠ INL Type_error ∧
   (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel exp_rel (f x) (g y)) ⇒
     next_rel v_rel exp_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
   rw [apply_closure_def] >> simp[with_value_def] >>
   dxrule_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gs[exp_rel_eval_to]
+  >- (Cases_on `x''` >> fs[])
+  >- (
+    Cases_on `dest_anyClosure y'` >> Cases_on `dest_anyClosure y''` >> fs[next_rel_def]
+    >-(
+      CASE_TAC >> CASE_TAC >>
+      `x' = Type_error` by (
+        Cases_on `y'` >> fs[dest_anyClosure_def] >>
+        Cases_on `ALOOKUP (REVERSE l) s` >> fs[] >> Cases_on `x''` >> fs[]) >>
+      CCONTR_TAC >> qpat_x_assum `v_rel y' y''` mp_tac >> fs[v_rel_def] >>
+      Cases_on `y'` >>  Cases_on `y''` >> fs[v_rel_def,dest_anyClosure_def] >> rpt strip_tac >>
+      `ALOOKUP (REVERSE l) s = SOME _` by fs[]
+      Cases_on `ALOOKUP (REVERSE l) s` >> fs[]
+      >-(
+        Cases_on `ALOOKUP (REVERSE l') s` >> fs[] >> Cases_on `x''` >> fs[]
+        
+      )
+      >-(
+        Cases_on `x''` >> fs[] >>
+        `EXISTS ($¬ o ok_bind) (MAP SND l)` by (
+          `∃n. n < LENGTH l ∧ EL n l = (s, Var s'')` by simp[ALOOKUP_SOME_REVERSE_EL] >>
+          `MEM (Var s'') (MAP SND l)` by (
+            qspecl_then [`n`, `l`] assume_tac EL_MEM >> res_tac >>
+            `MEM (s, Var s'') l` by metis_tac[] >>
+            `EL n (MAP SND l) = SND (EL n l)` by simp[EL_MAP] >>
+            ` Var s'' = SND (EL n l)` by fs[] >> pop_assum (fn x => pure_rewrite_tac[x]) >>
+            metis_tac[MEM_MAP])>>
+          simp[EXISTS_MEM] >> qexists `(Var s'')` >> simp[ok_bind_def]
+          ) >> 
+        fs[])
+      )
+    ) 
+    >-()
+    >-()
+  )
+
+  (* Old proof
   Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
   >- (CASE_TAC >> gvs[]) >>
   rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
@@ -935,6 +984,7 @@ Proof
       \\ simp [EVERY2_MAP, LAMBDA_PROD, v_rel_def, MAP_MAP_o, combinTheory.o_DEF,
                GSYM FST_THM]
       \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EVERY_EL, EL_MAP, LIST_EQ_REWRITE])
+  *)
 QED
 
 Theorem exp_rel_rel_ok[local]:
