@@ -3,7 +3,7 @@
  *)
 Theory env_to_state_1Proof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic pure_exp_lemmas pure_misc
   thunkLang_primitives env_cexp pure_semantics[qualified]
   stateLang envLang env_semantics pure_config
@@ -43,7 +43,7 @@ Inductive compile_rel:
   compile_rel
     (Monad Handle [te1; te2])
     (suspend $ trigger $
-      HandleApp se2 $ slet "v" (trigger se1) (suspend $ Var "v")))
+      HandleApp se2 $ slet «v» (trigger se1) (suspend $ Var «v»)))
 
 [~Alloc:]
   (compile_rel tl sl ∧ compile_rel tx sx ⇒
@@ -202,7 +202,7 @@ Inductive v_rel:
      v_rel
        (Monadic tenv Handle [te1; te2])
        (suspended senv $ trigger $
-          HandleApp se2 (slet "v" (trigger se1) (suspend $ Var "v"))))
+          HandleApp se2 (slet «v» (trigger se1) (suspend $ Var «v»))))
 
 [~Raise:]
   (∀te se tenv senv.
@@ -314,8 +314,8 @@ Proof
 QED
 
 Theorem v_rel_bool:
-  (v_rel (Constructor "True" []) sv  ⇔ sv = Constructor "True" []) ∧
-  (v_rel (Constructor "False" []) sv ⇔ sv = Constructor "False" [])
+  (v_rel (Constructor «True» []) sv  ⇔ sv = Constructor «True» []) ∧
+  (v_rel (Constructor «False» []) sv ⇔ sv = Constructor «False» [])
 Proof
   once_rewrite_tac [v_rel_cases] \\ fs [] \\ EVAL_TAC \\ simp[]
 QED
@@ -449,7 +449,7 @@ Proof
 QED
 
 Overload AppArgK = ``λsenv se. AppK senv AppOp [] [se]``
-Overload AppUnitK = ``λsenv. AppK senv AppOp [Constructor "" []] []``
+Overload AppUnitK = ``λsenv. AppK senv AppOp [Constructor «» []] []``
 
 Theorem LIST_REL_split:
   ∀l l'.
@@ -564,7 +564,7 @@ Proof
     >-
      (first_x_assum drule
       \\ disch_then $ drule_at Any \\ fs []
-      \\ ‘env_rel ((s,y)::l) ((s,sv)::senv')’ by
+      \\ ‘env_rel ((m,y)::l) ((m,sv)::senv')’ by
         (fs [env_rel_def,REVERSE_APPEND] \\ rw [] \\ fs [])
       \\ disch_then $ drule_at Any \\ fs []
       \\ fs [continue_def,stateLangTheory.dest_anyClosure_def,
@@ -851,7 +851,7 @@ Proof
       \\ IF_CASES_TAC \\ fs [] \\ gvs []
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ last_x_assum drule_all
-      \\ disch_then $ qspecl_then [‘st’,‘AppK senv (Proj s i) [] []::k’] strip_assume_tac
+      \\ disch_then $ qspecl_then [‘st’,‘AppK senv (Proj m i) [] []::k’] strip_assume_tac
       \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ pop_assum mp_tac
@@ -1088,7 +1088,7 @@ Inductive cont_rel:
   (∀tk sk senv tenv te se.
     cont_rel tk sk ∧ env_rel tenv senv ∧ compile_rel te se ⇒
     cont_rel (HC (tenv, te) tk)
-       ((LetK senv (SOME "v") $ suspend $ Var "v") ::
+       ((LetK senv (SOME «v») $ suspend $ Var «v») ::
         HandleAppK senv se :: AppUnitK senv :: sk))
 End
 
@@ -1773,7 +1773,7 @@ Proof
   \\ once_rewrite_tac [itreeTheory.itree_unfold_err] \\ fs []
   \\ qsuff_tac
     ‘step_until_halt (Exp senv (app e2 Unit),ss,sk) =
-     step_until_halt (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk)’
+     step_until_halt (Exp senv e2,ss,AppK senv AppOp [Constructor «» []] []::sk)’
   >- fs []
   \\ irule EQ_TRANS
   \\ irule_at Any step_unitl_halt_unwind
@@ -1799,7 +1799,7 @@ Proof
         compile_rel e1 e2 ∧ state_rel ts ss ∧
         cont_rel tk sk ∧ env_rel tenv senv ∧
         t1 = env_semantics$semantics e1 tenv tk ts ∧
-        t2 = semantics e2 senv (SOME ss) (AppK senv AppOp [Constructor "" []] []::sk)) ⇒
+        t2 = semantics e2 senv (SOME ss) (AppK senv AppOp [Constructor «» []] []::sk)) ⇒
       t1 ---> t2’
   >- fs [PULL_EXISTS]
   \\ ho_match_mp_tac pure_semanticsTheory.compiles_to_coind
@@ -1814,7 +1814,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac ‘itree_unfold_err fs’
   \\ ‘∃r1 r2. next_action (eval tenv e1) tk ts = r1 ∧
               step_until_halt (Exp senv e2,SOME ss,
-                AppK senv AppOp [Constructor "" []] []::sk) = r2’ by fs []
+                AppK senv AppOp [Constructor «» []] []::sk) = r2’ by fs []
   \\ fs []
   \\ drule_all next_action_thm
   \\ disch_then $ qspec_then `senv` mp_tac
@@ -1826,15 +1826,15 @@ Proof
   \\ fs [] \\ fs [value_def]
   \\ rw []
   \\ `interp (INR (RetVal (Atom (Str y)))) c l =
-      interp (eval [("v",Atom (Str y))] (Monad Ret [Var "v"])) c l` by
+      interp (eval [(«v»,Atom (Str y))] (Monad Ret [Var «v»])) c l` by
    (fs [eval_def,eval_to_def,result_map_def]
     \\ DEEP_INTRO_TAC some_intro \\ fs [])
   \\ pop_assum $ irule_at Any
-  \\ ‘compile_rel (Monad Ret [Var "v"]) (suspend (Var "v"))’ by
+  \\ ‘compile_rel (Monad Ret [Var «v»]) (suspend (Var «v»))’ by
         ntac 2 (simp[Once compile_rel_cases])
   \\ pop_assum $ irule_at Any
   \\ rpt (first_assum $ irule_at $ Pos hd)
-  \\ qexists_tac ‘[("v",Atom (Str y))] ++ nenv1’
+  \\ qexists_tac ‘[(«v»,Atom (Str y))] ++ nenv1’
   \\ conj_tac
   >- fs [env_rel_def,Once v_rel_cases]
   \\ once_rewrite_tac [itreeTheory.itree_unfold_err]

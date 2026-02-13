@@ -2,7 +2,7 @@
 * for typeclassLang *)
 Theory typeclass_typing
 Ancestors
-  pair arithmetic integer string option misc list alist relation
+  pair arithmetic integer mlstring option misc list alist relation
   set_relation pred_set typeclass_types pure_cexp typeclass_texp
   typeclass_kindCheck pure_config
 Libs
@@ -157,7 +157,7 @@ Definition namespace_ok_def:
       EVERY (λ(ak,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
       ALL_DISTINCT
-        (MAP implode (SET_TO_LIST (reserved_cns DELETE "Subscript")) ++
+        (SET_TO_LIST (reserved_cns DELETE «Subscript») ++
          MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
     (* Every constructor type is closed wrt kinds and uses only defined
        types: *)
@@ -183,7 +183,7 @@ End
 Inductive type_lit:
   type_lit (Int i) Integer ∧
   type_lit (Str s) String ∧
-  (s1 ≠ ""⇒ type_lit (Msg s1 s2) Message)
+  (s1 ≠ «» ⇒ type_lit (Msg s1 s2) Message)
 End
 
 Inductive type_atom_op:
@@ -223,7 +223,7 @@ Inductive type_atom_op:
     type_atom_op op [String;String] Bool)
 
 [~Message:]
-  (s ≠ "" ⇒ type_atom_op (Message s) [String] Message)
+  (s ≠ «» ⇒ type_atom_op (Message s) [String] Message)
 End
 
 (* Typing judgments for type constructors *)

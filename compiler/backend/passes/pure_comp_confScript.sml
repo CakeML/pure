@@ -30,17 +30,17 @@ Datatype:
     |>
 End
 
-Overload pure_sort_flag[local]  = “strlit "-sort"”
-Overload pure_clean_flag[local] = “strlit "-clean"”
-Overload demands_flag[local]    = “strlit "-demands"”
-Overload inline_depth_flag[local] = “strlit "-inline_depth="”
-Overload inline_size_flag[local] = “strlit "-inline_size="”
-Overload mk_delay_flag[local]   = “strlit "-mk_delay"”
-Overload let_force_flag[local]  = “strlit "-let_force"”
-Overload dlam_flag[local]       = “strlit "-dlam"”
-Overload unit_flag[local]       = “strlit "-unit"”
-Overload final_gc_flag[local]   = “strlit "-final_gc"”
-Overload explore_flag[local]    = “strlit "-explore"”
+Overload pure_sort_flag[local]  = “«-sort»”
+Overload pure_clean_flag[local] = “«-clean»”
+Overload demands_flag[local]    = “«-demands»”
+Overload inline_depth_flag[local] = “«-inline_depth=»”
+Overload inline_size_flag[local] = “«-inline_size=»”
+Overload mk_delay_flag[local]   = “«-mk_delay»”
+Overload let_force_flag[local]  = “«-let_force»”
+Overload dlam_flag[local]       = “«-dlam»”
+Overload unit_flag[local]       = “«-unit»”
+Overload final_gc_flag[local]   = “«-final_gc»”
+Overload explore_flag[local]    = “«-explore»”
 
 Definition get_num_flag_def:
   get_num_flag flag (cl : mlstring list) =
@@ -82,8 +82,8 @@ End
 Definition read_cline_args_def:
   read_cline_args (cl:mlstring list) ⇔
     case check_flags cl of
-    | x::xs => INR (concat [strlit "ERROR: unknown flag(s) ";
-                            concatWith (strlit ", ") (x::xs); strlit "\n"])
+    | x::xs => INR (concat [«ERROR: unknown flag(s) »;
+                            concatWith («, ») (x::xs); «\n»])
     | _ =>
       let inlining_opts =
         <| depth := getOpt (get_num_flag inline_depth_flag cl) 5000 ;

@@ -3,7 +3,7 @@
 *)
 Theory thunk_NRC_Forcing_Lambdas
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list thunkLang thunkLang_primitives wellorder
   arithmetic pure_misc thunkLangProps thunk_semantics thunk_NRC_rel
   thunk_Let_Lam_Forced thunk_Forcing_Lambdas
@@ -386,6 +386,15 @@ Proof
   gs [ALL_DISTINCT_APPEND]
 QED
 
+Theorem INFINITE_mlstring[local]:
+  INFINITE 𝕌(:mlstring)
+Proof
+  strip_assume_tac explode_BIJ
+  \\ strip_tac
+  \\ drule_all pred_setTheory.FINITE_BIJ
+  \\ simp [INFINITE_LIST_UNIV]
+QED
+
 Theorem exp_rel_Force_Let_induction:
   ∀vLs vLf bLs bLf bL2s bL2f vL2s vL2f s x y v1 v2.
     MEM T bLs ∧
@@ -433,7 +442,7 @@ Proof
       >- (
         rw [NRC_SUC_RECURSE_LEFT] >>
         ‘∃v3. v3 ∉ s ∪ freevars y ∪ boundvars x ∪ boundvars y ∪ set (v1::v2::h::h2::vL2s ++ vL2f ++ vLf ++ vLs)’
-         by (‘INFINITE 𝕌(:string)’ by simp [] >>
+         by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
              dxrule_then (irule_at Any) $ iffLR NOT_IN_FINITE >>
              simp [FINITE_freevars, FINITE_boundvars]) >>
         rename1 ‘v3 ∉ _ ∪ _’ >>
@@ -582,7 +591,7 @@ Proof
       >- (
         rw [NRC_SUC_RECURSE_LEFT] >>
         ‘∃v3. v3 ∉ s ∪ freevars y ∪ boundvars x ∪ boundvars y ∪ set (v1::v2::h::h2::vL2s ++ vL2f ++ vLf ++ vLs)’
-         by (‘INFINITE 𝕌(:string)’ by simp [] >>
+         by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
              dxrule_then (irule_at Any) $ iffLR NOT_IN_FINITE >>
              simp [FINITE_freevars, FINITE_boundvars]) >>
         rename1 ‘v3 ∉ _ ∪ _’ >>

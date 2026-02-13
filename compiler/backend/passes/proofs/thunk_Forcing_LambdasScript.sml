@@ -3,7 +3,7 @@
 *)
 Theory thunk_Forcing_Lambdas
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list thunkLang thunkLang_primitives wellorder
   arithmetic pure_misc thunkLangProps thunk_semantics
   thunk_Let_Lam_Forced thunk_combine_Forcing_Lambdas
@@ -718,11 +718,12 @@ Proof
               rename1 ‘n < LENGTH bL’ >>
               Cases_on ‘EL n bL’ >> gs [freevars_def]))
       >- gs [LIST_REL_EL_EQN]
-      >- (rw [EL_APPEND_EQN, EL_MAP]
-          >- (rename1 ‘EL (i - LENGTH vL1) _’ >>
-              ‘i = LENGTH vL1’ by gs [] >> gs [])
-          >- gs []
-          >- (once_rewrite_tac [CONS_APPEND] >> gs [EL_APPEND_EQN]))
+      >- (
+        rw [EL_APPEND_EQN, EL_MAP]
+        \\ once_rewrite_tac [CONS_APPEND]
+        \\ simp [EL_APPEND_EQN]
+        \\ IF_CASES_TAC \\ gvs []
+        \\ Cases_on ‘i - LENGTH vL1’ \\ gvs [])
       >- gs [LIST_REL_APPEND_EQ, LIST_REL_EL_EQN, EL_MAP]
       >- gs [LIST_REL_EL_EQN, GSYM ZIP_APPEND, FILTER_FST_ZIP_K_F, FILTER_APPEND]
       >- gs [EL_APPEND_EQN, EL_MAP, LESS_OR_EQ]
@@ -835,11 +836,12 @@ Proof
               rename1 ‘n < LENGTH bL’ >>
               Cases_on ‘EL n bL’ >> gs [freevars_def]))
       >- gs [LIST_REL_EL_EQN]
-      >- (rw [EL_APPEND_EQN, EL_MAP]
-          >- (rename1 ‘EL (i - LENGTH vL1) _’ >>
-              ‘i = LENGTH vL1’ by gs [] >> gs [])
-          >- gs []
-          >- (once_rewrite_tac [CONS_APPEND] >> gs [EL_APPEND_EQN]))
+      >- (
+        rw [EL_APPEND_EQN, EL_MAP]
+        \\ once_rewrite_tac [CONS_APPEND]
+        \\ simp [EL_APPEND_EQN]
+        \\ IF_CASES_TAC \\ gvs []
+        \\ Cases_on ‘i - LENGTH vL1’ \\ gvs [])
       >- gs [LIST_REL_APPEND_EQ, LIST_REL_EL_EQN, EL_MAP]
       >- gs [LIST_REL_EL_EQN, GSYM ZIP_APPEND, FILTER_FST_ZIP_K_F, FILTER_APPEND]
       >- gs [EL_APPEND_EQN, EL_MAP, LESS_OR_EQ]

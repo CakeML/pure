@@ -16,7 +16,7 @@
  *)
 Theory thunkLang
 Ancestors
-  string option sum pair list alist pred_set
+  mlstring option sum pair list alist pred_set
   thunkLang_primitives pure_misc pure_exp
 Libs
   term_tactic monadsyntax
@@ -38,7 +38,7 @@ Datatype:
       | Value v                                  (* for substitution        *)
       | MkTick exp;                              (* creates a delayed Tick  *)
 
-  v = Constructor string (v list)
+  v = Constructor mlstring (v list)
     | Monadic mop (exp list)
     | Closure vname exp
     | Recclosure ((vname # exp) list) vname
@@ -55,7 +55,7 @@ Overload Cons = “λs xs. Prim (Cons s) xs”;
 Overload IsEq = “λs i t x. Prim (IsEq s i t) [x]”;
 Overload Proj = “λs i x. Prim (Proj s i) [x]”;
 Overload Seq = “λx. λy. Let NONE x y”;
-Overload Unit = “Prim (Cons "") []”;
+Overload Unit = “Prim (Cons «») []”;
 Overload Fail = “Prim (AtomOp Add) []”;
 Overload Lams = “λvL e. FOLDR Lam e vL”;
 Overload Apps = “FOLDL App”;
@@ -269,9 +269,9 @@ Definition eval_to_def:
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) x;
-         if v = Constructor "True" [] then
+         if v = Constructor «True» [] then
            eval_to (k - 1) y
-         else if v = Constructor "False" [] then
+         else if v = Constructor «False» [] then
            eval_to (k - 1) z
          else
            fail Type_error
@@ -323,7 +323,7 @@ Definition eval_to_def:
              v <- if k = 0 then fail Diverge else eval_to (k - 1) (HD xs);
              (t, ys) <- dest_Constructor v;
              assert ((t = s ⇒ i = LENGTH ys) ∧ t ∉ monad_cns);
-             return (Constructor (if t ≠ s then "False" else "True") [])
+             return (Constructor (if t ≠ s then «False» else «True») [])
            od
        | AtomOp aop =>
            do
@@ -335,7 +335,7 @@ Definition eval_to_def:
              case eval_op aop ys of
                SOME (INL v) => return (Atom v)
              | SOME (INR b) =>
-               return (Constructor (if b then "True" else "False") [])
+               return (Constructor (if b then «True» else «False») [])
              | NONE => fail Type_error
            od) ∧
   eval_to k (Monad mop xs) = return (Monadic mop xs)
@@ -363,10 +363,10 @@ Theorem eval_to_ind[allow_rebind]:
          P k (Let (SOME n) x y)) ∧
     (∀k x y z.
       (∀v. k ≠ 0 ∧
-           v ≠ Constructor "True" [] ∧
-           v = Constructor "False" [] ⇒
+           v ≠ Constructor «True» [] ∧
+           v = Constructor «False» [] ⇒
              P (k − 1) z) ∧
-      (∀v. k ≠ 0 ∧ v = Constructor "True" [] ⇒ P (k − 1) y) ∧
+      (∀v. k ≠ 0 ∧ v = Constructor «True» [] ⇒ P (k − 1) y) ∧
       (k ≠ 0 ⇒ P (k − 1) x) ⇒
         P k (If x y z)) ∧
     (∀k funs x.

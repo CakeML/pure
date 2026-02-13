@@ -1,6 +1,6 @@
 Theory pure_typingProps
 Ancestors
-  pair arithmetic integer string option list rich_list alist
+  pair arithmetic integer mlstring option list rich_list alist
   pred_set finite_map pure_misc pure_cexp pure_tcexp pure_config
   pure_typing pure_tcexp_lemmas
 Libs
@@ -541,13 +541,6 @@ Proof
     )
 QED
 
-Theorem implodeEQ:
-  (implode x = y ⇔ (x = explode y)) ∧
-  (y = implode x ⇔ (explode y = x))
-Proof
-  rw[EQ_IMP_THM] >> simp[]
-QED
-
 (* TODO move *)
 Theorem ALL_DISTINCT_LENGTH_SET:
   LENGTH a = LENGTH b ∧ set a = set b ∧ ALL_DISTINCT a ⇒ ALL_DISTINCT b
@@ -574,19 +567,18 @@ Proof
     gvs[type_exception_def, namespace_ok_def, ALL_DISTINCT_APPEND] >>
     imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD] >>
     last_x_assum $ drule_at Concl >> rw[] >>
-    gvs[reserved_cns_def, implodeEQ]
+    gvs[reserved_cns_def]
     )
   >- (
     gvs[type_cons_def, namespace_ok_def, ALL_DISTINCT_APPEND] >>
-    qsuff_tac `explode cname ∉ reserved_cns` >- simp[reserved_cns_def] >>
+    qsuff_tac `cname ∉ reserved_cns` >- simp[reserved_cns_def] >>
     `MEM cname (MAP FST (FLAT (MAP SND typedefs)))` by (
       simp[MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS] >>
       simp[Once MEM_EL, PULL_EXISTS, GSYM CONJ_ASSOC] >>
       gvs[oEL_THM] >> goal_assum $ drule_at Any >> simp[] >>
       imp_res_tac ALOOKUP_MEM >> simp[SF SFY_ss]) >>
     first_x_assum $ drule_at Concl >> simp[] >> strip_tac >>
-    gvs[MEM_MAP, implodeEQ, FORALL_PROD] >>
-    gvs[GSYM implodeEQ] >> gs[mlstringTheory.implode_def]
+    gvs[MEM_MAP, FORALL_PROD]
     )
   >- simp[num_atomop_args_ok_def]
   >- (
@@ -692,8 +684,8 @@ Proof
   >- (
     gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
     first_x_assum $ drule_at Concl >> rw[reserved_cns_def] >>
-    simp[monad_cns_def, GSYM implodeEQ] >> gvs[MEM_MAP] >>
-    rpt strip_tac >> gvs[implodeEQ]) >>~-
+    simp[monad_cns_def] >> gvs[MEM_MAP] >>
+    rpt strip_tac >> gvs[]) >>~-
   ([‘_ < LENGTH css ⇒ tcexp_wf (SND (SND (EL _ css)))’],
    rw[] >> first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >>
    pop_assum irule >> gvs[EL_ZIP, EL_MAP] >> reverse $ rw[]
@@ -722,7 +714,7 @@ Proof
     first_x_assum $ qspec_then `cn` mp_tac >> simp[Once MONO_NOT_EQ] >> rw[]
     >- (
       disj1_tac >> simp[MEM_MAP] >>
-      pop_assum mp_tac >> rw[monad_cns_def, reserved_cns_def] >> gvs[implodeEQ]
+      pop_assum mp_tac >> rw[monad_cns_def, reserved_cns_def] >> gvs[]
       )
     >- (
       gvs[MEM_MAP, MEM_FLAT, PULL_EXISTS, EXISTS_PROD] >>
@@ -734,7 +726,7 @@ Proof
    simp[MEM_FLAT, MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
    rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM >>
    last_x_assum drule >> simp[] >> strip_tac >> gvs[]) >>~-
-  ([‘explode cn ∉ monad_cns’],
+  ([‘cn ∉ monad_cns’],
    gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
    `MEM cn (MAP FST (FLAT (MAP SND typedefs)))` by (
      simp[MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS] >>
@@ -745,7 +737,7 @@ Proof
      imp_res_tac ALOOKUP_MEM >> simp[SF SFY_ss]) >>
    last_x_assum $ drule_at Concl >> simp[] >> strip_tac >>
    gvs[reserved_cns_def, monad_cns_def] >>
-   simp[GSYM implodeEQ] >> gvs[MEM_MAP] >> rpt strip_tac >> gvs[implodeEQ]
+   simp[] >> gvs[MEM_MAP] >> rpt strip_tac >> gvs[]
    )
   >- (
     rw[] >> first_x_assum drule >> simp[ELIM_UNCURRY] >> strip_tac >> gvs[]

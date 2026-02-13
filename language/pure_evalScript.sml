@@ -3,7 +3,7 @@
 *)
 Theory pure_eval
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp pure_value
 Libs
   term_tactic dep_rewrite BasicProvers
@@ -11,15 +11,15 @@ Libs
 (* weak-head values *)
 
 Datatype:
-  wh = wh_Constructor string (exp list)
-     | wh_Closure string exp
+  wh = wh_Constructor mlstring (exp list)
+     | wh_Closure mlstring exp
      | wh_Atom lit
      | wh_Error
      | wh_Diverge
 End
 
-Overload wh_True = ``wh_Constructor "True" []``;
-Overload wh_False = ``wh_Constructor "False" []``;
+Overload wh_True = ``wh_Constructor «True» []``;
+Overload wh_False = ``wh_Constructor «False» []``;
 
 Definition freevars_wh_def[simp]:
   freevars_wh (wh_Constructor s es) = BIGUNION (set (MAP freevars es)) ∧
@@ -99,8 +99,8 @@ Definition eval_wh_to_def:
         (if LENGTH xs ≠ 3 then wh_Error else
            case HD vs of
            | wh_Constructor t ys =>
-              (if t = "True" ∧ ys = [] then EL 1 vs else
-               if t = "False" ∧ ys = [] then EL 2 vs else wh_Error)
+              (if t = «True» ∧ ys = [] then EL 1 vs else
+               if t = «False» ∧ ys = [] then EL 2 vs else wh_Error)
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
       | Seq =>
@@ -381,7 +381,7 @@ Proof
   \\ fs [eval_wh_eq] \\ fs [eval_wh_to_def]
   \\ reverse (Cases_on ‘l=[]’) \\ gvs []
   THEN1 (qexists_tac ‘k+1’ \\ fs [])
-  \\ Cases_on ‘s ≠ "True" ∧ s ≠ "False"’
+  \\ Cases_on ‘m ≠ «True» ∧ m ≠ «False»’
   THEN1 (fs [] \\ qexists_tac ‘k+1’ \\ fs [])
   \\ gvs [] \\ rename [‘eval_wh q = wh_Diverge’]
   \\ (Cases_on ‘eval_wh q = wh_Diverge’ \\ fs []
@@ -431,7 +431,7 @@ Proof
   \\ TRY (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
           \\ qexists_tac ‘k+1’ \\ fs [] \\ NO_TAC)
   \\ fs [eval_wh_eq] \\ fs [eval_wh_to_def]
-  \\ Cases_on ‘s ≠ s'’ \\ gvs []
+  \\ Cases_on ‘m ≠ s’ \\ gvs []
   THEN1 (qexists_tac ‘k+1’ \\ fs [])
   \\ Cases_on ‘LENGTH l ≤ i’ \\ fs []
   THEN1 (qexists_tac ‘k+1’ \\ fs [])
@@ -897,8 +897,8 @@ End
 
 Definition no_err_eval_def:
   no_err_eval x = case v_unfold eval_wh x of
-			| Error => Diverge
-			| rest  => rest
+      | Error => Diverge
+      | rest  => rest
 End
 
 Definition dest_Closure_def:
@@ -918,8 +918,8 @@ Proof
   rw [] \\ Cases_on ‘v’ \\ gs[dest_Closure_def]
 QED
 
-Overload True  = “Constructor "True" []”;
-Overload False = “Constructor "False" []”;
+Overload True  = “Constructor «True» []”;
+Overload False = “Constructor «False» []”;
 
 Definition el_def:
   el s i x =
@@ -1010,7 +1010,7 @@ Proof
   simp [eval_def,el_def]
   \\ once_rewrite_tac [v_unfold]
   \\ Cases_on ‘eval_wh x’ \\ fs [eval_wh_Proj,EL_MAP]
-  \\ Cases_on ‘s ≠ s'’ \\ gvs []
+  \\ Cases_on ‘m ≠ s’ \\ gvs []
   \\ Cases_on ‘i < LENGTH l’ \\ gvs []
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ simp [Once v_unfold]
@@ -1037,8 +1037,8 @@ QED
 
 Theorem eval_Seq:
   eval (Seq x y) = if eval x = Diverge then Diverge
-		   else if eval x = Error then Error
-		   else eval y
+      else if eval x = Error then Error
+      else eval y
 Proof
   simp [eval_def]
   \\ once_rewrite_tac [v_unfold]

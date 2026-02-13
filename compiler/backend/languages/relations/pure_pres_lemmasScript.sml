@@ -3,7 +3,7 @@
 *)
 Theory pure_pres_lemmas
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map combin pure_exp
   pure_value pure_eval pure_eval_lemmas pure_exp_lemmas
   pure_limit pure_exp_rel pure_alpha_equiv pure_misc
@@ -15,7 +15,7 @@ Libs
 Theorem bidir_letrec_eta:
   MEM (f,Lam a vs x) l ∧ ALL_DISTINCT (MAP FST l) ∧ vs ≠ [] ∧
   EVERY (λ(v,e).
-           DISJOINT (IMAGE explode (set vs)) (freevars (exp_of e)) ∧
+           DISJOINT (set vs) (freevars (exp_of e)) ∧
            ~MEM v vs) l ∧
   DISJOINT (set (MAP FST l)) (set vs)
   ⇒

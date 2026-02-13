@@ -4,7 +4,7 @@
  *)
 Theory state_unthunkProof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic pure_exp_lemmas pure_misc pure_config
   pure_semantics[qualified]
   stateLang
@@ -14,11 +14,11 @@ Libs
 
 Overload "app" = “λe1 e2. App AppOp [e1;e2]”;
 
-Overload True  = “App (Cons "True")  []”;
-Overload False = “App (Cons "False") []”;
+Overload True  = “App (Cons «True»)  []”;
+Overload False = “App (Cons «False») []”;
 
-Overload True_v  = “stateLang$Constructor "True"  []”;
-Overload False_v = “stateLang$Constructor "False" []”;
+Overload True_v  = “stateLang$Constructor «True»  []”;
+Overload False_v = “stateLang$Constructor «False» []”;
 
 (****************************************)
 
@@ -52,7 +52,7 @@ End
 
 Definition Letrec_split_def:
   Letrec_split vs [] = ([],[]) ∧
-  Letrec_split vs ((v:string,x)::fns) =
+  Letrec_split vs ((v :mlstring,x)::fns) =
     let (xs,ys) = Letrec_split vs fns in
       case dest_Delay x of
       | NONE => (xs,(v,x)::ys)
@@ -60,13 +60,13 @@ Definition Letrec_split_def:
 End
 
 Definition some_alloc_thunk_def:
-  some_alloc_thunk (v:string,b,y:exp) =
+  some_alloc_thunk (v :mlstring,b,y:exp) =
     (SOME v, App (AllocMutThunk NotEvaluated) [IntLit 0])
 End
 
 Definition update_delay_def:
   update_delay (v,b,y) =
-    (NONE:string option,
+    (NONE :mlstring option,
      if b then
        App (UpdateMutThunk Evaluated) [Var v; y]
      else
@@ -228,7 +228,7 @@ Inductive v_rel:
 
 [env_rel:]
   (∀p tenv senv.
-     (∀(n:string) tv.
+     (∀(n :mlstring) tv.
        ALOOKUP tenv n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel p tv sv) ⇒
      env_rel p tenv senv)
@@ -1353,9 +1353,9 @@ End
 
 Theorem Letrec_store_thm:
   ∀delays ss env2 n.
-    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns: (string # exp) list)) x) delays ∧
+    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns :(mlstring # exp) list)) x) delays ∧
     ALL_DISTINCT (MAP FST delays) ∧ is_halt (sr1,ss1,sk1) ∧
-    DISJOINT (set (MAP FST delays)) (set (MAP FST (funs: (string # exp) list))) ∧
+    DISJOINT (set (MAP FST delays)) (set (MAP FST (funs :(mlstring # exp) list))) ∧
     EVERY (λ(n,x). ~MEM n (MAP FST env1)) delays ∧
     EVERY (λn. ALOOKUP (env1 ++ make_let_env delays (LENGTH ss) env2) n ≠ NONE)
       (MAP FST sfns) ∧
@@ -1423,7 +1423,7 @@ Proof
   \\ simp []
   \\ Cases_on ‘ALOOKUP (env1 ++
            make_let_env delays (LENGTH ss + 1)
-             ((h0,ThunkLoc (LENGTH ss))::env2)) s’ \\ fs []
+             ((h0,ThunkLoc (LENGTH ss))::env2)) m’ \\ fs []
   \\ ntac 4 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
              \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
@@ -1453,9 +1453,9 @@ QED
 
 Theorem Letrec_store_forward:
   ∀delays ss env2 n k.
-    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns: (string # exp) list)) x) delays ∧
+    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns :(mlstring # exp) list)) x) delays ∧
     ALL_DISTINCT (MAP FST delays) ∧ is_halt (sr1,ss1,sk1) ∧
-    DISJOINT (set (MAP FST delays)) (set (MAP FST (funs: (string # exp) list))) ∧
+    DISJOINT (set (MAP FST delays)) (set (MAP FST (funs :(mlstring # exp) list))) ∧
     EVERY (λ(n,x). ~MEM n (MAP FST env1)) delays ∧
     EVERY (λn. ALOOKUP (env1 ++ make_let_env delays (LENGTH ss) env2) n ≠ NONE)
           (MAP FST sfns) ∧
@@ -1517,7 +1517,7 @@ Proof
   \\ simp []
   \\ Cases_on ‘ALOOKUP (env1 ++
            make_let_env delays (LENGTH ss + 1)
-             ((h0,ThunkLoc (LENGTH ss))::env2)) s’ \\ fs []
+             ((h0,ThunkLoc (LENGTH ss))::env2)) m’ \\ fs []
   \\ ntac 3 (irule_at Any step_n_unwind
              \\ once_rewrite_tac [step_n_add] \\ fs [step, get_atoms_def])
   \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]

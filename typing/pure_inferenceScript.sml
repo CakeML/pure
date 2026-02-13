@@ -9,7 +9,7 @@
 *)
 Theory pure_inference
 Ancestors
-  pair arithmetic integer string option list alist finite_map
+  pair arithmetic integer mlstring option list alist finite_map
   sptree pure_typing pure_cexp pure_config pure_vars
   pure_inference_common pure_unification pure_misc
 Libs
@@ -186,7 +186,7 @@ Definition infer_atom_op_def:
   (infer_atom_op ar StrGeq =
     if ar = 2 then SOME ([String; String], Bool) else NONE) ∧
   (infer_atom_op ar (Message s) =
-    if ar = 1 ∧ s ≠ "" then SOME ([String], Message : prim_ty) else NONE)
+    if ar = 1 ∧ s ≠ «» then SOME ([String], Message : prim_ty) else NONE)
 End
 
 Definition get_typedef_def:

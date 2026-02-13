@@ -3,7 +3,7 @@
  *)
 Theory thunk_to_env_1Proof
 Ancestors
-  string option sum pair list alist thunkLang_primitives
+  mlstring option sum pair list alist thunkLang_primitives
   finite_map thunk_semantics pure_misc pred_set rich_list
   envLang thunkLang thunk_to_env thunkLangProps env_semantics
 Libs
@@ -357,15 +357,15 @@ Proof
     >- (
       IF_CASES_TAC \\ gs []
       \\ rename1 ‘v_rel v w’
-      \\ ‘[s,v] = [] ++ [s,v]’ by gs []
+      \\ ‘[m,v] = [] ++ [m,v]’ by gs []
       \\ pop_assum SUBST1_TAC
       \\ first_x_assum (irule_at Any) \\ gs []
-      \\ ‘(s,w)::l = [s,w] ++ l’ by gs []
+      \\ ‘(m,w)::l = [m,w] ++ l’ by gs []
       \\ pop_assum SUBST1_TAC
       \\ irule exp_rel_subst
       \\ gs [exp_rel_def, env_rel_def])
     \\ qmatch_asmsub_abbrev_tac ‘LIST_REL (λ(a,x) (b,y). a = b ∧ R x y) xs ys’
-    \\ ‘OPTREL R (ALOOKUP xs s) (ALOOKUP ys s)’
+    \\ ‘OPTREL R (ALOOKUP xs m) (ALOOKUP ys m)’
       by (‘xs = REVERSE (REVERSE xs)’ by gs [] \\ pop_assum SUBST1_TAC
           \\ ‘ys = REVERSE (REVERSE ys)’ by gs [] \\ pop_assum SUBST1_TAC
           \\ irule LIST_REL_OPTREL
@@ -445,7 +445,7 @@ Proof
     >- (
       qmatch_asmsub_abbrev_tac
         ‘LIST_REL (λ(a,x) (b,y). a = b ∧ R x y) xs ys’
-      \\ ‘OPTREL R (ALOOKUP xs s) (ALOOKUP ys s)’
+      \\ ‘OPTREL R (ALOOKUP xs m) (ALOOKUP ys m)’
         by (‘xs = REVERSE (REVERSE xs)’ by gs [] \\ pop_assum SUBST1_TAC
             \\ ‘ys = REVERSE (REVERSE ys)’ by gs [] \\ pop_assum SUBST1_TAC
             \\ irule LIST_REL_OPTREL \\ gs [])
@@ -690,7 +690,7 @@ Definition next_rel_def[simp]:
   next_rel Ret Ret = T ∧
   next_rel Div Div = T ∧
   next_rel Err Err = T ∧
-  next_rel (_: (string # string) thunk_semantics$next_res) _ = F
+  next_rel (_: (mlstring # mlstring) thunk_semantics$next_res) _ = F
 End
 
 Theorem LIST_REL_ALOOKUP_lemma[local]:

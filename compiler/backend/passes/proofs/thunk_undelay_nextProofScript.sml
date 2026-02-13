@@ -1,6 +1,6 @@
 Theory thunk_undelay_nextProof
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   pure_misc pure_config pure_semantics thunkLang_primitives thunkLang
   thunkLangProps thunk_semantics thunk_semantics_delayed
 Libs
@@ -48,14 +48,14 @@ Inductive exp_rel:
        exp_rel (Monad mop xs)
                (Monad Bind [
                   Monad mop ys;
-                  Lam "v" (Monad Ret [Delay $ Var "v"])]))
+                  Lam «v» (Monad Ret [Delay $ Var «v»])]))
 [exp_rel_Monad_Deref:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Monad Deref xs)
                (Monad Handle [
                   Monad Deref ys;
-                  Lam "v" $ Monad Raise [Delay $ Var "v"]]))
+                  Lam «v» $ Monad Raise [Delay $ Var «v»]]))
 [exp_rel_Monad_Update:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ⇒
@@ -63,8 +63,8 @@ Inductive exp_rel:
                (Monad Bind [
                   Monad Handle [
                     Monad Update ys;
-                    Lam "v" $ Monad Raise [Delay $ Var "v"]];
-                  Lam "v" $ Monad Ret [Delay $ Var "v"]]))
+                    Lam «v» $ Monad Raise [Delay $ Var «v»]];
+                  Lam «v» $ Monad Ret [Delay $ Var «v»]]))
 [exp_rel_LitVal:]
   (∀l. exp_rel (Lit l) (Value (Atom l)))
 [exp_rel_ConsVal:]
@@ -138,14 +138,14 @@ Inductive exp_rel:
        v_rel (Monadic mop xs)
              (Monadic Bind [
                 Monad mop ys;
-                Lam "v" (Monad Ret [Delay $ Var "v"])]))
+                Lam «v» (Monad Ret [Delay $ Var «v»])]))
 [v_rel_Monadic_Deref:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ⇒
        v_rel (Monadic Deref xs)
              (Monadic Handle [
                 Monad Deref ys;
-                Lam "v" $ Monad Raise [Delay $ Var "v"]]))
+                Lam «v» $ Monad Raise [Delay $ Var «v»]]))
 [v_rel_Monadic_Update:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ⇒
@@ -153,8 +153,8 @@ Inductive exp_rel:
              (Monadic Bind [
                 Monad Handle [
                   Monad Update ys;
-                  Lam "v" $ Monad Raise [Delay $ Var "v"]];
-                Lam "v" $ Monad Ret [Delay $ Var "v"]]))
+                  Lam «v» $ Monad Raise [Delay $ Var «v»]];
+                Lam «v» $ Monad Ret [Delay $ Var «v»]]))
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x))
@@ -444,8 +444,8 @@ Proof
       \\ irule exp_rel_subst \\ gs [])
     >~ [`Recclosure`] >- (
       rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s)
-                         (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m)
+                         (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL \\ gs [])
       \\ gs [OPTREL_def]
       \\ rgs [Once exp_rel_cases]
@@ -520,8 +520,8 @@ Proof
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
       >- (
         rename1 ‘LIST_REL _ xs ys’
-        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s)
-                           (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m)
+                           (ALOOKUP (REVERSE ys) m)’
           by (irule LIST_REL_OPTREL \\ gs [])
         \\ gs [OPTREL_def]
         \\ rgs [Once exp_rel_cases]
@@ -700,7 +700,7 @@ Definition next_rel_def[simp]:
   next_rel Err Err = T ∧
   next_rel (Act a c s) (Act b d t) = (
     ∃d'.
-      d = BC (Lam "v" $ Monad Ret [Delay $ Var "v"]) d' ∧
+      d = BC (Lam «v» $ Monad Ret [Delay $ Var «v»]) d' ∧
       a = b ∧ cont_rel_delayed exp_rel c d' ∧ state_rel_delayed v_rel s t) ∧
   next_rel _ _ = F
 End
@@ -1266,7 +1266,7 @@ QED
 
 Theorem interp_action_return[local]:
   interp (INR (Monadic Ret [Lit (Str y)]))
-    (BC (Lam "v" (Monad Ret [Delay (Var "v")])) cont) st =
+    (BC (Lam «v» (Monad Ret [Delay (Var «v»)])) cont) st =
   interp (INR (Monadic Ret [Delay $ Value $ Atom $ Str y])) cont st
 Proof
   simp [Once interp_def, next_action_def]

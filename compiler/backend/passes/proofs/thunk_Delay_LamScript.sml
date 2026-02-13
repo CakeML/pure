@@ -3,7 +3,7 @@
 *)
 Theory thunk_Delay_Lam
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   thunkLang thunkLang_primitives wellorder pure_misc
   thunkLangProps thunk_semantics
 Libs
@@ -1287,15 +1287,15 @@ Proof
       \\ qexists_tac ‘j + j1’ \\ gs []
       \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ gs [dest_anyClosure_def, v_rel_def]
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-          \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
           \\ gvs [OPTREL_def]
           \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
           \\ rw [Once exp_rel_cases] \\ gs []
           \\ Cases_on ‘x0’ \\ gvs [])
-      >- (Cases_on ‘ALOOKUP (REVERSE l) s’ >> gs [ALOOKUP_NONE]
-          >~[‘ALOOKUP (REVERSE l) s = SOME x’]
+      >- (Cases_on ‘ALOOKUP (REVERSE l) m’ >> gs [ALOOKUP_NONE]
+          >~[‘ALOOKUP (REVERSE l) m = SOME x’]
           >- (dxrule_then assume_tac ALOOKUP_MEM >>
               gvs [MEM_EL, EVERY_CONJ, LIST_REL_EL_EQN, EL_MAP] >>
               rename1 ‘EL n2 l’ >> rename1 ‘exp_rel (SND (EL _ l)) (SND (EL _ g2))’ >>
@@ -1328,7 +1328,7 @@ Proof
                 \\ gvs [EVERY_EL, EL_MAP]
                 \\ first_x_assum (drule_then assume_tac)
                 \\ gs [ok_bind_def])
-            >- (Cases_on ‘ALOOKUP (REVERSE l) s'’ >> gs [ALOOKUP_NONE] >>
+            >- (Cases_on ‘ALOOKUP (REVERSE l) m’ >> gs [ALOOKUP_NONE] >>
                 dxrule_then assume_tac ALOOKUP_MEM >>
                 gvs [MEM_EL, EVERY_CONJ, LIST_REL_EL_EQN, EL_MAP] >>
                 rename1 ‘EL n2 l’ >> rename1 ‘exp_rel (SND (EL _ l)) (SND (EL _ g2))’ >>
@@ -2399,7 +2399,7 @@ Proof
       \\ gvs [EL_MAP])
   >- (
      rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-     \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+     \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
        by (irule LIST_REL_OPTREL
            \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
      \\ gs [OPTREL_def]
@@ -2449,7 +2449,7 @@ Proof
      \\ rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac
      \\ drule_then assume_tac exp_rel_freevars
      \\ drule_then assume_tac exp_rel_boundvars
-     >- (‘∀(A : string -> bool) B. A = B ⇒ ∀x. x ∈ A ⇒ x ∈ B’ by gvs []
+     >- (‘∀(A :mlstring -> bool) B. A = B ⇒ ∀x. x ∈ A ⇒ x ∈ B’ by gvs []
          \\ pop_assum $ dxrule_then assume_tac
          \\ gvs [freevars_def, boundvars_def]
          \\ strip_tac \\ first_x_assum $ dxrule_then assume_tac

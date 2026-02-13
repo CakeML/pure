@@ -3,7 +3,7 @@
  *)
 Theory thunk_exp_of
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   finite_map pred_set rich_list combin
   thunkLang thunk_cexp
 Libs
@@ -18,8 +18,8 @@ Definition lets_for_def:
         lets_for l cn v ws b
 End
 
-Overload True[local] = “Prim (Cons "True") []”;
-Overload False[local] = “Prim (Cons "False") []”;
+Overload True[local] = “Prim (Cons «True») [] :thunkLang$exp”;
+Overload False[local] = “Prim (Cons «False») [] :thunkLang$exp”;
 
 Definition Disj_def:
   Disj v [] = False ∧
@@ -37,23 +37,23 @@ Definition rows_of_def:
 End
 
 Definition op_of_def[simp]:
-  op_of (Cons m) = Cons (explode m) ∧
+  op_of (Cons m) = Cons m :pure_exp$op ∧
   op_of (AtomOp a) = AtomOp a
 End
 
 Definition exp_of_def[simp]:
-  exp_of (Var n)         = Var (explode n):thunkLang$exp ∧
+  exp_of (Var n)         = Var n:thunkLang$exp ∧
   exp_of (Prim p xs)     = Prim (op_of p) (MAP exp_of xs) ∧
   exp_of (Monad mop xs)  = Monad mop (MAP exp_of xs) ∧
-  exp_of (Let w x y)     = Let (OPTION_MAP explode w) (exp_of x) (exp_of y) ∧
+  exp_of (Let w x y)     = Let w (exp_of x) (exp_of y) ∧
   exp_of (App f xs)      = Apps (exp_of f) (MAP exp_of xs) ∧
-  exp_of (Lam vs x)      = Lams (MAP explode vs) (exp_of x) ∧
-  exp_of (Letrec rs x)   = Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs) (exp_of x) ∧
+  exp_of (Lam vs x)      = Lams vs (exp_of x) ∧
+  exp_of (Letrec rs x)   = Letrec (MAP (λ(n,x). (n,exp_of x)) rs) (exp_of x) ∧
   exp_of (Case v rs d) =
       rows_of
-        (explode v)
-        (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)
-        (OPTION_MAP (λ(a,e). (MAP (explode ## I) a, exp_of e)) d) ∧
+        v
+        (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs)
+        (OPTION_MAP (λ(a,e). (a, exp_of e)) d) ∧
   exp_of (Force x)       = Force (exp_of x) ∧
   exp_of (Delay x)       = Delay (exp_of x)
 End
@@ -61,7 +61,7 @@ End
 Definition args_ok_def:
   args_ok (thunk_cexp$AtomOp aop) es =
     (num_atomop_args_ok aop (LENGTH es) ∧
-     (∀m. aop = Message m ⇒ m ≠ "") ∧
+     (∀m. aop = Message m ⇒ m ≠ «») ∧
      ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l)) ∧
   args_ok _ _ = T
 End
@@ -88,8 +88,8 @@ Definition cexp_wf_def:
     css ≠ [] ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
     ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
-    OPTION_ALL (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
-    (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns))
+    OPTION_ALL (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). cn ∉ monad_cns) a) eopt ∧
+    (∀cn. MEM cn (MAP FST css) ⇒ cn ∉ monad_cns))
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End

@@ -1,6 +1,6 @@
 Theory pure_inferenceProps
 Ancestors
-  pair arithmetic string option pred_set list rich_list alist
+  pair arithmetic mlstring option pred_set list rich_list alist
   finite_map sptree mlmap pure_misc pure_typing pure_typingProps
   pure_inference_common pure_unification pure_inference
 Libs
@@ -1349,10 +1349,9 @@ Proof
 QED
 
 Theorem MEM_reserved_cn_mlstrings[simp]:
-  MEM e reserved_cn_mlstrings ⇔ explode e ∈ reserved_cns
+  MEM e reserved_cn_mlstrings ⇔ e ∈ reserved_cns
 Proof
-  rw[reserved_cn_mlstrings_def, pure_configTheory.reserved_cns_def] >>
-  gvs[GSYM implodeEQ] >> simp[mlstringTheory.implode_def]
+  rw[reserved_cn_mlstrings_def, pure_configTheory.reserved_cns_def]
 QED
 
 (******************* Translator-friendly version ********************)

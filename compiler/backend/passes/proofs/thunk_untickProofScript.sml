@@ -4,7 +4,7 @@
  *)
 Theory thunk_untickProof
 Ancestors
-  string option sum pair list alist thunkLang_primitives
+  mlstring option sum pair list alist thunkLang_primitives
   pure_misc thunk_semantics thunk_semantics_delayed
   finite_map pred_set rich_list thunkLang thunkLangProps
 Libs
@@ -354,8 +354,8 @@ Proof
   Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw [] \\ gvs [v_rel_def, dest_anyThunk_def]
   \\ rename1 ‘LIST_REL _ f g’
   \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
-      (ALOOKUP (REVERSE f) s)
-      (ALOOKUP (REVERSE g) s)’
+      (ALOOKUP (REVERSE f) m)
+      (ALOOKUP (REVERSE g) m)’
     by (irule LIST_REL_OPTREL
         \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
   \\ gs [OPTREL_def]
@@ -1094,14 +1094,14 @@ Proof
       \\ ‘∀n. n < LENGTH xs ⇒ eval_to k (EL n ys) ≠ INL Diverge’
         by (rpt strip_tac
             \\ gvs [result_map_def, CaseEq "bool", MEM_MAP, Abbr ‘g’, MEM_EL]
-            \\ rename1 ‘eval_to k (EL m ys) = INL Type_error’
+            \\ rename1 ‘eval_to k (EL n' ys) = INL Type_error’
             \\ ntac 2 (pop_assum kall_tac)
             \\ last_x_assum $ drule_then assume_tac
             \\ first_x_assum
               (drule_then (drule_then (qx_choose_then ‘j’ assume_tac)))
             \\ gs [Abbr ‘f’]
             \\ first_x_assum (drule_then assume_tac) \\ gs []
-            \\ Cases_on ‘eval_to (j + k) (EL m xs)’ \\ gs [])
+            \\ Cases_on ‘eval_to (j + k) (EL n' xs)’ \\ gs [])
       \\ ‘∃j. ∀n. n < LENGTH xs ⇒
                   ($= +++ v_rel) (eval_to (j + k) (EL n xs))
                                  (eval_to k (EL n ys))’
@@ -1222,24 +1222,24 @@ Proof
       \\ IF_CASES_TAC \\ gs []
       \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ ‘∀n. n < LENGTH ys ⇒ eval_to (j + k) (EL n xs) ≠ INL Diverge’
-        by (qx_gen_tac ‘m’
+        by (qx_gen_tac ‘n'’
             \\ rpt strip_tac
             \\ first_x_assum (drule_then assume_tac) \\ gs []
-            \\ Cases_on ‘eval_to k (EL m ys)’ \\ gs [])
+            \\ Cases_on ‘eval_to k (EL n' ys)’ \\ gs [])
       \\ csimp []
       \\ ‘∀n. n < LENGTH ys ⇒ eval_to k (EL n ys) ≠ INL Type_error’
-        by (qx_gen_tac ‘m’
+        by (qx_gen_tac ‘n'’
             \\ rpt strip_tac
             \\ first_x_assum (drule_then assume_tac) \\ gs []
             \\ first_x_assum (drule_then assume_tac) \\ gs []
-            \\ Cases_on ‘eval_to (j + k) (EL m xs)’ \\ gs [])
+            \\ Cases_on ‘eval_to (j + k) (EL n' xs)’ \\ gs [])
       \\ csimp [EVERY2_MAP, LIST_REL_EL_EQN]
-      \\ qx_gen_tac ‘m’ \\ strip_tac
+      \\ qx_gen_tac ‘n'’ \\ strip_tac
       \\ first_x_assum (drule_then assume_tac) \\ gs []
       \\ first_x_assum (drule_then assume_tac) \\ gs []
       \\ first_x_assum (drule_then assume_tac) \\ gs []
-      \\ Cases_on ‘eval_to k (EL m ys)’
-      \\ Cases_on ‘eval_to (j + k) (EL m xs)’ \\ gs []
+      \\ Cases_on ‘eval_to k (EL n' ys)’
+      \\ Cases_on ‘eval_to (j + k) (EL n' xs)’ \\ gs []
       \\ rename1 ‘_ = INL err’ \\ Cases_on ‘err’ \\ gs [])
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
@@ -1544,8 +1544,8 @@ Proof
     \\ strip_tac \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
-             (ALOOKUP (REVERSE xs) s)
-             (ALOOKUP (REVERSE ys) s)’
+             (ALOOKUP (REVERSE xs) m)
+             (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]
@@ -1620,8 +1620,8 @@ Proof
     \\ strip_tac \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
-             (ALOOKUP (REVERSE xs) s)
-             (ALOOKUP (REVERSE ys) s)’
+             (ALOOKUP (REVERSE xs) m)
+             (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]

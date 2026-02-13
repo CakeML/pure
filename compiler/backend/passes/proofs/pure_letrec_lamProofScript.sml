@@ -11,7 +11,7 @@ Libs
   BasicProvers dep_rewrite
 
 Definition apps_ok_def:
-  apps_ok (apps : string |-> exp) ⇔
+  apps_ok (apps : mlstring |-> exp) ⇔
     (* each substition replaces a ‘Var n’ by ‘App (Var n) arg’ *)
     ∀n v. FLOOKUP apps n = SOME v ⇒ ∃arg. v = App (Var n) arg ∧ closed arg
 End
@@ -354,7 +354,7 @@ Proof
      (fs [AllCaseEqs()] \\ qexists_tac ‘ck’ \\ fs []
       \\ Cases_on ‘eval_wh_to k x1’ \\ fs [])
     \\ Cases_on ‘eval_wh_to k x1’ \\ gvs []
-    \\ rename [‘eval_wh_to (ck + k) g = wh_Closure _ e1’]
+    \\ rename [‘eval_wh_to (ck + k) g = wh_Closure s e1’]
     \\ ‘letrec_rel c (bind1 s x2 e) (bind1 s y e1)’ by (
       rw[bind1_def] >> unabbrev_all_tac >>
       irule letrec_rel_lam_subst >> simp[] >>

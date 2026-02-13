@@ -7,7 +7,7 @@
 *)
 Theory pure_obs_sem_equal
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map itree pure_exp
   pure_value pure_eval pure_eval_lemmas pure_exp_lemmas
   pure_exp_rel pure_semantics pure_congruence
@@ -58,7 +58,7 @@ Proof
   \\ qpat_x_assum ‘(x ≃ y) T’ mp_tac
   \\ simp [Once app_bisimilarity_iff] \\ strip_tac
   \\ Cases_on ‘eval_wh x’ \\ fs [res_REL_def]
-  \\ Cases_on ‘s = "Act"’
+  \\ Cases_on ‘m = «Act»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -70,7 +70,7 @@ Proof
     \\ Cases_on ‘eval_wh h’
     \\ Cases_on ‘eval_wh h'’ \\ fs [res_REL_def,get_atoms_def]
     \\ gvs [] \\ Cases_on ‘l’ \\ fs [res_REL_def])
-  \\ Cases_on ‘s = "Bind"’
+  \\ Cases_on ‘m = «Bind»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -78,7 +78,7 @@ Proof
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
     \\ strip_tac \\ rw [res_REL_def]
     \\ first_x_assum irule \\ fs [])
-  \\ Cases_on ‘s = "Handle"’
+  \\ Cases_on ‘m = «Handle»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -86,7 +86,7 @@ Proof
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
     \\ strip_tac \\ rw [res_REL_def]
     \\ first_x_assum irule \\ fs [])
-  \\ Cases_on ‘s = "Ret"’
+  \\ Cases_on ‘m = «Ret»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -140,7 +140,7 @@ Proof
     \\ fs [exp_eq_Lam, bind1_def, closed_def]
     \\ first_x_assum irule \\ simp []
     \\ metis_tac [exp_eq_refl, exp_eq_sym, exp_eq_trans, exp_eq_Tick_cong])
-  \\ Cases_on ‘s = "Raise"’
+  \\ Cases_on ‘m = «Raise»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -195,7 +195,7 @@ Proof
     \\ fs [exp_eq_Lam] \\ fs [bind1_def, closed_def]
     \\ first_x_assum irule \\ simp []
     \\ metis_tac [exp_eq_refl, exp_eq_sym, exp_eq_trans, exp_eq_Tick_cong])
-  \\ Cases_on ‘s = "Length"’
+  \\ Cases_on ‘m = «Length»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -214,12 +214,12 @@ Proof
     \\ gvs [GSYM NOT_LESS]
     \\ ‘LENGTH (EL n st) = LENGTH (EL n st')’ by fs [LIST_REL_EL_EQN]
     \\ gvs [] \\ qpat_abbrev_tac ‘i = Int _’
-    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons "Ret" [Lit i]’,‘xs’,
-                                         ‘Cons "Ret" [Lit i]’,‘ys’] mp_tac)
+    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons «Ret» [Lit i]’,‘xs’,
+                                         ‘Cons «Ret» [Lit i]’,‘ys’] mp_tac)
     \\ gvs [pure_evalTheory.eval_wh_Cons]
     \\ disch_then irule \\ fs []
     \\ irule reflexive_app_bisimilarity \\ fs [])
-  \\ Cases_on ‘s = "Update"’
+  \\ Cases_on ‘m = «Update»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -241,15 +241,15 @@ Proof
     \\ Cases_on ‘k=0’ \\ gvs [res_REL_def]
     \\ ‘LENGTH (EL n st) = LENGTH (EL n st')’ by fs [LIST_REL_EL_EQN] \\ gvs []
     \\ TOP_CASE_TAC \\ gvs [res_REL_def]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Raise" [Cons "Subscript" []]’,‘xs’,
-                                 ‘Cons "Raise" [Cons "Subscript" []]’,‘ys’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Raise» [Cons «Subscript» []]’,‘xs’,
+                                 ‘Cons «Raise» [Cons «Subscript» []]’,‘ys’,
                                  ‘st’,‘st'’] mp_tac)
     \\ TRY (impl_tac THEN1 (fs [] \\ irule reflexive_app_bisimilarity \\ fs []))
     \\ rw [] \\ gvs [pure_evalTheory.eval_wh_Cons]
     \\ rename [‘res_rel (_ (LUPDATE (LUPDATE y1 (Num i) (EL n st)) n st))
                         (_ (LUPDATE (LUPDATE y2 (Num i) (EL n st')) n st'))’]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Ret" [Cons "" []]’,‘xs’,
-                                 ‘Cons "Ret" [Cons "" []]’,‘ys’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Ret» [Cons «» []]’,‘xs’,
+                                 ‘Cons «Ret» [Cons «» []]’,‘ys’,
                                  ‘(LUPDATE (LUPDATE y1 (Num i) (EL n st)) n st)’,
                                  ‘(LUPDATE (LUPDATE y2 (Num i) (EL n st')) n st')’] mp_tac)
     \\ reverse impl_tac THEN1 fs [pure_evalTheory.eval_wh_Cons]
@@ -257,7 +257,7 @@ Proof
     \\ irule EVERY2_LUPDATE_same \\ gvs []
     \\ irule EVERY2_LUPDATE_same \\ gvs []
     \\ fs [LIST_REL_EL_EQN])
-  \\ Cases_on ‘s = "Deref"’
+  \\ Cases_on ‘m = «Deref»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -278,20 +278,20 @@ Proof
     \\ Cases_on ‘k=0’ \\ gvs [res_REL_def]
     \\ ‘LENGTH (EL n st) = LENGTH (EL n st')’ by fs [LIST_REL_EL_EQN] \\ gvs []
     \\ TOP_CASE_TAC \\ gvs [res_REL_def]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Raise" [Cons "Subscript" []]’,‘xs’,
-                                 ‘Cons "Raise" [Cons "Subscript" []]’,‘ys’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Raise» [Cons «Subscript» []]’,‘xs’,
+                                 ‘Cons «Raise» [Cons «Subscript» []]’,‘ys’,
                                  ‘st’,‘st'’] mp_tac)
     \\ TRY (impl_tac THEN1 (fs [] \\ irule reflexive_app_bisimilarity \\ fs []))
     \\ rw [] \\ gvs [pure_evalTheory.eval_wh_Cons]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Ret" [EL (Num i) (EL n st)]’,‘xs’,
-                                 ‘Cons "Ret" [EL (Num i) (EL n st')]’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Ret» [EL (Num i) (EL n st)]’,‘xs’,
+                                 ‘Cons «Ret» [EL (Num i) (EL n st')]’,
                                  ‘ys’,‘st’,‘st'’] mp_tac)
     \\ reverse impl_tac THEN1 fs [pure_evalTheory.eval_wh_Cons]
     \\ rw [] \\ fs [app_bisimilarity_eq]
     \\ ‘Num i < LENGTH (EL n st')’ by intLib.COOPER_TAC
     \\ fs [LIST_REL_EL_EQN]
     \\ irule exp_eq_Prim_cong \\ gvs [])
-  \\ Cases_on ‘s = "Alloc"’
+  \\ Cases_on ‘m = «Alloc»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -307,8 +307,8 @@ Proof
     \\ gvs [] \\ Cases_on ‘l’ \\ fs [res_REL_def]
     \\ IF_CASES_TAC \\ fs [res_REL_def]
     \\ gvs [] \\ qpat_abbrev_tac ‘n = if i < 0 then _ else _’
-    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons "Ret" [Lit (Loc (LENGTH st'))]’,‘xs’,
-                                         ‘Cons "Ret" [Lit (Loc (LENGTH st'))]’,‘ys’] mp_tac)
+    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons «Ret» [Lit (Loc (LENGTH st'))]’,‘xs’,
+                                         ‘Cons «Ret» [Lit (Loc (LENGTH st'))]’,‘ys’] mp_tac)
     \\ gvs [pure_evalTheory.eval_wh_Cons]
     \\ disch_then irule \\ fs []
     \\ fs [LIST_REL_EL_EQN,EL_REPLICATE]
@@ -342,7 +342,7 @@ Proof
    (strip_tac \\ fs []
     \\ Cases_on ‘path’ \\ fs [itree_el_def]
     \\ CASE_TAC \\ gvs[] \\ CASE_TAC \\ gvs[] \\ rename1 `Str h`
-    \\ ‘wh_Constructor "Ret" [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
+    \\ ‘wh_Constructor «Ret» [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
     \\ fs [] \\ first_x_assum irule \\ fs []
     \\ match_mp_tac reflexive_app_bisimilarity \\ fs [])
   \\ qsuff_tac ‘res_rel (next_action (eval_wh x) xs st) (next_action (eval_wh y) ys st')’
@@ -377,7 +377,7 @@ QED
 
 Theorem safe_itree_bind_pres:
   safe_itree (semantics e cs st) ∧
-  eval_wh e = wh_Constructor "Bind" [e1; e2] ⇒
+  eval_wh e = wh_Constructor «Bind» [e1; e2] ⇒
   safe_itree (semantics e1 (BC e2 cs) st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
@@ -404,7 +404,7 @@ QED
 
 Theorem safe_itree_handle_pres:
   safe_itree (semantics e cs st) ∧
-  eval_wh e = wh_Constructor "Handle" [e1; e2] ⇒
+  eval_wh e = wh_Constructor «Handle» [e1; e2] ⇒
   safe_itree (semantics e1 (HC e2 cs) st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
@@ -431,7 +431,7 @@ QED
 
 Theorem safe_itree_ret_pres:
   safe_itree (semantics e (HC c cs) st) ∧
-  eval_wh e = wh_Constructor "Ret" [e1] ⇒
+  eval_wh e = wh_Constructor «Ret» [e1] ⇒
   safe_itree (semantics e cs st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
@@ -458,7 +458,7 @@ QED
 
 Theorem safe_itree_ret_call_pres:
   safe_itree (semantics x (BC h1 c) st) ∧
-  eval_wh x = wh_Constructor "Ret" [x'] ∧
+  eval_wh x = wh_Constructor «Ret» [x'] ∧
   eval_wh h1 = wh_Closure s1 e1
   ⇒
   safe_itree (semantics (bind1 s1 x' e1) c st)
@@ -484,7 +484,7 @@ QED
 
 Theorem safe_itree_raise_pres:
   safe_itree (semantics x (BC e c) st) ∧
-  eval_wh x = wh_Constructor "Raise" [x']
+  eval_wh x = wh_Constructor «Raise» [x']
   ⇒
   safe_itree (semantics x c st)
 Proof
@@ -509,7 +509,7 @@ QED
 
 Theorem safe_itree_raise_call_pres:
   safe_itree (semantics x (HC h1 c) st) ∧
-  eval_wh x = wh_Constructor "Raise" [x'] ∧
+  eval_wh x = wh_Constructor «Raise» [x'] ∧
   eval_wh h1 = wh_Closure s1 e1
   ⇒
   safe_itree (semantics (bind1 s1 x' e1) c st)
@@ -535,7 +535,7 @@ QED
 
 Theorem safe_itree_length_pres:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Length" [e] ∧
+  eval_wh x = wh_Constructor «Length» [e] ∧
   eval_wh e = wh_Atom (Loc n)
   ⇒
   safe_itree (semantics (Ret (Lit (Int (&LENGTH (EL n st))))) xs st)
@@ -566,14 +566,14 @@ QED
 
 Theorem safe_itree_update_ret_pres:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Update" [e1; e2; x''] ∧
+  eval_wh x = wh_Constructor «Update» [e1; e2; x''] ∧
   eval_wh e1 = wh_Atom (Loc n) ∧
   eval_wh e2 = wh_Atom (Int i) ∧
   ¬(LENGTH st ≤ n) ∧
   0 ≤ i ∧
   i < &LENGTH (EL n st)
   ⇒
-  safe_itree (semantics (Ret (Cons "" [])) xs (LUPDATE (LUPDATE x'' (Num i) (EL n st)) n st))
+  safe_itree (semantics (Ret (Cons «» [])) xs (LUPDATE (LUPDATE x'' (Num i) (EL n st)) n st))
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
   rw[] >> gvs[] >>
@@ -600,13 +600,13 @@ QED
 
 Theorem safe_itree_update_raise_pres:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Update" [e1; e2; x''] ∧
+  eval_wh x = wh_Constructor «Update» [e1; e2; x''] ∧
   eval_wh e1 = wh_Atom (Loc n) ∧
   eval_wh e2 = wh_Atom (Int i) ∧
   ¬(LENGTH st ≤ n) ∧
   ¬(0 ≤ i)
   ⇒
-  safe_itree (semantics (Raise (Cons "Subscript" [])) xs st)
+  safe_itree (semantics (Raise (Cons «Subscript» [])) xs st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
   rw[] >> gvs[] >>
@@ -633,13 +633,13 @@ QED
 
 Theorem safe_itree_update_raise_pres2:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Update" [e1; e2; x''] ∧
+  eval_wh x = wh_Constructor «Update» [e1; e2; x''] ∧
   eval_wh e1 = wh_Atom (Loc n) ∧
   eval_wh e2 = wh_Atom (Int i) ∧
   ¬(LENGTH st ≤ n) ∧
   ¬(i < &LENGTH (EL n st))
   ⇒
-  safe_itree (semantics (Raise (Cons "Subscript" [])) xs st)
+  safe_itree (semantics (Raise (Cons «Subscript» [])) xs st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
   rw[] >> gvs[] >>
@@ -666,7 +666,7 @@ QED
 
 Theorem safe_itree_deref_ret_pres:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Deref" [e2; e1] ∧
+  eval_wh x = wh_Constructor «Deref» [e2; e1] ∧
   eval_wh e2 = wh_Atom (Loc n) ∧
   eval_wh e1 = wh_Atom (Int i) ∧
   ¬(LENGTH st ≤ n) ∧
@@ -700,13 +700,13 @@ QED
 
 Theorem safe_itree_deref_raise_pres:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Deref" [e2; e1] ∧
+  eval_wh x = wh_Constructor «Deref» [e2; e1] ∧
   eval_wh e2 = wh_Atom (Loc n) ∧
   eval_wh e1 = wh_Atom (Int i) ∧
   ¬(LENGTH st ≤ n) ∧
   ¬(0 ≤ i)
   ⇒
-  safe_itree (semantics (Raise (Cons "Subscript" [])) xs st)
+  safe_itree (semantics (Raise (Cons «Subscript» [])) xs st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
   rw[] >> gvs[] >>
@@ -733,13 +733,13 @@ QED
 
 Theorem safe_itree_deref_raise_pres2:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Deref" [e2; e1] ∧
+  eval_wh x = wh_Constructor «Deref» [e2; e1] ∧
   eval_wh e2 = wh_Atom (Loc n) ∧
   eval_wh e1 = wh_Atom (Int i) ∧
   ¬(LENGTH st ≤ n) ∧
   ¬(i < &LENGTH (EL n st))
   ⇒
-  safe_itree (semantics (Raise (Cons "Subscript" [])) xs st)
+  safe_itree (semantics (Raise (Cons «Subscript» [])) xs st)
 Proof
   simp[SimpL“$==>”,semantics_def,Once interp_def,next_action_def] >>
   rw[] >> gvs[] >>
@@ -766,7 +766,7 @@ QED
 
 Theorem safe_itree_alloc_pres:
   safe_itree (semantics x xs st) ∧
-  eval_wh x = wh_Constructor "Alloc" [e; y''] ∧
+  eval_wh x = wh_Constructor «Alloc» [e; y''] ∧
   eval_wh e = wh_Atom (Int i)
   ⇒
   safe_itree
@@ -820,7 +820,7 @@ Proof
      qpat_x_assum ‘safe_itree (interp wh_Error _ _)’ mp_tac >>
      simp[Once interp_def,next_action_def] >>
      once_rewrite_tac[next_def] >> simp[case_someT])
-  \\ Cases_on ‘s = "Act"’
+  \\ Cases_on ‘m = «Act»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -839,7 +839,7 @@ Proof
     simp[next_action_def] >>
     once_rewrite_tac[next_def] >>
     simp[with_atom_def,with_atoms_def,case_someT])
-  \\ Cases_on ‘s = "Bind"’
+  \\ Cases_on ‘m = «Bind»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -850,7 +850,7 @@ Proof
     \\ gvs[]
     \\ imp_res_tac safe_itree_bind_pres
     \\ simp[])
-  \\ Cases_on ‘s = "Handle"’
+  \\ Cases_on ‘m = «Handle»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -861,7 +861,7 @@ Proof
     \\ imp_res_tac safe_itree_handle_pres
     \\ simp[]
     )
-  \\ Cases_on ‘s = "Ret"’
+  \\ Cases_on ‘m = «Ret»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -929,7 +929,7 @@ Proof
     \\ fs [exp_eq_Lam, bind1_def, closed_def]
     \\ first_x_assum irule \\ simp []
     \\ metis_tac [exp_eq_refl, exp_eq_sym, exp_eq_trans, exp_eq_Tick_cong])
-  \\ Cases_on ‘s = "Raise"’
+  \\ Cases_on ‘m = «Raise»’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -996,7 +996,7 @@ Proof
     \\ fs [exp_eq_Lam] \\ fs [bind1_def, closed_def]
     \\ first_x_assum irule \\ simp []
     \\ metis_tac [exp_eq_refl, exp_eq_sym, exp_eq_trans, exp_eq_Tick_cong])
-  \\ Cases_on ‘s = "Length"’
+  \\ Cases_on ‘m = «Length»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -1014,8 +1014,8 @@ Proof
     \\ gvs [GSYM NOT_LESS]
     \\ ‘LENGTH (EL n st) = LENGTH (EL n st')’ by fs [LIST_REL_EL_EQN]
     \\ gvs [] \\ qpat_abbrev_tac ‘i = Int _’
-    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons "Ret" [Lit i]’,‘xs’,
-                                         ‘Cons "Ret" [Lit i]’,‘ys’] mp_tac)
+    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons «Ret» [Lit i]’,‘xs’,
+                                         ‘Cons «Ret» [Lit i]’,‘ys’] mp_tac)
     \\ gvs [pure_evalTheory.eval_wh_Cons]
     \\ disch_then irule \\ fs []
     \\ conj_tac
@@ -1025,7 +1025,7 @@ Proof
     THEN1
      (unabbrev_all_tac >> imp_res_tac safe_itree_length_pres \\ gvs[])
     \\ irule reflexive_app_bisimilarity \\ fs [])
-  \\ Cases_on ‘s = "Update"’
+  \\ Cases_on ‘m = «Update»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -1047,8 +1047,8 @@ Proof
     \\ Cases_on ‘k=0’ \\ gvs [res_REL_def]
     \\ ‘LENGTH (EL n st) = LENGTH (EL n st')’ by fs [LIST_REL_EL_EQN] \\ gvs []
     \\ TOP_CASE_TAC \\ gvs [res_REL_def]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Raise" [Cons "Subscript" []]’,‘xs’,
-                                 ‘Cons "Raise" [Cons "Subscript" []]’,‘ys’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Raise» [Cons «Subscript» []]’,‘xs’,
+                                 ‘Cons «Raise» [Cons «Subscript» []]’,‘ys’,
                                  ‘st’,‘st'’] mp_tac)
     \\ TRY (impl_tac
             THEN1 ((* slow *)
@@ -1060,8 +1060,8 @@ Proof
     \\ rw [] \\ gvs [pure_evalTheory.eval_wh_Cons]
     \\ rename [‘res_REL _ _ (_ (LUPDATE (LUPDATE y1 (Num i) (EL n st)) n st))
                         (_ (LUPDATE (LUPDATE y2 (Num i) (EL n st')) n st'))’]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Ret" [Cons "" []]’,‘xs’,
-                                 ‘Cons "Ret" [Cons "" []]’,‘ys’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Ret» [Cons «» []]’,‘xs’,
+                                 ‘Cons «Ret» [Cons «» []]’,‘ys’,
                                  ‘(LUPDATE (LUPDATE y1 (Num i) (EL n st)) n st)’,
                                  ‘(LUPDATE (LUPDATE y2 (Num i) (EL n st')) n st')’] mp_tac)
     \\ reverse impl_tac THEN1 fs [pure_evalTheory.eval_wh_Cons]
@@ -1070,7 +1070,7 @@ Proof
     \\ irule EVERY2_LUPDATE_same \\ gvs []
     \\ irule EVERY2_LUPDATE_same \\ gvs []
     \\ fs [LIST_REL_EL_EQN])
-  \\ Cases_on ‘s = "Deref"’
+  \\ Cases_on ‘m = «Deref»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -1092,16 +1092,16 @@ Proof
     \\ ‘LENGTH (EL n st) = LENGTH (EL n st')’ by fs [LIST_REL_EL_EQN] \\ gvs []
     \\ TOP_CASE_TAC \\ gvs [res_REL_def]
                                 (* here *)
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Raise" [Cons "Subscript" []]’,‘xs’,
-                                 ‘Cons "Raise" [Cons "Subscript" []]’,‘ys’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Raise» [Cons «Subscript» []]’,‘xs’,
+                                 ‘Cons «Raise» [Cons «Subscript» []]’,‘ys’,
                                  ‘st’,‘st'’] mp_tac)
     \\ TRY (impl_tac THEN1 (fs [reflexive_app_bisimilarity] \\
                             imp_res_tac safe_itree_deref_raise_pres \\
                             imp_res_tac safe_itree_deref_raise_pres2 \\
                             fs[]))
     \\ rw [] \\ gvs [pure_evalTheory.eval_wh_Cons]
-    \\ first_assum (qspecl_then [‘k-1’,‘Cons "Ret" [EL (Num i) (EL n st)]’,‘xs’,
-                                 ‘Cons "Ret" [EL (Num i) (EL n st')]’,
+    \\ first_assum (qspecl_then [‘k-1’,‘Cons «Ret» [EL (Num i) (EL n st)]’,‘xs’,
+                                 ‘Cons «Ret» [EL (Num i) (EL n st')]’,
                                  ‘ys’,‘st’,‘st'’] mp_tac)
     \\ reverse impl_tac THEN1 fs [pure_evalTheory.eval_wh_Cons]
     \\ simp[]
@@ -1113,7 +1113,7 @@ Proof
     \\ strip_tac
     \\ conj_tac >- (gvs[app_bisimilarity_eq] >> match_mp_tac exp_eq_Prim_cong >> simp[])
     \\ imp_res_tac safe_itree_deref_ret_pres \\ gvs[])
-  \\ Cases_on ‘s = "Alloc"’
+  \\ Cases_on ‘m = «Alloc»’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
@@ -1129,8 +1129,8 @@ Proof
     \\ gvs [] \\ Cases_on ‘l’ \\ fs [res_REL_def]
     \\ IF_CASES_TAC \\ fs [res_REL_def]
     \\ gvs [] \\ qpat_abbrev_tac ‘n = if i < 0 then _ else _’
-    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons "Ret" [Lit (Loc (LENGTH st'))]’,‘xs’,
-                                         ‘Cons "Ret" [Lit (Loc (LENGTH st'))]’,‘ys’] mp_tac)
+    \\ first_x_assum (qspecl_then [‘k-1’,‘Cons «Ret» [Lit (Loc (LENGTH st'))]’,‘xs’,
+                                         ‘Cons «Ret» [Lit (Loc (LENGTH st'))]’,‘ys’] mp_tac)
     \\ gvs [pure_evalTheory.eval_wh_Cons]
     \\ disch_then irule \\ fs []
     \\ conj_tac >- (imp_res_tac safe_itree_alloc_pres >> fs[Abbr ‘n’] >> metis_tac[])
@@ -1168,7 +1168,7 @@ Proof
     \\ Cases_on ‘path’ \\ fs [itree_el_def]
     \\ CASE_TAC \\ gvs[] \\ CASE_TAC \\ gvs[]
     \\ rename1 `Str h`
-    \\ ‘wh_Constructor "Ret" [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
+    \\ ‘wh_Constructor «Ret» [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
     \\ fs [] \\ first_x_assum irule \\ fs []
     \\ simp[reflexive_app_bisimilarity]
     \\ qhdtm_x_assum ‘safe_itree’ (strip_assume_tac o ONCE_REWRITE_RULE[safe_itree_cases])

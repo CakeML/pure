@@ -3,7 +3,7 @@
  *)
 Theory env_to_state
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic pure_misc
   pure_config state_app_unit state_names
   pure_semantics[qualified]
@@ -127,7 +127,7 @@ Definition to_state_def:
     (let ys = MAP to_state xs in
        case dest_Message b of
        | SOME m => Let (SOME «v») (case ys of [] => Var «v» | (y::_) => y)
-                     (suspend $ App (FFI (implode m)) [Var «v»])
+                     (suspend $ App (FFI m) [Var «v»])
        | _ => App (AtomOp b) ys)
 Termination
   WF_REL_TAC ‘measure cexp_size’

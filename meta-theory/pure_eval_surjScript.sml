@@ -4,7 +4,7 @@
 *)
 Theory pure_eval_surj
 Ancestors
-  arithmetic list string alist option pair ltree llist bag
+  arithmetic list string mlstring alist option pair ltree llist bag
   cardinal pred_set rich_list combin finite_map pure_eval
   pure_exp pure_value pure_exp_lemmas pure_misc
 Libs
@@ -47,9 +47,13 @@ Proof
 QED
 
 Theorem string_countable:
-  COUNTABLE 𝕌(:string)
+  COUNTABLE 𝕌(:mlstring)
 Proof
-  metis_tac[list_countable,char_countable]
+  ‘COUNTABLE 𝕌(:string)’ by metis_tac[list_countable,char_countable]
+  \\ gvs [countable_def, INJ_DEF]
+  \\ qexists ‘f o explode’ \\ gvs [] \\ rw []
+  \\ gvs [oneline explode_thm]
+  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs []
 QED
 
 Theorem prod_countable:
@@ -94,13 +98,13 @@ Proof
   `𝕌(:atom_op) =
       {Add; Sub; Mul; Div; Mod; Eq; Lt; Leq; Gt; Geq;
        Len; Elem; Concat; Implode; Substring; StrEq; StrLt; StrLeq; StrGt; StrGeq} ∪
-      IMAGE Message 𝕌(:string) ∪
+      IMAGE Message 𝕌(:mlstring) ∪
       IMAGE Lit 𝕌(:lit)` by (
         rw[EXTENSION] >> Cases_on `x` >> gvs[]) >>
   pop_assum SUBST_ALL_TAC >> simp[] >>
-  `𝕌(:lit) = IMAGE Int 𝕌(:int) ∪ IMAGE Str 𝕌(:string)
+  `𝕌(:lit) = IMAGE Int 𝕌(:int) ∪ IMAGE Str 𝕌(:mlstring)
              ∪ IMAGE Loc 𝕌(:num)
-             ∪ IMAGE (λ(x,y). Msg x y) (𝕌(:string) × 𝕌(:string))` by (
+             ∪ IMAGE (λ(x,y). Msg x y) (𝕌(:mlstring) × 𝕌(:mlstring))` by (
       rw[EXTENSION,EXISTS_PROD] >> Cases_on `x` >> gvs[]) >>
   pop_assum SUBST_ALL_TAC >> simp[] >>
   simp[COUNTABLE_IMAGE, string_countable, int_countable] >>
@@ -114,9 +118,10 @@ Theorem op_countable:
   COUNTABLE 𝕌(:op)
 Proof
   rpt strip_tac >>
-  ‘𝕌(:op) = {If} ∪ IMAGE pure_exp$Cons 𝕌(:string)
-                 ∪ IMAGE (UNCURRY (UNCURRY pure_exp$IsEq)) 𝕌(:(string # num) # bool)
-                 ∪ IMAGE (UNCURRY pure_exp$Proj) 𝕌(:string # num)
+  ‘𝕌(:op) = {If} ∪ IMAGE pure_exp$Cons 𝕌(:mlstring)
+                 ∪ IMAGE (UNCURRY (UNCURRY pure_exp$IsEq))
+                         𝕌(:(mlstring # num) # bool)
+                 ∪ IMAGE (UNCURRY pure_exp$Proj) 𝕌(:mlstring # num)
                  ∪ IMAGE pure_exp$AtomOp 𝕌(:atom_op)
                  ∪ {pure_exp$Seq}’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
@@ -202,12 +207,12 @@ Proof
       Cases >> rw[exp_size_def]) >>
   rename1 ‘SUC n’ >>
   ‘{s:exp | exp_size s ≤ SUC n} ⊆
-   IMAGE Var {vname | list_size char_size vname ≤ n} ∪
+   IMAGE Var {vname | mlstring_size vname ≤ n} ∪
    IMAGE (UNCURRY Prim) {(op,arg) | op_size op ≤ n ∧ list_size exp_size arg ≤ n} ∪
    IMAGE (UNCURRY App) {(rator,rand) | exp_size rator ≤ n ∧ exp_size rand ≤ n} ∪
-   IMAGE (UNCURRY Lam) {(vname,exp) | list_size char_size vname ≤ n ∧ exp_size exp ≤ n} ∪
+   IMAGE (UNCURRY Lam) {(vname,exp) | mlstring_size vname ≤ n ∧ exp_size exp ≤ n} ∪
    IMAGE (UNCURRY Letrec) {(funs,exp) |
-    list_size (pair_size (list_size char_size) exp_size) funs ≤ n ∧ exp_size exp ≤ n}’
+    list_size (pair_size mlstring_size exp_size) funs ≤ n ∧ exp_size exp ≤ n}’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
        Cases >> rw[IN_IMAGE,PULL_EXISTS]) >>
   dxrule_then match_mp_tac COUNTABLE_SUBSET >>
@@ -251,9 +256,9 @@ Proof
       reverse conj_tac
       >- (‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
           gvs[]) >>
-      ‘COUNTABLE {l | EVERY (λ(s:string,exp). exp_size exp ≤ n) l}’
+      ‘COUNTABLE {l | EVERY (λ(s:mlstring,exp). exp_size exp ≤ n) l}’
         by(match_mp_tac list_countable_res >>
-           ‘{x | (λ(s:string,exp). exp_size exp ≤ n) x} =
+           ‘{x | (λ(s:mlstring,exp). exp_size exp ≤ n) x} =
             {(s,exp) | s = s ∧ (s' = s' ∧ exp_size exp ≤ n)}’
              by(rw[ELIM_UNCURRY]) >>
            pop_assum SUBST_ALL_TAC >>
@@ -587,9 +592,11 @@ Theorem cons_names_v_exists_INFINITE:
 Proof
   rw[infinite_num_inj, INJ_DEF] >>
   qexists_tac
-    `gen_v (λpath. (Constructor' (REPLICATE (LENGTH path) #"a"), 1))` >>
-  qexists_tac `λn. REPLICATE n #"a"` >> reverse (rw[])
-  >- (drule REPLICATE_11 >> simp[]) >>
+    `gen_v (λpath.
+              (Constructor' (implode $ REPLICATE (LENGTH path) #"a"), 1))` >>
+  qexists_tac `λn. implode $ REPLICATE n #"a"` >> reverse (rw[])
+  >- (
+    gvs [implode_def] >> drule REPLICATE_11 >> simp[]) >>
   simp[cons_names_v_def, DISJ_EQ_IMP, PULL_EXISTS] >>
   rename1 `_ ⇒ false` >> rw[] >>
   CCONTR_TAC >> last_x_assum mp_tac >> simp[] >>
@@ -607,7 +614,7 @@ Definition cons_names_v_prefix_def[simp]:
 End
 
 Definition add_TF_def:
-  add_TF s = s ∪ {"True";"False"}
+  add_TF s = s ∪ {«True»;«False»}
 End
 
 Theorem cons_names_eval_wh_to:
@@ -624,38 +631,38 @@ Proof
     first_x_assum drule >> strip_tac >>
     gvs[add_TF_def] >>
     drule cons_names_bind >> simp[FLOOKUP_UPDATE] >>
-    strip_tac >> metis_tac[]
-    )
+    strip_tac >> metis_tac[])
   >- (
     first_x_assum drule >> strip_tac >>
     gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD, add_TF_def] >>
     drule cons_names_subst_funs >> strip_tac >> simp[] >>
     gvs[MEM_MAP] >> rename1 `MEM foo _` >> PairCases_on `foo` >> gvs[] >>
-    metis_tac[]
-    )
+    metis_tac[])
   THEN_LT Q.SELECT_GOALS_LT_THEN [`p = Proj _ _`]
   (
     Cases_on `∃c. p = Cons c` >> gvs[cons_names_wh_def, add_TF_def]
     >- metis_tac[] >>
     qsuff_tac
-      `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨ n = "True" ∨ n = "False"`
+      `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨
+       n = «True» ∨
+       n = «False»`
     >- (CASE_TAC >> gvs[]) >>
     Cases_on `p` >> gvs[MEM_MAP, PULL_EXISTS] >>
     EVERY_CASE_TAC >> gvs[cons_names_wh_def, LENGTH_EQ_NUM_compute, MEM_MAP] >>
     res_tac >> simp[] >>
     first_x_assum irule >> simp[cons_names_wh_def, MEM_MAP, PULL_EXISTS] >>
-    metis_tac[EL_MEM]
-  ) >>
+    metis_tac[EL_MEM]) >>
   (
     Cases_on `∃c. p = Cons c` >> gvs[cons_names_wh_def, add_TF_def]
     >- metis_tac[] >>
     qsuff_tac
-      `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨ n = "True" ∨ n = "False"`
+      `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨
+       n = «True» ∨
+       n = «False»`
     >- (CASE_TAC >> gvs[]) >>
     Cases_on `p` >> gvs[MEM_MAP, PULL_EXISTS] >>
     EVERY_CASE_TAC >> gvs[cons_names_wh_def, LENGTH_EQ_NUM_compute, MEM_MAP] >>
-    metis_tac[EL_MEM]
-  )
+    metis_tac[EL_MEM])
 QED
 
 Theorem cons_names_eval_wh:

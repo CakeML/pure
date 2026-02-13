@@ -12,7 +12,7 @@ Ancestors
 
 (* Arbitrary closed term - TODO replace with unit, if not already equal *)
 Definition cl_tm_def:
-  cl_tm = Cons "" []
+  cl_tm = Cons «» []
 End
 
 Definition make_apps_def:
@@ -24,7 +24,7 @@ End
 Definition lambdify_one_def:
   lambdify_one fns e =
     let apps = make_apps fns in
-    let fresh = fresh_var "x" (MAP FST fns ++ FLAT (MAP (freevars_l o SND) fns)) in
+    let fresh = fresh_var «x» (MAP FST fns ++ FLAT (MAP (freevars_l o SND) fns)) in
     let fns' = MAP (λ(v,f).
                 if v ∈ FDOM apps then (v, Lam fresh (subst apps f))
                 else (v,subst apps f)) fns in

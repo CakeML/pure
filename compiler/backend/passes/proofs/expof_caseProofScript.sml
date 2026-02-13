@@ -4,7 +4,7 @@
  *)
 Theory expof_caseProof
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   relation pure_misc pure_eval pure_exp pure_exp_rel
   pure_congruence pure_cexp pureLang pure_exp_lemmas
 Libs
@@ -12,7 +12,7 @@ Libs
 
 
 (* TODO move to pure_exp? *)
-Overload Unit = “Prim (Cons "") []”;
+Overload Unit = “Prim (Cons «») []”;
 
 Definition lets_for'_def:
   lets_for' m cn v [] b = b ∧
@@ -32,23 +32,23 @@ End
 
 Definition exp_of'_def:
   exp_of' (Var d n) =
-    Var (explode n) :exp ∧
+    Var n :exp ∧
   exp_of' (Prim d p xs) =
     Prim (op_of p) (MAP exp_of' xs) ∧
   exp_of' (Let d v x y) =
-    Let (explode v) (exp_of' x) (exp_of' y) ∧
+    Let v (exp_of' x) (exp_of' y) ∧
   exp_of' (App _ f xs) =
     Apps (exp_of' f) (MAP exp_of' xs) ∧
   exp_of' (Lam d vs x) =
-    Lams (MAP explode vs) (exp_of' x) ∧
+    Lams vs (exp_of' x) ∧
   exp_of' (Letrec d rs x) =
-    Letrec (MAP (λ(n,x). (explode n,exp_of' x)) rs) (exp_of' x) ∧
+    Letrec (MAP (λ(n,x). (n,exp_of' x)) rs) (exp_of' x) ∧
   exp_of' (Case d x v rs eopt) =
     (let caseexp =
-       Let (explode v) (exp_of' x)
-           (rows_of' (explode v)
+       Let v (exp_of' x)
+           (rows_of' v
               (case eopt of NONE => Fail | SOME (a,e) => IfDisj v a (exp_of' e))
-              (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
+              (MAP (λ(c,vs,x). (c,vs,exp_of' x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
      else

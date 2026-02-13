@@ -29,7 +29,7 @@ Definition main_function_def:
     | INR err_msg => err_msg
     | INL c =>
       case pure_compiler$compile c (explode s) of
-      | NONE => strlit "ERROR"
+      | NONE => «ERROR»
       | SOME s => implode s
 End
 

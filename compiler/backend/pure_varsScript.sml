@@ -47,7 +47,7 @@ Definition new_var_def:  (* might not be good for EVAL *)
   then
     case lookup ml s of
        | NONE => (s, insert ml s ())
-       | SOME _ => new_var ml (s ^ (strlit "'"))
+       | SOME _ => new_var ml (s ^ «'»)
   else (s, ml)
 Termination
   WF_REL_TAC ‘measure $ (λ(ml, s). CARD (FDOM (to_fmap ml) ∩ {s2 | strlen s ≤ strlen s2}))’ \\ rw []

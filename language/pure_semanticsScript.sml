@@ -1,7 +1,6 @@
-
 Theory pure_semantics
 Ancestors
-  arithmetic list string alist option pure_eval itree pure_config
+  arithmetic list mlstring alist option pure_eval itree pure_config
 Libs
   term_tactic
 
@@ -14,7 +13,7 @@ End
 Datatype:
   result = Termination
          | Error
-         | FinalFFI (string # string) final_ffi
+         | FinalFFI (mlstring # mlstring) final_ffi
 End
 
 Datatype:
@@ -65,79 +64,79 @@ Definition next_def:
   next (k:num) v stack (state:state) =
     case v of
     | wh_Constructor s es =>
-       (if s = "Ret" ∧ LENGTH es = 1 then
+       (if s = «Ret» ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
            | BC f fs => apply_closure f (HD es) (λw.
                           if k = 0 then Div
                           else next (k-1) w fs state)
            | HC f fs => if k = 0 then Div else next (k-1) v fs state)
-        else if s = "Raise" ∧ LENGTH es = 1 then
+        else if s = «Raise» ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
            | BC f fs => if k = 0 then Div else next (k-1) v fs state
            | HC f fs => apply_closure f (HD es) (λw.
                           if k = 0 then Div
                           else next (k-1) w fs state))
-        else if s = "Bind" ∧ LENGTH es = 2 then
+        else if s = «Bind» ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
              if k = 0 then Div else next (k-1) (eval_wh m) (BC f stack) state)
-        else if s = "Handle" ∧ LENGTH es = 2 then
+        else if s = «Handle» ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
              if k = 0 then Div else next (k-1) (eval_wh m) (HC f stack) state)
-        else if s = "Act" ∧ LENGTH es = 1 then
+        else if s = «Act» ∧ LENGTH es = 1 then
           (with_atom es (λa.
              case a of
              | Msg channel content => Act (channel, content) stack state
              | _ => Err))
-        else if s = "Alloc" ∧ LENGTH es = 2 then
+        else if s = «Alloc» ∧ LENGTH es = 2 then
           (with_atom [HD es] (λa.
              case a of
              | Int len =>
                  (let n = if len < 0 then 0 else Num len in
                   let new_state = state ++ [REPLICATE n (EL 1 es)] in
                     if k = 0 then Div
-                    else next (k-1) (wh_Constructor "Ret" [Lit (Loc (LENGTH state))])
+                    else next (k-1) (wh_Constructor «Ret» [Lit (Loc (LENGTH state))])
                            stack new_state)
              | _ => Err))
-        else if s = "Length" ∧ LENGTH es = 1 then
+        else if s = «Length» ∧ LENGTH es = 1 then
           (with_atom es (λa.
              case a of
              | Loc n =>
                  (if LENGTH state ≤ n then Err else
                   if k = 0 then Div
-                  else next (k-1) (wh_Constructor "Ret"
+                  else next (k-1) (wh_Constructor «Ret»
                                      [Lit (Int (& (LENGTH (EL n state))))])
                            stack state)
              | _ => Err))
-        else if s = "Deref" ∧ LENGTH es = 2 then
+        else if s = «Deref» ∧ LENGTH es = 2 then
           (with_atom2 es (λa a'.
              case (a, a') of
              | (Loc n, Int i) =>
                  (if LENGTH state ≤ n then Err else
                   if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                     if k = 0 then Div
-                    else next (k-1) (wh_Constructor "Ret" [EL (Num i) (EL n state)])
+                    else next (k-1) (wh_Constructor «Ret» [EL (Num i) (EL n state)])
                              stack state
                   else
                     if k = 0 then Div
-                    else next (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
+                    else next (k-1) (wh_Constructor «Raise» [Cons «Subscript» []])
                              stack state)
              | _ => Err))
-        else if s = "Update" ∧ LENGTH es = 3 then
+        else if s = «Update» ∧ LENGTH es = 3 then
           (with_atom2 [EL 0 es; EL 1 es] (λa a'.
              case (a, a') of
              | (Loc n, Int i) =>
                  (if LENGTH state ≤ n then Err else
                   if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                     if k = 0 then Div
-                    else next (k-1) (wh_Constructor "Ret" [Cons "" []])
+                    else next (k-1) (wh_Constructor «Ret» [Cons «» []])
                            stack (LUPDATE (LUPDATE (EL 2 es) (Num i) (EL n state)) n state)
                   else
                     if k = 0 then Div
-                    else next (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
+                    else next (k-1) (wh_Constructor «Raise» [Cons «Subscript» []])
                              stack state)
              | _ => Err))
         else Err)
@@ -161,9 +160,9 @@ Definition interp'_def:
         | Err => Ret' Error
         | Div => Div'
         | Act a new_stack new_state =>
-            Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)],
+            Vis' a (λy. (wh_Constructor «Ret» [Lit (Str y)],
                     new_stack, new_state)))
-      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+      ((λ_ ret. strlen ret ≤ max_FFI_return_size),
        FinalFFI,
        λs. FinalFFI s FFI_failure)
 End
@@ -182,8 +181,8 @@ Theorem interp_def:
         Vis a (λs. case s of
           | INL x => Ret $ FinalFFI a x
           | INR y =>
-              if STRLEN y ≤ max_FFI_return_size then
-                interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack new_state
+              if strlen y ≤ max_FFI_return_size then
+                interp (wh_Constructor «Ret» [Lit (Str y)]) new_stack new_state
               else Ret $ FinalFFI a FFI_failure)
 Proof
   fs [Once interp,interp'_def]
@@ -213,32 +212,32 @@ Proof
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [next_def]
   \\ Cases_on ‘x’ \\ fs [apply_closure_def]
-  \\ Cases_on ‘s = "Bind"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Handle"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Act"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Raise"’
+  \\ Cases_on ‘m = «Bind»’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘m = «Handle»’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘m = «Act»’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘m = «Raise»’
   THEN1
    (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
     \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
     \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
-  \\ Cases_on ‘s = "Ret"’
+  \\ Cases_on ‘m = «Ret»’
   THEN1
    (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
     \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
     \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
-  \\ Cases_on ‘s = "Alloc"’ THEN1
+  \\ Cases_on ‘m = «Alloc»’ THEN1
    (fs [] \\ rw [with_atom_def,with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ fs [])
-  \\ Cases_on ‘s = "Length"’ THEN1
+  \\ Cases_on ‘m = «Length»’ THEN1
    (fs [] \\ rw [with_atom_def,with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ fs [] \\ IF_CASES_TAC \\ fs [])
-  \\ Cases_on ‘s = "Deref"’ THEN1
+  \\ Cases_on ‘m = «Deref»’ THEN1
    (fs [] \\ rw [with_atom2_def,with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
@@ -249,7 +248,7 @@ Proof
     \\ fs [AllCaseEqs()]
     \\ first_x_assum irule \\ fs []
     \\ metis_tac [])
-  \\ Cases_on ‘s = "Update"’ THEN1
+  \\ Cases_on ‘m = «Update»’ THEN1
    (fs [] \\ rw [with_atom2_def,with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
@@ -273,15 +272,15 @@ QED
 
 (* descriptive lemmas *)
 
-Overload Ret = “λx. Cons "Ret" [x]”
-Overload Raise = “λx. Cons "Raise" [x]”
-Overload Act = “λx. Cons "Act" [x]”
-Overload Bind = “λx y. Cons "Bind" [x;y]”
-Overload Handle = “λx y. Cons "Handle" [x;y]”
-Overload Alloc = “λx y. Cons "Alloc" [x;y]”
-Overload Length = “λx. Cons "Length" [x]”
-Overload Deref = “λx y. Cons "Deref" [x;y]”
-Overload Update = “λx y z. Cons "Update" [x;y;z]”
+Overload Ret = “λx. Cons «Ret» [x]”
+Overload Raise = “λx. Cons «Raise» [x]”
+Overload Act = “λx. Cons «Act» [x]”
+Overload Bind = “λx y. Cons «Bind» [x;y]”
+Overload Handle = “λx y. Cons «Handle» [x;y]”
+Overload Alloc = “λx y. Cons «Alloc» [x;y]”
+Overload Length = “λx. Cons «Length» [x]”
+Overload Deref = “λx y. Cons «Deref» [x;y]”
+Overload Update = “λx y z. Cons «Update» [x;y;z]”
 
 Theorem semantics_Ret:
   semantics (Ret x) Done s = Ret Termination
@@ -374,7 +373,7 @@ Theorem semantics_Bind:
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
-  \\ qsuff_tac ‘next_action (wh_Constructor "Bind" [x; f]) fs s =
+  \\ qsuff_tac ‘next_action (wh_Constructor «Bind» [x; f]) fs s =
                 next_action (eval_wh x) (BC f fs) s’
   THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
@@ -391,7 +390,7 @@ Theorem semantics_Handle:
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
-  \\ qsuff_tac ‘next_action (wh_Constructor "Handle" [x; f]) fs s =
+  \\ qsuff_tac ‘next_action (wh_Constructor «Handle» [x; f]) fs s =
                 next_action (eval_wh x) (HC f fs) s’
   THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
@@ -408,7 +407,7 @@ Theorem semantics_Act:
     Vis (c,t) (λr. case r of
       | INL x => Ret $ FinalFFI (c,t) x
       | INR y =>
-          if STRLEN y ≤ max_FFI_return_size then
+          if strlen y ≤ max_FFI_return_size then
             semantics (Ret (Lit (Str y))) fs s
           else Ret $ FinalFFI (c,t) FFI_failure)
 Proof
@@ -480,7 +479,7 @@ Theorem semantics_Update:
   eval_wh x = wh_Atom (Loc n) ∧ n < LENGTH s ∧
   eval_wh y = wh_Atom (Int (& i)) ∧ i < LENGTH (EL n s) ⇒
   semantics (Update x y z) fs s =
-  semantics (Ret (Cons "" [])) fs (LUPDATE (LUPDATE z i (EL n s)) n s)
+  semantics (Ret (Cons «» [])) fs (LUPDATE (LUPDATE z i (EL n s)) n s)
 Proof
   strip_tac
   \\ fs [semantics_def,eval_wh_Cons]
@@ -499,8 +498,8 @@ CoInductive safe_itree:
   (safe_itree (Ret Termination)) ∧
   (safe_itree (Ret $ FinalFFI e f)) ∧
   (safe_itree Div) ∧
-  ((∀s:final_ffi + string. safe_itree (rest s))
-      ⇒ safe_itree (Vis (e:string # string) rest))
+  ((∀s:final_ffi + mlstring. safe_itree (rest s))
+      ⇒ safe_itree (Vis (e:mlstring # mlstring) rest))
 End
 
 (* definition of compiles_to *)

@@ -5,8 +5,8 @@ Theory pureLang
 Ancestors
   pair list pred_set combin pure_exp pure_cexp
 
-Overload True[local] = “Prim (Cons "True") []”;
-Overload False[local] = “Prim (Cons "False") []”;
+Overload True[local] = “Prim (Cons «True») []”;
+Overload False[local] = “Prim (Cons «False») []”;
 
 Definition Disj_def:
   Disj v [] = False ∧
@@ -33,17 +33,16 @@ Proof
 QED
 
 Definition patguards_def:
-  patguards [] = (Prim (Cons "True") [], []) ∧
+  patguards [] = (Prim (Cons «True») [], []) ∧
   patguards (ep::eps) =
   case ep of
   | (e, cepatVar v) => (I ## CONS (v,e)) (patguards eps)
   | (e, cepatUScore) => patguards eps
   | (e, cepatCons cnm ps) =>
       let
-        cnml = explode cnm ;
-        (gd, binds) = patguards (MAPi (λi p. (Proj cnml i e, p)) ps ++ eps) ;
+        (gd, binds) = patguards (MAPi (λi p. (Proj cnm i e, p)) ps ++ eps) ;
       in
-        (If (IsEq cnml (LENGTH ps) T e) gd (Prim (Cons "False") []),
+        (If (IsEq cnm (LENGTH ps) T e) gd (Prim (Cons «False») []),
          binds)
 Termination
   WF_REL_TAC ‘measure (list_size cepat_size o MAP SND)’ >>
@@ -56,40 +55,37 @@ Definition nested_rows_def[simp]:
   let (gd, binds) = patguards [(v,FST pe)]
   in
     If gd
-       (FOLDR (λ(u,e) A. Let (explode u) e A) (SND pe) binds)
+       (FOLDR (λ(u,e) A. Let u e A) (SND pe) binds)
        (nested_rows v pes)
 End
 
 Definition IfDisj_def:
-  IfDisj v a e =
-    If (Disj (explode v) (MAP (explode ## I) a)) e Fail
+  IfDisj v a e = If (Disj v a) e Fail
 End
 
 Definition exp_of_def:
-  exp_of (Var d n)       = Var (explode n):exp ∧
+  exp_of (Var d n)       = Var n :exp ∧
   exp_of (Prim d p xs)   = Prim (op_of p) (MAP exp_of xs) ∧
-  exp_of (Let d v x y)   = Let (explode v) (exp_of x) (exp_of y) ∧
+  exp_of (Let d v x y)   = Let v (exp_of x) (exp_of y) ∧
   exp_of (App _ f xs)    = Apps (exp_of f) (MAP exp_of xs) ∧
-  exp_of (Lam d vs x)    = Lams (MAP explode vs) (exp_of x) ∧
+  exp_of (Lam d vs x)    = Lams vs (exp_of x) ∧
   exp_of (Letrec d rs x) =
-    Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs) (exp_of x) ∧
+    Letrec (MAP (λ(n,x). (n,exp_of x)) rs) (exp_of x) ∧
   exp_of (Case d x v rs eopt) =
     (let
        k = (case eopt of
             | NONE => Fail
             | SOME (a,e) => IfDisj v a (exp_of e)) ;
        caseexp =
-       Let (explode v) (exp_of x)
-           (rows_of (explode v) k
-            (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs))
+       Let v (exp_of x)
+           (rows_of v k (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
      else
        caseexp) ∧
   exp_of (NestedCase d g gv p e pes) =
-  Let (explode gv) (exp_of g)
-      (nested_rows (Var (explode gv))
-       (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
+  Let gv (exp_of g)
+      (nested_rows (Var gv) (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ >> rw [] >>
   simp[] >>
@@ -99,12 +95,10 @@ Termination
 End
 
 Definition allvars_of_def[simp]:
-  allvars_of (pure_cexp$Var c v) =
-    {explode v} ∧
-  allvars_of (Lam c ns x) =
-    set (MAP explode ns) UNION allvars_of x ∧
+  allvars_of (pure_cexp$Var c v) = {v} ∧
+  allvars_of (Lam c ns x) = set ns UNION allvars_of x ∧
   allvars_of (Letrec c xs y) =
-    set (MAP (explode o FST) xs) UNION
+    set (MAP FST xs) UNION
     BIGUNION (set (MAP (allvars_of o SND) xs)) UNION
     allvars_of y ∧
   allvars_of (Prim c p xs) =
@@ -113,17 +107,17 @@ Definition allvars_of_def[simp]:
     allvars_of x UNION
     BIGUNION (set (MAP allvars_of ys)) ∧
   allvars_of (Let c n x y) =
-    {explode n} UNION allvars_of x UNION allvars_of y ∧
+    {n} UNION allvars_of x UNION allvars_of y ∧
   allvars_of (Case c x n ys eopt) =
-    {explode n} UNION
-    BIGUNION (set (MAP (set o MAP explode o FST o SND) ys)) UNION
+    {n} UNION
+    BIGUNION (set (MAP (set o FST o SND) ys)) UNION
     BIGUNION (set (MAP (allvars_of o SND o SND) ys)) UNION
     allvars_of x UNION
       (case eopt of
        | NONE => {}
        | SOME (a,e) => allvars_of e) ∧
   allvars_of (NestedCase c g gv p e pes) =
-    {explode gv} UNION
+    {gv} UNION
     BIGUNION (set (MAP (allvars_of o SND) pes)) UNION
     allvars_of e UNION allvars_of g
 Termination
@@ -143,7 +137,7 @@ Proof
 QED
 
 Theorem allvars_IfDisj:
-  allvars (IfDisj v a e) = if a = [] then allvars e else explode v INSERT allvars e
+  allvars (IfDisj v a e) = if a = [] then allvars e else v INSERT allvars e
 Proof
   simp[IfDisj_def] >> Induct_on `a` >> rw[Disj_def] >>
   PairCases_on `h` >> rw[Disj_def] >>
@@ -177,14 +171,14 @@ Proof
   recInduct allvars_of_ind >> rw[] >>
   gvs[exp_of_def, allvars_Lams, allvars_Apps] >>
   gvs[cexp_wf_def, MAP_MAP_o, o_DEF, UNCURRY, COND_RAND] >>
-  gvs[GSYM INSERT_SING_UNION, AC UNION_ASSOC UNION_COMM]
+  gvs[GSYM INSERT_SING_UNION, AC UNION_ASSOC UNION_COMM, SF ETA_ss]
   >- (ntac 4 AP_TERM_TAC >> rw[MAP_EQ_f] >> gvs[EVERY_MEM, MEM_MAP] >> metis_tac[])
   >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f] >> gvs[EVERY_MEM, MEM_MAP] >> metis_tac[])
   >- (ntac 3 AP_TERM_TAC >> rw[MAP_EQ_f] >> gvs[EVERY_MEM, MEM_MAP] >> metis_tac[])
   >- (rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]) >>
   qmatch_goalsub_abbrev_tac `_ INSERT allvars foo` >>
   qmatch_goalsub_abbrev_tac `_ INSERT _ ∪ bar` >>
-  qsuff_tac `allvars foo = explode n INSERT bar`
+  qsuff_tac `allvars foo = n INSERT bar`
   >- (rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]) >>
   unabbrev_all_tac >> simp[allvars_rows_of] >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>

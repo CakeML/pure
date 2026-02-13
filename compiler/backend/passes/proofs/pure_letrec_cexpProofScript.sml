@@ -59,8 +59,8 @@ QED
 
 Theorem letrec_recurse_FOLDR_Let[local]:
   (∀vnm e. MEM (vnm,e) binds ⇒ letrec_recurse f e = e) ⇒
-  letrec_recurse f (FOLDR (λ(u,e) A. Let (explode u) e A) body binds) =
-  FOLDR (λ(u,e) A. Let (explode u) e A) (letrec_recurse f body) binds
+  letrec_recurse f (FOLDR (λ(u,e) A. Let u e A) body binds) =
+  FOLDR (λ(u,e) A. Let u e A) (letrec_recurse f body) binds
 Proof
   Induct_on ‘binds’ >>
   simp[letrec_recurse_def, DISJ_IMP_THM, FORALL_AND_THM, FORALL_PROD] >>
@@ -104,7 +104,7 @@ QED
 Theorem letrec_recurse_exp_of:
   ∀f ce g.
   (∀c fns e. exp_of (f c fns e) =
-             g (MAP (λ(v,e). (explode v,exp_of e)) fns) (exp_of e))
+             g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
   ⇒ exp_of (letrec_recurse_cexp f ce) = letrec_recurse g (exp_of ce)
 Proof
   recInduct letrec_recurse_cexp_ind >>
@@ -128,9 +128,9 @@ Proof
         combinTheory.o_ABS_R, letrec_recurse_def] >>
    match_mp_tac (METIS_PROVE [] “x = x1 ∧ y = y1 ⇒ f x y = f x1 y1”) >>
    conj_tac >-
-    (every_case_tac >> fs [letrec_recurse_def,IfDisj_def] >>
-     rename [‘Disj _ xs’] >> Induct_on ‘xs’ >> fs [] >>
-     fs [Disj_def,letrec_recurse_def,FORALL_PROD]) >>
+    (every_case_tac >> gvs [letrec_recurse_def,IfDisj_def] >>
+     Induct_on ‘q’ >> gvs [] >>
+     fs [Disj_def,letrec_recurse_def,FORALL_PROD])>>
    rw[MAP_EQ_f] >> pairarg_tac >> gvs [] >> res_tac >> fs []) >>~-
   ([‘nested_rows’],
    qpat_x_assum ‘∀c fns e. exp_of (f c fns e) = _’
@@ -405,7 +405,7 @@ Theorem letrec_recurse_fvs_exp_of:
        fvs_ok (Letrec c fns e) ⇒
        fvs_ok (f c fns e) ∧
        exp_of (f c fns e) =
-       g (MAP (λ(v,e). (explode v,exp_of e)) fns) (exp_of e))
+       g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
     ⇒
     exp_of (letrec_recurse_fvs f ce) = letrec_recurse g (exp_of ce)
 Proof
@@ -558,7 +558,7 @@ QED
 Theorem exp_of_make_Letrecs_cexp[local]:
   ∀fns.
     exp_of (make_Letrecs_cexp fns e) =
-      make_Letrecs (MAP (MAP (λ(fn,e). (explode fn,exp_of e))) fns) (exp_of e)
+      make_Letrecs (MAP (MAP (λ(fn,e). (fn,exp_of e))) fns) (exp_of e)
 Proof
   Induct >> rw[make_Letrecs_def, make_Letrecs_cexp_def, exp_of_def]
 QED
@@ -752,10 +752,11 @@ Proof
   rw[] >> AP_THM_TAC >> AP_TERM_TAC >>
   rw[split_one_def, split_one_cexp_def] >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  ‘top_sort_any (MAP (λ(p1,p2). (explode p1, freevars_l (exp_of p2))) fns) =
-   top_sort_any (MAP (explode ## MAP explode) (MAP (I ## freevars_cexp_l) fns))’
+  ‘top_sort_any (MAP (λ(p1,p2). (p1, freevars_l (exp_of p2))) fns) =
+   top_sort_any (MAP (I ## freevars_cexp_l) fns)’
     by (irule top_sort_set_eq >>
-        simp[MAP_MAP_o, pairTheory.o_UNCURRY_R, combinTheory.o_ABS_R] >>
+        simp[MAP_MAP_o, pairTheory.o_UNCURRY_R, combinTheory.o_ABS_R,
+             FST_THM] >>
         simp[combinTheory.o_DEF, ELIM_UNCURRY] >>
         simp[LIST_REL_EL_EQN, GSYM freevars_cexp_equiv, EL_MAP, LIST_TO_SET_MAP,
              GSYM freevars_equiv, freevars_exp_of]) >>
@@ -777,6 +778,8 @@ Proof
   simp[] >>
   rw[MAP_EQ_f] >>
   rename [‘MEM component (top_sort_any _)’, ‘MEM e component’] >>
+  qspecl_then [‘e’, ‘fns’, ‘exp_of’, ‘I’] assume_tac
+    (GEN_ALL ALOOKUP_MAP_injected_keys) >> gvs [] >>
   ‘∃res. ALOOKUP fns e = SOME res’ suffices_by simp[PULL_EXISTS]>>
   ‘MEM e (FLAT (top_sort_any (MAP (I ## freevars_cexp_l) fns)))’
     by (simp[MEM_FLAT] >> metis_tac[]) >>

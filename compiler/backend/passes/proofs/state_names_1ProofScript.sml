@@ -4,7 +4,7 @@
  *)
 Theory state_names_1Proof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic pure_exp_lemmas pure_misc pure_config
   pure_semantics[qualified]
   stateLang
@@ -112,7 +112,7 @@ Inductive v_rel:
 
 [env_rel:]
   (∀s tenv senv.
-     (∀(n:string) tv.
+     (∀(n :mlstring) tv.
        ALOOKUP tenv n = SOME tv ∧ n IN s ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv) ⇒
      env_rel s tenv senv)
@@ -697,7 +697,7 @@ Proof
    (Cases_on ‘ss’ \\ Cases_on ‘ts’ \\ gvs [step,step_res_rel_cases])
   >~ [‘IfK’] >-
    (gvs [step]
-    \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
+    \\ Cases_on ‘v1 = Constructor «True» [] ∨ v1 = Constructor «False» []’ \\ gvs []
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
     \\ fs [step_res_rel_cases]

@@ -1,1 +1,2 @@
-INCLUDES = ../misc
+INCLUDES = ../misc \
+           $(CAKEMLDIR)/basis/pure

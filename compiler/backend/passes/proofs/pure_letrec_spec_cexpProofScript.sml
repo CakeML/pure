@@ -1,6 +1,6 @@
 Theory pure_letrec_spec_cexpProof
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map combin mlmap
   indexedLists pure_exp pure_value pure_eval pure_eval_lemmas
   pure_exp_lemmas pure_limit pure_exp_rel pure_misc
@@ -295,20 +295,20 @@ QED
 Theorem spec_one_thm:
   (∀f v vs (e:'a cexp) e1.
      spec_one f v vs e = SOME e1 ∧ f ≠ v ∧
-     explode f ∉ boundvars (exp_of e) ∧
-     explode v ∉ boundvars (exp_of e) ∧
+     f ∉ boundvars (exp_of e) ∧
+     v ∉ boundvars (exp_of e) ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
-     can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
+     can_spec_arg f bs v ts (exp_of e) (exp_of e1) ∧
      boundvars (exp_of e1) = boundvars (exp_of e) ∧
      freevars (exp_of e1) ⊆ freevars (exp_of e)) ∧
   (∀f v vs (e:'a cexp list) e1.
      spec_one_list f v vs e = SOME e1 ∧ f ≠ v ∧
      EVERY (λe.
-       explode f ∉ boundvars (exp_of e) ∧
-       explode v ∉ boundvars (exp_of e)) e ∧
+       f ∉ boundvars (exp_of e) ∧
+       v ∉ boundvars (exp_of e)) e ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      LIST_REL (λe e1.
-       can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1)) e e1 ∧
+       can_spec_arg f bs v ts (exp_of e) (exp_of e1)) e e1 ∧
      BIGUNION (set (MAP boundvars (MAP exp_of e1))) =
      BIGUNION (set (MAP boundvars (MAP exp_of e))) ∧
      BIGUNION (set (MAP freevars (MAP exp_of e1))) ⊆
@@ -316,13 +316,13 @@ Theorem spec_one_thm:
   (∀f v vs (e:(mlstring # 'a cexp) list) e1.
      spec_one_letrec f v vs e = SOME e1 ∧ f ≠ v ∧
      EVERY (λe.
-       explode f ∉ boundvars (exp_of (SND e)) ∧
-       explode v ∉ boundvars (exp_of (SND e))) e ∧
+       f ∉ boundvars (exp_of (SND e)) ∧
+       v ∉ boundvars (exp_of (SND e))) e ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
-     MAP (λ(p1,p2). explode p1) e = MAP (λ(p1,p2). explode p1) e1 ∧
-     LIST_REL (can_spec_arg (explode f) bs (explode v) ts)
-       (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e))
-       (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e1)) ∧
+     MAP FST e = MAP FST e1 ∧
+     LIST_REL (can_spec_arg f bs v ts)
+       (MAP SND (MAP (λ(n,x). (n,exp_of x)) e))
+       (MAP SND (MAP (λ(n,x). (n,exp_of x)) e1)) ∧
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) =
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e))) ∧
      BIGUNION (set (MAP freevars (MAP (exp_of o SND) e1))) ⊆
@@ -330,33 +330,33 @@ Theorem spec_one_thm:
   (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1 e4 e5 w.
      spec_one_case f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
      EVERY (λe.
-       explode f ∉ boundvars (exp_of (SND (SND e))) ∧
-       explode v ∉ boundvars (exp_of (SND (SND e)))) e ∧
+       f ∉ boundvars (exp_of (SND (SND e))) ∧
+       v ∉ boundvars (exp_of (SND (SND e)))) e ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ∧
      ~MEM f (FLAT (MAP (FST o SND) e)) ∧
      ~MEM v (FLAT (MAP (FST o SND) e)) ∧
-     can_spec_arg (explode f) bs (explode v) ts e4 e5 ⇒
+     can_spec_arg f bs v ts e4 e5 ⇒
      MAP FST e = MAP FST e1 ∧
      MAP (FST o SND) e = MAP (FST o SND) e1 ∧
-     can_spec_arg (explode f) bs (explode v) ts
-       (rows_of (explode w) e4
-                (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e))
-       (rows_of (explode w) e5
-                (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e1)) ∧
+     can_spec_arg f bs v ts
+       (rows_of w e4
+                (MAP (λ(c,vs,x'). (c,vs,exp_of x')) e))
+       (rows_of w e5
+                (MAP (λ(c,vs,x'). (c,vs,exp_of x')) e1)) ∧
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) =
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e))) ∧
      BIGUNION (set (MAP (λ(p1,p1',p2).
-        freevars (exp_of p2) DIFF set (MAP explode p1')) e1)) ⊆
+        freevars (exp_of p2) DIFF set p1') e1)) ⊆
      BIGUNION (set (MAP (λ(p1,p1',p2).
-        freevars (exp_of p2) DIFF set (MAP explode p1')) e))) ∧
+        freevars (exp_of p2) DIFF set p1') e))) ∧
   (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1 w.
      spec_one_opt f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
      (case e of
       | NONE => T
-      | (SOME (_,e)) => explode f ∉ boundvars (exp_of e) ∧
-                        explode v ∉ boundvars (exp_of e)) ∧
+      | (SOME (_,e)) => f ∉ boundvars (exp_of e) ∧
+                        v ∉ boundvars (exp_of e)) ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
-     can_spec_arg (explode f) bs (explode v) ts
+     can_spec_arg f bs v ts
           (case e of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e))
           (case e1 of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e)) ∧
      boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) =
@@ -416,7 +416,7 @@ Proof
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
     \\ impl_tac >- (gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD] \\ metis_tac [])
     \\ strip_tac \\ fs []
-    \\ fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD,FST_THM]
     \\ fs [MEM_MAP,FORALL_PROD]
     \\ fs [SUBSET_DEF]
     \\ metis_tac [])
@@ -446,7 +446,6 @@ Proof
     \\ fs [MEM_MAP,FORALL_PROD]
     \\ fs [SUBSET_DEF,EXTENSION]
     \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
-    \\ conj_tac >- metis_tac [map_eq_lemma]
     \\ rw [] \\ fs []
     \\ DISJ1_TAC
     \\ DISJ2_TAC
@@ -534,7 +533,7 @@ Theorem spec_one_vars:
      EVERY (λe1. letrecs_distinct (exp_of e1)) (MAP SND e1) =
      EVERY (λe. letrecs_distinct (exp_of e)) (MAP SND e) ∧
      (EVERY cexp_wf (MAP SND e) ⇒ EVERY cexp_wf (MAP SND e1)) ∧
-     MAP (λ(p1,p2). explode p1) e1 = MAP (λ(p1,p2). explode p1) e ∧
+     MAP FST e1 = MAP FST e ∧
      BIGUNION (set (MAP (cns_arities o SND) e1)) =
      BIGUNION (set (MAP (cns_arities o SND) e)) ∧
      LENGTH e1 = LENGTH e) ∧
@@ -546,9 +545,9 @@ Theorem spec_one_vars:
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) =
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e))) ∧
      BIGUNION (set (MAP (λ(p1,p1',p2).
-        freevars (exp_of p2) DIFF set (MAP explode p1')) e1)) ⊆
+        freevars (exp_of p2) DIFF set p1') e1)) ⊆
      BIGUNION (set (MAP (λ(p1,p1',p2).
-        freevars (exp_of p2) DIFF set (MAP explode p1')) e)) ∧
+        freevars (exp_of p2) DIFF set p1') e)) ∧
      EVERY NestedCase_free (MAP (SND o SND) e1) =
      EVERY NestedCase_free (MAP (SND o SND) e) ∧
      EVERY (λe1. letrecs_distinct (exp_of e1)) (MAP (SND o SND) e1) =
@@ -570,17 +569,17 @@ Theorem spec_one_vars:
      letrecs_distinct
        (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ∧
      (OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
-                           EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e ⇒
+                           EVERY (λ(cn,_). cn ∉ monad_cns) a) e ⇒
       OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
-                           EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e) ∧
+                           EVERY (λ(cn,_). cn ∉ monad_cns) a) e) ∧
      (∀xs x. ALL_DISTINCT (xs ++ option_CASE e1 x (λ(p1,p2). MAP FST p1)) =
              ALL_DISTINCT (xs ++ option_CASE e x (λ(p1,p2). MAP FST p1))) ∧
      (∀x y z. option_CASE e1 x (λ(p1,p2). set p1 ∪ y INSERT cns_arities p2) ∪ z =
               option_CASE e x (λ(p1,p2). set p1 ∪ y INSERT cns_arities p2) ∪ z) ∧
      (OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
-               EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e ⇒
+               EVERY (λ(cn,_). cn ∉ monad_cns) a) e ⇒
       OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
-               EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e1) ∧
+               EVERY (λ(cn,_). cn ∉ monad_cns) a) e1) ∧
      OPTION_ALL (NestedCase_free o SND) e1 =
      OPTION_ALL (NestedCase_free o SND) e)
 Proof
@@ -640,7 +639,7 @@ Proof
             pure_expTheory.letrecs_distinct_def]
     \\ rpt (pop_assum mp_tac)
     \\ rewrite_tac [EXTENSION,SUBSET_DEF]
-    \\ rpt strip_tac
+    \\ rpt strip_tac \\ gvs [FST_THM]
     \\ gvs [MEM_MAP,PULL_EXISTS,EXISTS_PROD,MAP_MAP_o,o_DEF,LAMBDA_PROD] \\ rw []
     \\ metis_tac [])
   >~ [‘rows_of’] >-
@@ -653,15 +652,7 @@ Proof
         \\ fs [SUBSET_DEF,EXTENSION]
         \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
         \\ metis_tac [map_eq_lemma])
-    \\ conj_tac
-    >- (fs [MEM_MAP,FORALL_PROD]
-        \\ fs [SUBSET_DEF,EXTENSION]
-        \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
-        \\ rw [] \\ fs []
-        \\ DISJ1_TAC
-        \\ DISJ2_TAC
-        \\ first_x_assum irule
-        \\ metis_tac [])
+    \\ rw []
     \\ gvs [pure_expTheory.letrecs_distinct_def,
             letrecs_distinct_rows_of,EVERY_MAP]
     \\ gvs [UNCURRY_lemma]
@@ -677,7 +668,7 @@ QED
 Theorem can_spec_arg_map[local]:
   ∀f vs v ws e1 e2.
     can_spec_arg f vs v ws e1 e2 ⇒
-    can_spec_arg f (MAP explode vs) v (MAP explode ws) e1 e2
+    can_spec_arg f vs v ws e1 e2
 Proof
   ho_match_mp_tac can_spec_arg_ind \\ fs [] \\ rw []
   \\ simp [Once can_spec_arg_cases] \\ gvs [SF ETA_ss]
@@ -701,16 +692,16 @@ QED
 Theorem specialise_each_thm:
   ∀p args f c args1 c1.
     specialise_each p args f c = (args1,c1) ∧
-    explode f ∉ boundvars (exp_of c) ∧
-    EVERY (λv. v ∉ boundvars (exp_of c)) (MAP explode args) ∧
-    ALL_DISTINCT p ∧ ALL_DISTINCT (MAP explode args) ∧
+    f ∉ boundvars (exp_of c) ∧
+    EVERY (λv. v ∉ boundvars (exp_of c)) args ∧
+    ALL_DISTINCT p ∧ ALL_DISTINCT args ∧
     set p ⊆ set args ∧ ~MEM f args
     ⇒
-    Letrec [(explode f,Lams (MAP explode args) (exp_of c))]
-      (Apps (Var (explode f)) (MAP Var (MAP explode args)))
+    Letrec [(f,Lams args (exp_of c))]
+      (Apps (Var f) (MAP Var args))
     ≅
-    Letrec [(explode f,Lams (MAP explode args1) (exp_of c1))]
-      (Apps (Var (explode f)) (MAP Var (MAP explode args1)))
+    Letrec [(f,Lams args1 (exp_of c1))]
+      (Apps (Var f) (MAP Var args1))
     ∧
     boundvars (exp_of c1) = boundvars (exp_of c) ∧
     freevars (exp_of c1) ⊆ freevars (exp_of c) ∧
@@ -927,12 +918,6 @@ Proof
   fs [EXTENSION,MEM_MAP,PULL_EXISTS] \\ Cases \\ fs [] \\ metis_tac []
 QED
 
-Theorem set_MAP_explode[local]:
-  ∀vs. BIGUNION (set (MAP (λx. {explode x}) vs)) = set (MAP explode vs)
-Proof
-  Induct \\ fs [] \\ rw [EXTENSION]
-QED
-
 Theorem set_map_empty:
   BIGUNION (set (MAP (λx. ∅) vs)) = ∅
 Proof
@@ -942,7 +927,7 @@ Proof
 QED
 
 Theorem set_sing_lemma:
-  ∀xs. BIGUNION (set (MAP (λx. {explode x}) xs)) = set (MAP explode xs)
+  ∀xs. BIGUNION (set (MAP (λx. {x}) xs)) = set xs
 Proof
   Induct \\ fs [] \\ gvs [EXTENSION]
 QED
@@ -981,7 +966,7 @@ QED
 
 Theorem specialise_allvars:
   specialise n r = SOME x ⇒
-  allvars (exp_of x) ⊆ allvars (exp_of r) ∪ { explode n }
+  allvars (exp_of x) ⊆ allvars (exp_of r) ∪ { n }
 Proof
   Cases_on ‘r’ \\ gvs [specialise_def]
   \\ rpt (pairarg_tac \\ gvs []) \\ rw []
@@ -993,7 +978,7 @@ Proof
   \\ drule drop_common_suffix_thm \\ strip_tac \\ gvs []
   \\ gvs [allvars_thm]
   \\ gvs [boundvars_Lams,MAP_MAP_o,o_DEF,exp_of_def,boundvars_Apps,
-          set_map_empty,set_MAP_explode]
+          set_map_empty]
   \\ imp_res_tac specialise_each_subset \\ fs []
   \\ gvs [EXTENSION,SUBSET_DEF,MEM_MAP,PULL_EXISTS]
   \\ metis_tac []
@@ -1011,12 +996,12 @@ Theorem specialise_thm:
   specialise f e = SOME out ∧
   barendregt (exp_of (Lam a [f] e))
   ⇒
-  Letrec [(explode f,exp_of e)] rest
+  Letrec [(f,exp_of e)] rest
   ≅
-  Let (explode f) (exp_of out) rest
+  Let f (exp_of out) rest
   ∧
-  explode f ∉ freevars (exp_of out) ∧
-  boundvars (exp_of out) ⊆ boundvars (exp_of e) ∪ {explode f} ∧
+  f ∉ freevars (exp_of out) ∧
+  boundvars (exp_of out) ⊆ boundvars (exp_of e) ∪ {f} ∧
   freevars (exp_of out) ⊆ freevars (exp_of e)
 Proof
   fs [exp_of_def,Lams_def]
@@ -1031,19 +1016,18 @@ Proof
   \\ gvs [Lams_append]
   \\ qabbrev_tac ‘c1 = SmartLam a ws2 c’
   \\ qabbrev_tac ‘guide = const_call_args f (MAP SOME ws1 ++ MAP SOME ws2) c’
-  \\ ‘Lams (MAP explode ws2) (exp_of c) = exp_of c1’ by fs [exp_of_def,Abbr‘c1’]
-  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps,barendregt_alt_def] \\ fs [MEM_MAP]
+  \\ ‘Lams ws2 (exp_of c) = exp_of c1’ by fs [exp_of_def,Abbr‘c1’]
+  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps,barendregt_alt_def]
+  \\ fs [MEM_MAP,SF ETA_ss]
   \\ irule_at Any exp_eq_trans
   \\ irule_at (Pos hd) Letrec_expand_1 \\ fs [MEM_MAP]
   \\ irule_at Any exp_eq_App_cong \\ fs [exp_eq_refl]
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def,SF ETA_ss]
   \\ gvs [MEM_MAP,exp_of_def]
   \\ drule drop_common_suffix_thm
   \\ strip_tac
   \\ pop_assum kall_tac
   \\ gvs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def]
-  \\ ‘∀xs. MAP (λx. pure_exp$Var (explode x)) xs = MAP Var (MAP explode xs)’ by
-       fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def] \\ fs []
   \\ irule_at Any exp_eq_trans
   \\ irule_at (Pos $ el 2) Letrec_contract_1
   \\ gvs [MEM_MAP,set_map_empty]
@@ -1092,7 +1076,7 @@ Proof
     \\ imp_res_tac specialise_each_subset \\ fs [SUBSET_DEF]
     \\ fs [MEM_MAP] \\ metis_tac [])
   \\ conj_tac >- fs [SUBSET_DEF]
-  \\ fs [Abbr‘c1’,exp_of_def,boundvars_Lams,set_MAP_explode]
+  \\ fs [Abbr‘c1’,exp_of_def,boundvars_Lams]
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ conj_tac >- fs [SUBSET_DEF]
   \\ conj_tac >- fs [SUBSET_DEF]

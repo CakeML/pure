@@ -1,6 +1,6 @@
 Theory pure_tcexp_typingProof
 Ancestors
-  pair arithmetic integer string option list rich_list alist
+  pair arithmetic integer mlstring option list rich_list alist
   finite_map pred_set pure_misc pure_config pure_exp
   pure_exp_lemmas pure_semantics pure_eval pure_tcexp
   pure_tcexp_lemmas typeclass_types typeclass_kindCheck
@@ -45,11 +45,11 @@ Proof
 QED
 
 Inductive type_wh:
-  (type_tcexp ns db st env (Prim (Cons $ implode s) ces) t ∧
+  (type_tcexp ns db st env (Prim (Cons s) ces) t ∧
    MAP exp_of ces = es ⇒
     type_wh ns db st env (wh_Constructor s es) t) ∧
 
-  (type_tcexp ns db st env (Lam [implode s] ce) t ∧
+  (type_tcexp ns db st env (Lam [s] ce) t ∧
    exp_of ce = e ⇒
     type_wh ns db st env (wh_Closure s e) t) ∧
 
@@ -71,11 +71,10 @@ QED
 
 Theorem type_wh_PrimTy_Bool_eq_wh_Constructor[local]:
   type_wh ns db st env wh (Atom $ PrimTy Bool) ⇒
-    wh = wh_Diverge ∨ wh = wh_Constructor "True" [] ∨
-    wh = wh_Constructor "False" []
+    wh = wh_Diverge ∨ wh = wh_Constructor «True» [] ∨
+    wh = wh_Constructor «False» []
 Proof
-  rw[type_wh_cases] >> gvs[Once type_tcexp_cases,
-    mlstringTheory.implode_def,cons_types_EQ_Atom,
+  rw[type_wh_cases] >> gvs[Once type_tcexp_cases, cons_types_EQ_Atom,
     tcons_to_type_def]
   >- (Cases_on `arg_tys` >> gvs[Functions_def])
   >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
@@ -139,10 +138,10 @@ QED
 
 Theorem type_wh_Tuple_eq_wh_Constructor[local]:
   type_wh ns db st env wh (cons_types (Tup n) ts) ⇒
-    wh = wh_Diverge ∨ ∃es. wh = wh_Constructor "" es
+    wh = wh_Diverge ∨ ∃es. wh = wh_Constructor «» es
 Proof
   rw[type_wh_cases] >>
-  gvs[Once type_tcexp_cases, exp_of_def, mlstringTheory.implode_def,
+  gvs[Once type_tcexp_cases, exp_of_def,
     Monad_cons_types,Array_cons_types,tcons_to_type_def,
     cons_types_EQ_Atom,cons_types_Atom_EQ] >>
   Cases_on `arg_tys` >>
@@ -175,8 +174,8 @@ Theorem eval_wh_to_lets_for:
   closed e ∧ vs ≠ [] ∧ ¬ MEM v vs ⇒
   ∃res.
     eval_wh_to k
-      (subst1 (explode v) e
-       (lets_for cn ar (explode v) (MAPi (λi v. (i,explode v)) vs) b)) =
+      (subst1 v e
+       (lets_for cn ar v (MAPi (λi v. (i,v)) vs) b)) =
     res ∧
     (res = wh_Diverge ∨
      k ≠ 0 ∧
@@ -184,8 +183,8 @@ Theorem eval_wh_to_lets_for:
       eval_wh_to (k - 1)
       (subst
         (FEMPTY |++
-         MAPi (λi v. (explode v, If (IsEq cn ar T e) (Proj cn i e) Bottom)) vs)
-        (subst1 (explode v) e b)))
+         MAPi (λi v. (v, If (IsEq cn ar T e) (Proj cn i e) Bottom)) vs)
+        (subst1 v e b)))
 Proof
   Induct using SNOC_INDUCT >> rw[SNOC_APPEND, lets_for_def, lets_for_APPEND] >>
   Cases_on `vs = []` >> gvs[]
@@ -198,9 +197,9 @@ Proof
   simp[lets_for_APPEND, indexedListsTheory.MAPi_APPEND, lets_for_def] >>
   pop_assum $ qspecl_then
     [`k`,`cn`,
-     ‘Let (explode x)
-      (If (IsEq cn ar T (Var $ explode v))
-       (Proj cn (LENGTH vs) (Var $ explode v)) Bottom) b’]
+     ‘Let x
+      (If (IsEq cn ar T (Var v))
+       (Proj cn (LENGTH vs) (Var v)) Bottom) b’]
     assume_tac >>
   gvs[] >>
   simp[subst_def, FLOOKUP_UPDATE, DOMSUB_FUPDATE_NEQ] >>
@@ -230,11 +229,11 @@ QED
 
 Theorem eval_wh_to_Case:
   ∀css c ce v k e es cname vs.
-  eval_wh_to k (exp_of e) = wh_Constructor (explode cname) es ∧
+  eval_wh_to k (exp_of e) = wh_Constructor cname es ∧
   closed (exp_of e) ∧
   ALOOKUP css cname = SOME (vs, ce) ∧
   ¬ MEM v vs ∧
-  explode cname ∉ monad_cns ∧
+  cname ∉ monad_cns ∧
   LENGTH vs = LENGTH es
   ⇒ ∃res.
       eval_wh_to k (exp_of (pure_tcexp$Case e v css eopt)) = res ∧
@@ -243,9 +242,9 @@ Theorem eval_wh_to_Case:
        res =
         eval_wh_to (k - 1)
           (subst (FEMPTY |++
-                  MAPi (λi v. (explode v,
+                  MAPi (λi v. (v,
                                exp_of (SafeProj cname (LENGTH es) i e))) vs)
-           (subst1 (explode v) (exp_of e) (exp_of ce))))
+           (subst1 v (exp_of e) (exp_of ce))))
 Proof
   Induct >> rw[exp_of_def, eval_wh_to_def, bind1_def] >>
   PairCases_on `h` >> gvs[] >>
@@ -263,7 +262,7 @@ Proof
       ) >>
     drule_all eval_wh_to_lets_for >>
     disch_then $
-      qspecl_then [`LENGTH es`,`k - 2`,`explode cname`,`exp_of ce`] mp_tac >>
+      qspecl_then [`LENGTH es`,`k - 2`,`cname`,`exp_of ce`] mp_tac >>
     gvs[] >>
     rw[] >> gvs[MAPi_MAP_o, combinTheory.o_ABS_R, combinTheory.C_ABS_L] >>
     gvs[combinTheory.o_DEF] >>
@@ -271,7 +270,7 @@ Proof
     drule eval_wh_inc >> disch_then $ irule o GSYM >> simp[]
     )
   >- (
-    `eval_wh_to (k - 1) (exp_of e) = wh_Constructor (explode cname) es` by (
+    `eval_wh_to (k - 1) (exp_of e) = wh_Constructor cname es` by (
       drule eval_wh_inc >> simp[]) >>
     last_x_assum drule >> simp[] >> disch_then drule >>
     gvs[exp_of_def, eval_wh_to_def, bind1_def] >>
@@ -281,9 +280,9 @@ Proof
 QED
 
 Definition Disj'_def:
-  Disj' ve [] = Cons "False" [] ∧
+  Disj' ve [] = Cons «False» [] ∧
   Disj' ve ((cn,l)::xs) =
-    If (IsEq cn l T ve) (Cons "True" []) (Disj' ve xs)
+    If (IsEq cn l T ve) (Cons «True» []) (Disj' ve xs)
 End
 
 Theorem subst1_Disj_Disj':
@@ -317,22 +316,22 @@ Theorem eval_wh_to_Case_catchall:
   ∀css k.
     eval_wh_to k (exp_of e) = wh_Constructor cname es ∧
     closed (exp_of e) ∧ cname ∉ monad_cns ∧
-    ALOOKUP css (implode cname) = NONE ⇒
+    ALOOKUP css cname = NONE ⇒
     ∃res.
       eval_wh_to k (exp_of (pure_tcexp$Case e v css eopt)) = res ∧
       (res = wh_Diverge ∨
        k ≠ 0 ∧
        res =
        eval_wh_to (k - 1)
-                  (subst1 (explode v) (exp_of e)
+                  (subst1 v (exp_of e)
                    (case eopt of | NONE => Fail | SOME (pats,cae) =>
-                    case ALOOKUP pats (implode cname) of
+                    case ALOOKUP pats cname of
                       | NONE => Fail | SOME ar =>
                         if ar = LENGTH es then exp_of cae else Fail)))
 Proof
   simp[exp_of_def, eval_wh_to_def, SF CONJ_ss, AllCaseEqs()] >>
   ‘∀E. closed (exp_of e) ⇒
-       bind1 (explode v) (exp_of e) E = subst1 (explode v) (exp_of e) E’
+       bind1 v (exp_of e) E = subst1 v (exp_of e) E’
     by simp[bind_def, FLOOKUP_DEF, AllCaseEqs()] >> simp[] >>
   Induct_on ‘css’ >>
   simp[rows_of_def, FORALL_PROD, AllCaseEqs(), subst_def, FLOOKUP_DEF] >>
@@ -345,33 +344,24 @@ Proof
       qspecl_then [`eval_wh_to k (exp_of e)`,`k`,`exp_of e`]
         mp_tac $ GEN_ALL $ GSYM eval_wh_to_IMP_eval_wh >> simp[]) >>
     drule_all eval_wh_to_Disj' >>
-    disch_then $ qspecl_then [`k - 2`,`MAP (explode ## I) x0`] assume_tac >> gvs[] >>
-    pop_assum mp_tac >> TOP_CASE_TAC >> reverse $ rw[]
-    >- (
-      qsuff_tac `ALOOKUP x0 (implode cname) = NONE` >- simp[eval_wh_to_def] >>
-      gvs[ALOOKUP_NONE, MEM_MAP, FORALL_PROD]
-      )
-    >- (
-      qsuff_tac `ALOOKUP x0 (implode cname) = SOME x` >> simp[] >>
+    disch_then $ qspecl_then [`k - 2`,`x0`] assume_tac >> gvs[] >>
+    pop_assum mp_tac >> TOP_CASE_TAC >> reverse $ rw[] >>
+    `ALOOKUP x0 cname = SOME (LENGTH es)` by (
       qpat_x_assum `ALOOKUP _ _ = _` mp_tac >> rpt $ pop_assum kall_tac >>
-      Induct_on `x0` >> rw[] >> PairCases_on `h` >> gvs[implodeEQ] >> rw[] >> gvs[]
-      ) >>
-    `ALOOKUP x0 (implode cname) = SOME (LENGTH es)` by (
-      qpat_x_assum `ALOOKUP _ _ = _` mp_tac >> rpt $ pop_assum kall_tac >>
-      Induct_on `x0` >> rw[] >> PairCases_on `h` >> gvs[implodeEQ] >> rw[] >> gvs[]) >>
+      Induct_on `x0` >> rw[] >> PairCases_on `h` >> gvs[] >> rw[] >> gvs[]) >>
     simp[] >> rw[DISJ_EQ_IMP] >>
     drule eval_wh_inc >> disch_then $ qspec_then `k - 1` mp_tac >> simp[]
     ) >>
   rename [
-    ‘eval_wh_to (k - 2) (IsEq (explode pnm) (LENGTH pargs) T (exp_of e))’] >>
+    ‘eval_wh_to (k - 2) (IsEq pnm (LENGTH pargs) T (exp_of e))’] >>
   Cases_on
-    ‘eval_wh_to (k - 2) (IsEq (explode pnm) (LENGTH pargs) T (exp_of e)) =
+    ‘eval_wh_to (k - 2) (IsEq pnm (LENGTH pargs) T (exp_of e)) =
      wh_Diverge’
   >- simp[] >>
   simp[eval_wh_to_def] >> Cases_on ‘k ≤ 2’ >> simp[] >>
   Cases_on ‘eval_wh_to (k - 3) (exp_of e) = wh_Diverge’ >> simp[] >>
   drule_then (qspec_then ‘k’ (assume_tac o SRULE[] o GSYM)) eval_wh_inc >>
-  simp[] >> gs[implodeEQ] >>
+  simp[] >> gs[] >>
   first_x_assum $ qspec_then ‘k - 1’ mp_tac >> simp[] >> impl_tac
   >- (qspecl_then [‘k - 1’, ‘exp_of e’, ‘k - 3’] mp_tac eval_wh_inc >> simp[])>>
   strip_tac >> simp[] >> simp[DECIDE “p ∨ q ⇔ ~p ⇒ q”] >> strip_tac >>
@@ -432,7 +422,7 @@ Theorem eval_wh_to_NestedCase:
      res = eval_wh_to (k - k')
       (subst
         (safe_proj_pat matched_pat g)
-        (subst1 (explode gv) (exp_of g) (exp_of ce))))
+        (subst1 gv (exp_of g) (exp_of ce))))
 Proof
   simp[exp_of_def,eval_wh_to_def,Excl"nested_rows_def"] >>
   IF_CASES_TAC >>
@@ -454,19 +444,6 @@ Proof
   simp[fmap_EXT, FUN_FMAP_DEF]
 QED
 
-Theorem FUN_FMAP_IMAGE:
-  FINITE A ⇒
-  FUN_FMAP f (IMAGE explode A) = FUN_FMAP (f o explode) A f_o implode
-Proof
-  strip_tac >>
-  ‘∀h. FINITE { x | mlstring$implode x ∈ FDOM h }’
-    by (‘∀h. { x | implode x ∈ FDOM h } = IMAGE explode (FDOM h)’
-          by simp[EXTENSION, GSYM implodeEQ] >>
-        simp[]) >>
-  simp[fmap_EXT, PULL_EXISTS, FUN_FMAP_DEF, FAPPLY_f_o] >>
-  simp[EXTENSION, GSYM implodeEQ]
-QED
-
 Theorem FUN_FMAP_DOM:
   FUN_FMAP (λx. g (f ' x)) (FDOM f) = g o_f f
 Proof
@@ -481,42 +458,6 @@ Proof
   simp[fmap_EXT] >> simp[FDOM_FUPDATE_LIST, FORALL_PROD]
 QED
 
-Theorem FDOM_f_o_implode:
-  { x | implode x ∈ FDOM fm } = IMAGE explode (FDOM fm) ∧
-  FDOM (fm f_o implode) = IMAGE explode (FDOM fm)
-Proof
-  conj_asm1_tac >- simp[EXTENSION, GSYM implodeEQ] >>
-  simp[FDOM_f_o]
-QED
-
-Theorem FUPDATE_f_o_implode:
-  (fm |+ (k,v)) f_o implode = (fm f_o implode) |+ (explode k, v)
-Proof
-  simp[FAPPLY_f_o, fmap_EXT, FAPPLY_FUPDATE_THM, FDOM_f_o_implode,
-       DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]
-QED
-
-Theorem FUPDATE_LIST_MAP_f_o:
-  ∀fm. (fm |++ MAP (λ(k,v). (k, f v)) kvs) f_o implode =
-       (fm f_o implode) |++ MAP (λ(k,v). (explode k, f v)) kvs
-Proof
-  Induct_on ‘kvs’  >>
-  simp[FUPDATE_LIST_THM] >>
-  simp[fmap_EXT, FDOM_FUPDATE_LIST, FORALL_PROD, MEM_MAP, PULL_EXISTS,
-       FDOM_f_o_implode, EXISTS_PROD, DISJ_IMP_THM, FORALL_AND_THM,
-       FUPDATE_f_o_implode]
-QED
-
-Theorem FUPDATE_LIST_f_o_implode:
-  ∀fm.
-    (fm |++ kvs) f_o implode =
-    (fm f_o implode) |++ (MAP (explode ## I) kvs)
-Proof
-  Induct_on ‘kvs’ >>
-  simp[FUPDATE_LIST_THM, FUPDATE_f_o_implode, combinTheory.o_DEF,
-       FORALL_PROD]
-QED
-
 Theorem LLOOKUP_MEM:
   LLOOKUP xs n = SOME x ⇒ MEM x xs
 Proof
@@ -524,13 +465,13 @@ Proof
 QED
 
 Theorem tcexp_prim_cons_not_monad_cns:
-  type_tcexp ns db st [] (Prim (Cons (implode s)) ces) t' ∧
+  type_tcexp ns db st [] (Prim (Cons s) ces) t' ∧
   tcexp_namespace_ok ns ∧
   tcexp_destruct_type_cons ns db t' cn tys ⇒
   s ∉ monad_cns
 Proof
   rpt strip_tac >>
-  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[mlstringTheory.implode_def] >>
+  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[] >>
   gvs[monad_cns_def] >>
   gvs[oneline tcexp_destruct_type_cons_def,AllCaseEqs(),
       tcexp_type_cons_def
@@ -540,7 +481,7 @@ Proof
   gvs[type_exception_def,tcexp_namespace_ok_def,reserved_cns_def] >>
   imp_res_tac ALOOKUP_MEM >>
   imp_res_tac LLOOKUP_MEM >>
-  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,mlstringTheory.implode_def,
+  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,
       FORALL_PROD,MEM_FLAT] >>
   metis_tac[]
 QED
@@ -561,7 +502,8 @@ Theorem tcexp_prim_cons_length_eq:
   LENGTH tys = LENGTH ces
 Proof
   rpt strip_tac >>
-  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[mlstringTheory.implode_def] >>
+  qhdtm_x_assum ‘type_tcexp’
+    $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[] >>
   gvs[oneline tcexp_destruct_type_cons_def,AllCaseEqs(),
       tcexp_type_cons_def
      ] >>
@@ -570,8 +512,7 @@ Proof
   gvs[type_exception_def,tcexp_namespace_ok_def(*,reserved_cns_def*)] >>
   imp_res_tac ALOOKUP_MEM >>
   imp_res_tac LLOOKUP_MEM >>
-  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,mlstringTheory.implode_def,
-      FORALL_PROD,MEM_FLAT] >>
+  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,FORALL_PROD,MEM_FLAT] >>
   imp_res_tac LIST_REL_LENGTH >>
   gvs[] >>
   gvs[cons_types_EQ_Atom]
@@ -614,7 +555,7 @@ Theorem type_wh_tcexp_get_cases_eq_wh_constructor:
   ∃cn es ces.
     wh = wh_Diverge ∨
     (wh = wh_Constructor cn es ∧
-      ALOOKUP constructors (implode cn) = SOME ces ∧
+      ALOOKUP constructors cn = SOME ces ∧
       LENGTH ces = LENGTH es)
 Proof
   rw[tcexp_get_cases_def]
@@ -651,14 +592,14 @@ Proof
     rw[tcons_to_type_def,cons_types_def] >>
     drule type_wh_PrimTy_Bool_eq_wh_Constructor >>
     rw[] >>
-    simp[mlstringTheory.implode_def]
+    simp[]
   )
   >- (
     drule tcons_to_type_split_ty_cons >>
     rw[tcons_to_type_def,cons_types_def] >>
     drule type_wh_Tuple_eq_wh_Constructor >>
     rw[] >>
-    simp[mlstringTheory.implode_def] >>
+    simp[] >>
     gvs[Once type_wh_cases] >>
     gvs[Once type_tcexp_cases] >>
     gvs[cons_types_Atom_EQ,LIST_REL_EL_EQN,Monad_cons_types,
@@ -670,7 +611,7 @@ Theorem tcexp_get_cases_NOTIN_monad_cns:
   tcexp_namespace_ok ns ∧
   tcexp_get_cases ns vt = SOME constructors ∧
   MEM cn (MAP FST constructors) ⇒
-  explode cn ∉ monad_cns
+  cn ∉ monad_cns
 Proof
   Cases_on `ns` >>
   rw[tcexp_get_cases_def]
@@ -738,7 +679,7 @@ Proof
           assume_tac $ GEN_ALL eval_op_type_safe >> gvs[] >>
         Cases_on `pt = Bool` >> gvs[]
         >- (IF_CASES_TAC >> simp[type_wh_cases] >>
-            simp[Once type_tcexp_cases, mlstringTheory.implode_def]) >>
+            simp[Once type_tcexp_cases]) >>
         simp[type_wh_cases] >> simp[Once type_tcexp_cases, get_PrimTys_def] >>
         simp[type_atom_op_cases]
         ) >>
@@ -768,8 +709,7 @@ Proof
         assume_tac $ GEN_ALL eval_op_type_safe >> gvs[] >>
       Cases_on `pt = Bool` >> gvs[]
       >- (IF_CASES_TAC >>
-          simp[type_wh_cases, Once type_tcexp_cases,
-               mlstringTheory.implode_def]) >>
+          simp[type_wh_cases, Once type_tcexp_cases]) >>
       simp[type_wh_cases] >>
       simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases]
       )
@@ -840,7 +780,7 @@ Proof
     pop_assum mp_tac >> simp[Once type_tcexp_cases] >> strip_tac >> gvs[] >>
     rename1 `ats ≠ []` >> Cases_on `ats` >> gvs[Functions_def] >>
     last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
-    disch_then $ qspec_then `subst_tc1 (implode x) h1 ce` mp_tac >>
+    disch_then $ qspec_then `subst_tc1 x h1 ce` mp_tac >>
     simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY, FUN_FMAP_SING] >>
     disch_then irule >> simp[] >>
     irule type_tcexp_closing_subst1 >> simp[] >>
@@ -849,7 +789,7 @@ Proof
   >- ( (* Lams *)
     imp_res_tac type_tcexp_tcexp_wf >> gvs[tcexp_wf_def] >>
     Cases_on `vs` >> gvs[Lams_def] >> simp[eval_wh_to_def] >>
-    simp[Once type_wh_cases] >> rename1 `Lams (MAP explode hs)` >>
+    simp[Once type_wh_cases] >> rename1 `Lams hs` >>
     Cases_on `hs` >> gvs[]
     >- (gvs[Lams_def] >> irule_at Any EQ_REFL >> simp[]) >>
     rename1 `v1::v2::vs` >>
@@ -908,11 +848,11 @@ Proof
       simp[bind_def, subst_funs_def] >>
       simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, exp_of_def] >>
       IF_CASES_TAC >> gvs[] >>
-      gvs[FUN_FMAP_IMAGE, combinTheory.o_DEF, FUN_FMAP_DOM, o_f_FUDLIST_MAP]
+      gvs[combinTheory.o_DEF, FUN_FMAP_DOM, o_f_FUDLIST_MAP]
       >- (qmatch_abbrev_tac ‘type_wh _ _ _ [] (eval_wh_to _ (subst fm1 tt)) uu ⇒
                              type_wh _ _ _ [] (eval_wh_to _ (subst fm2 tt)) uu’ >>
           ‘fm1 = fm2’suffices_by simp[] >>
-          simp[Abbr‘fm1’, Abbr‘fm2’, exp_of_def, FUPDATE_LIST_MAP_f_o]) >>
+          simp[Abbr‘fm1’, Abbr‘fm2’, exp_of_def]) >>
       rename1 `false` >>
       gvs[flookup_fupdate_list] >> every_case_tac >> gvs[] >>
       imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP] >> pairarg_tac >> gvs[] >>
@@ -963,7 +903,7 @@ Proof
     drule_all type_wh_tcexp_get_cases_eq_wh_constructor >>
     rw[] >> gvs[] >>
     drule_then drule tcexp_get_cases_NOTIN_monad_cns >>
-    `MEM (implode cn) $ MAP FST constructors`
+    `MEM cn $ MAP FST constructors`
     by (
       simp[MEM_MAP] >>
       drule_then (irule_at Any) ALOOKUP_MEM >>
@@ -974,10 +914,8 @@ Proof
       strip_assume_tac o SRULE[Once type_wh_cases] >>
     (drule_then $ drule_then assume_tac)
       tcexp_prim_cons_length_eq >>
-    `∃cn'. cn = explode cn'` by
-      metis_tac[mlstringTheory.explode_implode]>>
     gvs[] >>
-    Cases_on `ALOOKUP rs cn'`
+    Cases_on `ALOOKUP rs cn`
     >- (
       drule eval_wh_to_Case_catchall >>
       simp[closed_def,freevars_exp_of] >>
@@ -1005,7 +943,7 @@ Proof
       rw[] >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       ntac 2 $ disch_then drule >>
-      rename [`subst1 (explode v) (exp_of x) (exp_of us_e)`] >>
+      rename [`subst1 v (exp_of x) (exp_of us_e)`] >>
       disch_then $ qspec_then `subst_tc1 v x us_e` mp_tac >>
       simp[subst_exp_of, FUN_FMAP_SING] >> disch_then irule >> simp[] >>
       irule type_tcexp_closing_subst1 >> simp[] >>
@@ -1040,10 +978,8 @@ Proof
           (λi v. (v, SafeProj (cn') (LENGTH ces') i x))
           ce0))) ce1`
       mp_tac >>
-    simp[subst_exp_of, FUN_FMAP_IMAGE, exp_of_def,
-      combinTheory.o_DEF, FUN_FMAP_DOM, o_f_FUPDATE_LIST,
-      FUPDATE_LIST_f_o_implode, FUPDATE_LIST_THM,
-      FUPDATE_f_o_implode] >>
+    simp[subst_exp_of, exp_of_def, combinTheory.o_DEF, FUN_FMAP_DOM,
+         o_f_FUPDATE_LIST, FUPDATE_LIST_THM] >>
     imp_res_tac LIST_REL_LENGTH >> gvs[] >>
     disch_then irule >> simp[] >>
     simp[GSYM FUPDATE_LIST_THM] >>
@@ -1093,7 +1029,7 @@ Proof
         rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
         gvs[split_ty_cons_def,split_ty_cons_aux_def])
     >- (rw[] >> rw[type_wh_cases] >>
-        ‘eval_wh_to k (exp_of e) = wh_Closure s e'’
+        ‘eval_wh_to k (exp_of e) = wh_Closure m e'’
           by metis_tac[eval_wh_inc,wh_distinct,DECIDE “k-2 ≤ (k:num)”] >>
         first_x_assum drule >>
         rpt $ disch_then drule >>
@@ -1108,7 +1044,7 @@ Proof
         gvs[split_ty_cons_def,split_ty_cons_aux_def]
        ) >>
     simp[] >>
-    ‘eval_wh_to k (exp_of e) = wh_Constructor s l’
+    ‘eval_wh_to k (exp_of e) = wh_Constructor m l’
       by metis_tac[eval_wh_inc,wh_distinct,DECIDE “k-2 ≤ (k:num)”] >>
     first_x_assum drule >>
     rpt $ disch_then drule >>
@@ -1208,7 +1144,7 @@ Theorem type_wh_monad:
   ∃cn es. wh = wh_Constructor cn es ∧ cn ∈ monad_cns
 Proof
   rw[type_wh_cases] >>
-  gvs[Once type_tcexp_cases, monad_cns_def, implodeEQ,
+  gvs[Once type_tcexp_cases, monad_cns_def,
     Monad_cons_types,cons_types_Atom_EQ,cons_types_EQ_Atom,
     tcons_to_type_def] >>
   Cases_on `arg_tys` >>
@@ -1272,7 +1208,7 @@ End
 Inductive type_next_res:
   type_next_res ns db st Ret t ∧
   type_next_res ns db st Div t ∧
-  ((∀y. type_config ns db st (wh_Constructor "Ret" [Lit $ Str y], stack, state) t) ⇒
+  ((∀y. type_config ns db st (wh_Constructor «Ret» [Lit $ Str y], stack, state) t) ⇒
     type_next_res ns db st (pure_semantics$Act a stack state) t)
 End
 
@@ -1320,7 +1256,7 @@ Proof
   imp_res_tac type_wh_monad >> rgs[]
   >- (simp[next_def, type_next_res_cases] >> goal_assum drule) >>
   qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[type_wh_cases] >>
-  simp[Once type_tcexp_cases] >> strip_tac >> rgs[monad_cns_def, implodeEQ] >>
+  simp[Once type_tcexp_cases] >> strip_tac >> rgs[monad_cns_def] >>
   once_rewrite_tac[next_def] >> simp[]
   >- (
     TOP_CASE_TAC >> rgs [] \\ gvs []
@@ -1357,7 +1293,7 @@ Proof
       qpat_x_assum `config_type_ok _ _` mp_tac >> rw[Once config_type_ok_cases] >>
       goal_assum $ drule_at Any >>
       simp[type_wh_cases, PULL_EXISTS] >> irule_at Any EQ_REFL >>
-      simp[Once type_tcexp_cases, implodeEQ]
+      simp[Once type_tcexp_cases]
       )
     )
   >- (
@@ -1385,7 +1321,7 @@ Proof
       simp[type_wh_cases, PULL_EXISTS] >> irule_at Any EQ_REFL >>
       simp[Once type_tcexp_cases] >> gvs[type_exp_def] >>
       drule_at Any type_tcexp_type_ok >>
-      gvs[type_ok, mlstringTheory.implode_def] >>
+      gvs[type_ok] >>
       simp[kind_ok_cons_types,PULL_EXISTS,kind_ok]
       )
     >- (
@@ -1436,7 +1372,7 @@ Proof
     goal_assum $ drule_at Any >> simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (AtomOp $ Lit $ Str y) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    simp[Once type_tcexp_cases,mlstringTheory.implode_def] >>
+    simp[Once type_tcexp_cases] >>
     disj1_tac >>
     simp[Once type_tcexp_cases,get_PrimTys_def,
       type_atom_op_cases,type_lit_cases]
@@ -1465,8 +1401,7 @@ Proof
       irule_at Any EQ_REFL >> drule type_tcexp_weaken >>
       disch_then $ qspecl_then [`[]`,`[t']`,`[]`] mp_tac >> simp[]
       ) >>
-    simp[type_wh_cases, Once type_tcexp_cases, PULL_EXISTS,
-         mlstringTheory.implode_def] >>
+    simp[type_wh_cases, Once type_tcexp_cases, PULL_EXISTS] >>
     qexists_tac `Prim (AtomOp $ Lit $ Loc $ LENGTH state) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
     simp[Once type_tcexp_cases, oEL_THM, EL_APPEND_EQN] >>
@@ -1490,8 +1425,7 @@ Proof
     qmatch_goalsub_abbrev_tac `Lit a` >>
     qexists_tac `Prim (AtomOp $ Lit a) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    simp[Once type_tcexp_cases,type_atom_op_cases,
-      mlstringTheory.implode_def] >>
+    simp[Once type_tcexp_cases,type_atom_op_cases] >>
     unabbrev_all_tac >>
     simp[Once type_tcexp_cases,get_PrimTys_def,
       type_atom_op_cases,type_lit_cases]
@@ -1524,15 +1458,15 @@ Proof
       >- (Cases_on `i` >> gvs[]) >>
       strip_tac >> gvs[] >>
       goal_assum $ drule o GSYM >>
-      simp[Once type_tcexp_cases, mlstringTheory.implode_def]
+      simp[Once type_tcexp_cases]
       ) >>
     first_x_assum irule >> simp[type_config_def] >>
     goal_assum $ drule_at Any >> simp[] >>
     simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (Cons «Subscript») []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    ntac 2 $ simp[Once type_tcexp_cases, mlstringTheory.implode_def] >>
-    gvs[EVERY_EL, mlstringTheory.implode_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases] >>
+    gvs[EVERY_EL] >>
     drule type_exception_Subscript >> PairCases_on `ns` >>
     gvs[]
     )
@@ -1560,7 +1494,7 @@ Proof
       goal_assum $ drule_at Any >> simp[] >>
       simp[type_wh_cases, PULL_EXISTS] >>
       qexists_tac `Prim (Cons «») []` >>
-      simp[exp_of_def, pure_cexpTheory.op_of_def, mlstringTheory.implode_def] >>
+      simp[exp_of_def, pure_cexpTheory.op_of_def] >>
       ntac 2 $ simp[Once type_tcexp_cases] >>
       gvs[LIST_REL_EL_EQN, EVERY_EL] >>
       rw[EL_LUPDATE,cons_types_def] >>
@@ -1573,7 +1507,7 @@ Proof
     simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (Cons «Subscript») []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    ntac 2 $ simp[Once type_tcexp_cases, type_ok, mlstringTheory.implode_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases, type_ok] >>
     drule type_exception_Subscript >> PairCases_on `ns` >>
     gvs[kind_arrows_def]
     )

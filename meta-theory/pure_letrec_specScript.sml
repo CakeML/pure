@@ -3,7 +3,7 @@
 *)
 Theory pure_letrec_spec
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp pure_value
   pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
   pure_exp_rel pure_alpha_equiv pure_misc pure_congruence
@@ -11,11 +11,11 @@ Libs
   term_tactic dep_rewrite BasicProvers
 
 Datatype:
-  info = <| args  : string list ;
-            arg   : string      ;
-            const : exp         ;
-            fname : string      ;
-            rhs   : exp         |>
+  info = <| args  : mlstring list ;
+            arg   : mlstring      ;
+            const : exp           ;
+            fname : mlstring      ;
+            rhs   : exp           |>
 End
 
 Inductive call_with_arg:

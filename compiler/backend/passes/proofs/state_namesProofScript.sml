@@ -4,7 +4,7 @@
  *)
 Theory state_namesProof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  option sum pair list alist finite_map pred_set
   rich_list arithmetic state_cexp mlstring
   state_names state_names_1Proof stateLang[qualified]
 Libs
@@ -21,7 +21,7 @@ QED
 Theorem give_names_freevars:
   ∀x e n.
     give_names x = (e,n) ⇒
-    ∀v. v IN freevars (exp_of x) ⇒ max_name (implode v) ≤ n
+    ∀v. v IN freevars (exp_of x) ⇒ max_name v ≤ n
 Proof
   ho_match_mp_tac give_names_ind \\ rpt strip_tac
   >~ [‘Var’] >-
@@ -57,11 +57,11 @@ QED
 Theorem isStringThere_aux_lemma[local]:
   ∀xs ts ys.
     LENGTH xs ≤ LENGTH ys ⇒
-    (isStringThere_aux (strlit (ts ++ xs)) (strlit (ts ++ ys))
+    (isStringThere_aux (implode (ts ++ xs)) (implode (ts ++ ys))
         (LENGTH ts) (LENGTH ts) (STRLEN xs) ⇔
-     isStringThere_aux (strlit xs) (strlit ys) 0 0 (STRLEN xs))
+     isStringThere_aux (implode xs) (implode ys) 0 0 (STRLEN xs))
 Proof
-  Induct \\ fs [isStringThere_aux_def]
+  Induct \\ fs [isStringThere_aux_def, implode_def]
   \\ gen_tac \\ gen_tac
   \\ Cases \\ fs []
   \\ strip_tac \\ fs [EL_LENGTH_APPEND]
@@ -94,7 +94,7 @@ Proof
   \\ Cases_on ‘h = h'’ \\ fs []
   \\ gvs [] \\ rw []
   \\ last_x_assum $ drule_then $ rewrite_tac o single o GSYM
-  \\ drule isStringThere_aux_lemma
+  \\ drule isStringThere_aux_lemma \\ gvs [implode_def]
   \\ disch_then $ qspec_then ‘[h]’ mp_tac
   \\ fs []
 QED

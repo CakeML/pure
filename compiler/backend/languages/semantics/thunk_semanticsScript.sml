@@ -3,7 +3,7 @@
 *)
 Theory thunk_semantics
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   pure_semantics pure_config thunkLang_primitives
   thunkLang itree
 Libs
@@ -136,7 +136,7 @@ Definition next_def:
                         stack state
                     else
                       next (k-1)
-                        (INR $ Monadic Raise [Cons "Subscript" []])
+                        (INR $ Monadic Raise [Cons «Subscript» []])
                         stack state)
                | _ => Err))
           else if mop = Update ∧ LENGTH vs = 3 then
@@ -149,10 +149,10 @@ Definition next_def:
                       if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                         let new_state =
                           LUPDATE (LUPDATE v (Num i) (EL n state)) n state
-                        in next (k-1) (INR $ Monadic Ret [Cons "" []]) stack new_state
+                        in next (k-1) (INR $ Monadic Ret [Cons «» []]) stack new_state
                       else
                         next (k-1)
-                          (INR $ Monadic Raise [Cons "Subscript" []])
+                          (INR $ Monadic Raise [Cons «Subscript» []])
                           stack state
                   | _ => Err)
              | INL Diverge => Div
@@ -180,7 +180,7 @@ Definition interp'_def:
             Vis' a
               (λy. (INR $ Monadic Ret [Lit (Str y)],
                     new_stack, new_state)))
-      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+      ((λ_ ret. strlen ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
 End
@@ -203,7 +203,7 @@ Theorem interp_def:
           | INL x =>
               Ret $ pure_semantics$FinalFFI a x
           | INR y =>
-              if STRLEN y ≤ max_FFI_return_size then
+              if strlen y ≤ max_FFI_return_size then
                 interp (INR $ Monadic Ret [Lit (Str y)])
                        new_stack
                        new_state
@@ -237,40 +237,40 @@ Proof
   ntac 2 $ pop_assum mp_tac >>
   once_rewrite_tac[next_def] >>
   TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
-  rename1 `s = Ret` >>
-  Cases_on `s = Bind` >- (gvs[] >> rw[]) >>
-  Cases_on `s = Handle` >- (gvs[] >> rw[]) >>
-  Cases_on `s = Act` >- (gvs[] >> rw[]) >>
-  Cases_on `s = Raise` >> gvs[]
+  rename1 `m' = Ret` >>
+  Cases_on `m' = Bind` >- (gvs[] >> rw[]) >>
+  Cases_on `m' = Handle` >- (gvs[] >> rw[]) >>
+  Cases_on `m' = Act` >- (gvs[] >> rw[]) >>
+  Cases_on `m' = Raise` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> simp[with_value_def] >>
     ntac 2 (TOP_CASE_TAC >> gvs[]) >- (IF_CASES_TAC >> gvs[]) >>
     simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
-  Cases_on `s = Ret` >> gvs[]
+  Cases_on `m' = Ret` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> simp[with_value_def] >>
     ntac 2 (reverse TOP_CASE_TAC >> gvs[]) >- (IF_CASES_TAC >> gvs[]) >>
     simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
-  Cases_on `s = Alloc` >> gvs[]
+  Cases_on `m' = Alloc` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def, with_value_def] >>
     rpt (TOP_CASE_TAC >> gvs[]) >> first_x_assum drule >> simp[]
     ) >>
-  Cases_on `s = Length` >> gvs[]
+  Cases_on `m' = Length` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 5 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n]` >> simp[]
     ) >>
-  Cases_on `s = Deref` >> gvs[]
+  Cases_on `m' = Deref` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     ) >>
-  Cases_on `s = Update` >> gvs[]
+  Cases_on `m' = Update` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def, with_value_def] >>
     rpt (TOP_CASE_TAC >> gvs[]) >>

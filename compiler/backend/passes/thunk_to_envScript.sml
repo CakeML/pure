@@ -3,13 +3,13 @@
  *)
 Theory thunk_to_env
 Ancestors
-  string option sum pair list thunk_cexp env_cexp
+  mlstring option sum pair list thunk_cexp env_cexp
 Libs
   term_tactic monadsyntax
 
 
 Definition get_arg_def:
-  get_arg n [] = env_cexp$Prim (Cons (strlit "")) [] ∧
+  get_arg n [] = env_cexp$Prim (Cons «») [] ∧
   get_arg n (x::xs) = if n = 0:num then x else get_arg (n-1) xs
 End
 

@@ -46,7 +46,7 @@ Proof
 QED
 
 Theorem exp_eq_IfT:
-  (If (Cons "True" []) e1 e2 ≅? e1) b
+  (If (Cons «True» []) e1 e2 ≅? e1) b
 Proof
   irule pure_exp_relTheory.eval_IMP_exp_eq >>
   simp[pure_expTheory.subst_def, pure_evalTheory.eval_thm]

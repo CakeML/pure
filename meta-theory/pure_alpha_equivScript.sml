@@ -3,7 +3,7 @@
 *)
 Theory pure_alpha_equiv
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp pure_value
   pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
   pure_exp_rel pure_misc
@@ -1794,8 +1794,8 @@ Proof
           match_mp_tac exp_alpha_perm_irrel >>
           gvs[IN_FRANGE_FLOOKUP,PULL_EXISTS,closed_def] >>
           res_tac >> gvs[]) >>
-      ‘∀g: string # exp -> exp. MAP (λx'. (perm1 x y (FST x'), g x')) f =
-                                MAP (λx'. (FST x'), g x') f’
+      ‘∀g: mlstring # exp -> exp. MAP (λx'. (perm1 x y (FST x'), g x')) f =
+                                  MAP (λx'. (FST x'), g x') f’
         by(rw[MAP_EQ_f] >> gvs[MEM_MAP] >> metis_tac[perm1_def]) >>
       pop_assum(Ho_Rewrite.ONCE_REWRITE_TAC o single) >>
       match_mp_tac exp_alpha_Letrec >>
@@ -3202,7 +3202,7 @@ Proof
   rewrite_tac[perm1_def] >> simp[] >>
   IF_CASES_TAC >> gvs[perm1_simps]
   >- (
-    `∀x:string. perm1 x x = I ∧ perm_exp x x = I` by (
+    `∀x:mlstring. perm1 x x = I ∧ perm_exp x x = I` by (
       rw[] >> irule EQ_EXT >> rw[perm1_simps, perm_exp_id]) >> gvs[] >>
     irule exp_alpha_Trans >>
     goal_assum drule >> fs[]
@@ -3359,23 +3359,23 @@ Proof
     simp[Once wh_alpha_cases] >> rw[]
     >- (irule exp_alpha_bind_all_closed' >> simp[fmap_rel_def])
     >- (
-      irule exp_alpha_Trans >> qexists_tac `bind1 s e2' e` >> rw[]
+      irule exp_alpha_Trans >> qexists_tac `bind1 m e2' e` >> rw[]
       >- (irule exp_alpha_bind_all_closed' >> simp[fmap_rel_def])
       >- (irule exp_alpha_bind_all_closed >> simp[])
       )
     >- (
-      irule exp_alpha_Trans >> qexists_tac `bind1 s e2' e` >> rw[]
+      irule exp_alpha_Trans >> qexists_tac `bind1 m e2' e` >> rw[]
       >- (irule exp_alpha_bind_all_closed' >> simp[fmap_rel_def]) >>
-      Cases_on `s = s'` >> gvs[perm_exp_id]
+      Cases_on `m = m'` >> gvs[perm_exp_id]
       >- (irule exp_alpha_bind_all_closed >> simp[exp_alpha_refl]) >>
       drule exp_alpha_bind_closed >>
-      disch_then (qspecl_then [`FEMPTY |+ (s,e2')`,`e`] assume_tac) >> gvs[] >>
+      disch_then (qspecl_then [`FEMPTY |+ (m,e2')`,`e`] assume_tac) >> gvs[] >>
       gvs[FUPDATE_perm_keys, perm1_def] >>
       irule exp_alpha_Trans >>
       goal_assum drule >>
       irule exp_alpha_bind_all_closed >>
       irule exp_alpha_perm_closed_sym >>
-      qexists_tac `s` >> qexists_tac `s'` >>
+      qexists_tac `m` >> qexists_tac `m'` >>
       simp[perm_exp_cancel]
       )
     )

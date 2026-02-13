@@ -1,7 +1,6 @@
-
 Theory pure_inference_model
 Ancestors
-  pair arithmetic integer string option list alist rich_list
+  pair arithmetic integer mlstring option list alist rich_list
   finite_map pred_set sptree mlmap pure_typing pure_typingProps
   pure_cexp pure_config pure_vars pure_unification
   pure_inference_common pure_inference pure_inferenceProps
@@ -156,7 +155,7 @@ Inductive minfer:
    cvars_disjoint (ZIP (ass, ZIP (css, tys))) ∧
    ALOOKUP (FST ns) s = SOME arg_tys ∧
    LENGTH arg_tys = LENGTH tys ∧
-   explode s ∉ monad_cns
+   s ∉ monad_cns
     ⇒ minfer ns mset (Prim d (Cons s) es)
         (FOLDR maunion FEMPTY ass)
         (set (list$MAP2 (λt a. mUnify t (itype_of a)) tys arg_tys) ∪ BIGUNION (set css))
@@ -175,7 +174,7 @@ Inductive minfer:
    LENGTH freshes = ar ∧
    EVERY (λf. f ∉ mset ∧
     EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty) (ZIP (ass,ZIP(css,tys)))) freshes ∧
-   explode cname ∉ monad_cns
+   cname ∉ monad_cns
     ⇒ minfer ns mset (Prim d (Cons cname) es)
         (FOLDR maunion FEMPTY ass)
         (set (MAP (λf. mUnify (CVar f) (CVar f)) freshes) ∪
@@ -991,8 +990,7 @@ Proof
         simp[monad_cns_def] >>
         gvs[new_vars_def, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, LAMBDA_PROD, pure_vars] >>
-        simp[BIGUNION_SUBSET, PULL_EXISTS, GSYM implodeEQ,
-             mlstringTheory.implode_def] >>
+        simp[BIGUNION_SUBSET, PULL_EXISTS] >>
         gen_tac >> DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >> strip_tac >> gvs[] >>
         gvs[pure_vars_iFunctions, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
         first_x_assum irule >> simp[EL_MEM]
@@ -1119,7 +1117,7 @@ Proof
           gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, pure_vars_iFunctions,
               PULL_EXISTS, IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, GSYM CONJ_ASSOC,
               MEM_MAP, EXISTS_PROD, MEM_GENLIST, FLOOKUP_DEF, MEM_ZIP] >>
-          rw[GSYM implodeEQ, mlstringTheory.implode_def]
+          rw[]
           >- (
             first_x_assum drule_all >> rw[SUBSET_DEF] >>
             first_x_assum drule >> simp[]
@@ -1226,7 +1224,7 @@ Proof
         gvs[new_vars_def, pure_vars, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, BIGUNION_SUBSET, PULL_EXISTS, FORALL_PROD,
             MEM_ZIP, pure_vars_iFunctions] >>
-        simp[GSYM implodeEQ, mlstringTheory.implode_def] >>
+        simp[] >>
         rw[] >> first_x_assum irule >> simp[EL_MEM]
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
@@ -1945,7 +1943,7 @@ Proof
         gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         qpat_x_assum `∀e. _ ⇒ ¬MEM _ (MAP _ (FLAT _))` $
           qspec_then `«»` mp_tac >>
-        simp[Once MEM_MAP] >> simp[reserved_cns_def, implodeEQ] >>
+        simp[Once MEM_MAP] >> simp[reserved_cns_def] >>
         simp[MEM_MAP, MEM_FLAT, FORALL_PROD] >> simp[Once MEM_EL, PULL_FORALL] >>
         simp[DISJ_EQ_IMP] >> disch_then irule >> gvs[oEL_THM] >>
         goal_assum $ drule_at Any >> simp[]) >>
@@ -2102,7 +2100,7 @@ Proof
         gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         qpat_x_assum `∀e. _ ⇒ ¬MEM _ (MAP _ (FLAT _))` $
           qspec_then `«True»` mp_tac >>
-        simp[Once MEM_MAP] >> simp[reserved_cns_def, implodeEQ] >>
+        simp[Once MEM_MAP] >> simp[reserved_cns_def] >>
         simp[MEM_MAP, MEM_FLAT, FORALL_PROD] >> simp[Once MEM_EL, PULL_FORALL] >>
         simp[DISJ_EQ_IMP] >> disch_then irule >> gvs[oEL_THM] >>
         goal_assum $ drule_at Any >> simp[]) >>

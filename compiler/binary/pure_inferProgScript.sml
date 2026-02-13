@@ -448,7 +448,7 @@ Proof
   ho_match_mp_tac solve_ind \\ rw []
   \\ simp [Once $ fetch "-" "solve_side_def"]
   \\ rw [] \\ gvs []
-  \\ Cases_on ‘pure_unify_empty x29 x28’
+  \\ Cases_on ‘pure_unify_empty x29_v16_ x28_v15_’
   \\ gvs [oreturn_def,fail_def,return_def]
   \\ fs [pure_unify_empty_def]
   \\ imp_res_tac pure_unificationTheory.pure_unify_wfs

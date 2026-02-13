@@ -1,15 +1,14 @@
-
 Theory pure_config
 Ancestors
-  arithmetic integer string option pred_set
+  arithmetic integer mlstring option pred_set
 Libs
   BasicProvers intLib
 
 Datatype:
-  lit = Int int            (* mathematical integer           *)
-      | Str string         (* string of characters           *)
-      | Loc num            (* location of an array           *)
-      | Msg string string  (* message: channel name, content *)
+  lit = Int int               (* mathematical integer           *)
+      | Str mlstring          (* string of characters           *)
+      | Loc num               (* location of an array           *)
+      | Msg mlstring mlstring (* message: channel name, content *)
 End
 
 Datatype:
@@ -23,15 +22,15 @@ Datatype:
     | Len | Elem | Concat | Implode | Substring
     | StrEq | StrLt | StrLeq | StrGt | StrGeq
     (* creation of a communication message for use with FFI *)
-    | Message string
+    | Message mlstring
 End
 
 Overload Atom[local] = “λl. SOME (INL l) : (lit + bool) option”;
 Overload Bool[local] = “λb. SOME (INR b) : (lit + bool) option”;
 
 Definition concat_def:
-  concat [] = SOME "" ∧
-  concat (Str s :: t) = OPTION_MAP (λr. s ++ r) (concat t) ∧
+  concat [] = SOME «» ∧
+  concat (Str s :: t) = OPTION_MAP (λr. strcat s r) (concat t) ∧
   concat (    _ :: _) = NONE
 End
 
@@ -43,7 +42,7 @@ End
 
 Definition str_el_def:
   str_elem s i =
-    if 0 ≤ i ∧ i < & LENGTH s then & (ORD (EL (Num i) s)) else -1
+    if 0 ≤ i ∧ i < & strlen s then & (ORD (strsub s (Num i))) else -1
 End
 
 Definition eval_op_def[simp]:
@@ -58,15 +57,17 @@ Definition eval_op_def[simp]:
   eval_op Leq [Int i; Int j] = Bool (i ≤ j) ∧
   eval_op Gt  [Int i; Int j] = Bool (i > j) ∧
   eval_op Geq [Int i; Int j] = Bool (i ≥ j) ∧
-  eval_op Len [Str s]  = Atom (Int (& (LENGTH s))) ∧
+  eval_op Len [Str s]  = Atom (Int (& (strlen s))) ∧
   eval_op Elem [Str s; Int i] = (Atom (Int (str_elem s i))) ∧
   eval_op Concat strs = OPTION_MAP (INL o Str) (concat strs) ∧
-  eval_op Implode ords = OPTION_MAP (INL o Str) (implode ords) ∧
+  eval_op Implode ords = OPTION_MAP (INL o Str o implode) (implode ords) ∧
   eval_op Substring [Str s; Int i] =
-    Atom $ Str $ DROP (if i < 0 then 0 else Num i) s ∧
+    Atom $ Str $
+      mlstring$implode $ DROP (if i < 0 then 0 else Num i) $ explode s ∧
   eval_op Substring [Str s; Int i; Int l] =
-    (if l < 0 then Atom (Str "") else
-      Atom $ Str $ TAKE (Num l) (DROP (if i < 0 then 0 else Num i) s)) ∧
+    (if l < 0 then Atom (Str «») else
+      Atom $ Str $ mlstring$implode $
+        TAKE (Num l) $ DROP (if i < 0 then 0 else Num i) $ explode s) ∧
   eval_op StrEq  [Str s; Str t] = Bool (s = t) ∧
   eval_op StrLt  [Str s; Str t] = Bool (s < t) ∧
   eval_op StrLeq [Str s; Str t] = Bool (s ≤ t) ∧
@@ -104,15 +105,15 @@ End
 
 Definition mop_of_string_def:
   mop_of_string s =
-    if      s = "Ret"    then SOME Ret
-    else if s = "Bind"   then SOME Bind
-    else if s = "Raise"  then SOME Raise
-    else if s = "Handle" then SOME Handle
-    else if s = "Act"    then SOME Act
-    else if s = "Alloc"  then SOME Alloc
-    else if s = "Length" then SOME Length
-    else if s = "Deref"  then SOME Deref
-    else if s = "Update" then SOME Update
+    if      s = «Ret»    then SOME Ret
+    else if s = «Bind»   then SOME Bind
+    else if s = «Raise»  then SOME Raise
+    else if s = «Handle» then SOME Handle
+    else if s = «Act»    then SOME Act
+    else if s = «Alloc»  then SOME Alloc
+    else if s = «Length» then SOME Length
+    else if s = «Deref»  then SOME Deref
+    else if s = «Update» then SOME Update
     else NONE
 End
 
@@ -122,19 +123,19 @@ End
 
 Theorem monad_cns_def:
   monad_cns =
-    {"Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"}
+    {«Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»}
 Proof
   rw[monad_cns, mop_of_string_def, EXTENSION] >> EQ_TAC >> rw[]
 QED
 
 Definition reserved_cns_def:
-  reserved_cns = {"";"True";"False";"Subscript"} ∪ monad_cns
+  reserved_cns = {«»;«True»;«False»;«Subscript»} ∪ monad_cns
 End
 
 Theorem reserved_cns_def[allow_rebind]:
   reserved_cns =
-    {"";"True";"False";"Subscript";
-     "Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"}
+    {«»;«True»;«False»;«Subscript»;
+     «Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»}
 Proof
   rw[reserved_cns_def, monad_cns_def, EXTENSION] >> eq_tac >> rw[]
 QED
@@ -175,7 +176,7 @@ Proof
   TOP_CASE_TAC >> rw[EQ_IMP_THM] >>
   gvs[DefnBase.one_line_ify NONE eval_op_def, AllCaseEqs(), PULL_EXISTS]
   >- (
-    qexists_tac `REPLICATE n (Str "")` >> simp[] >>
+    qexists_tac `REPLICATE n (Str «»)` >> simp[] >>
     Induct_on `n` >> rw[concat_def]
     )
   >- (
@@ -205,15 +206,15 @@ End
 
 Theorem num_monad_args_def:
   num_monad_args cn =
-         if cn = "Ret"    then SOME 1n
-    else if cn = "Bind"   then SOME 2
-    else if cn = "Raise"  then SOME 1
-    else if cn = "Handle" then SOME 2
-    else if cn = "Alloc"  then SOME 2
-    else if cn = "Length" then SOME 1
-    else if cn = "Deref"  then SOME 2
-    else if cn = "Update" then SOME 3
-    else if cn = "Act"    then SOME 1
+         if cn = «Ret»    then SOME 1n
+    else if cn = «Bind»   then SOME 2
+    else if cn = «Raise»  then SOME 1
+    else if cn = «Handle» then SOME 2
+    else if cn = «Alloc»  then SOME 2
+    else if cn = «Length» then SOME 1
+    else if cn = «Deref»  then SOME 2
+    else if cn = «Update» then SOME 3
+    else if cn = «Act»    then SOME 1
     else NONE
 Proof
   simp[num_monad_args, mop_of_string_def] >>

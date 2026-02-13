@@ -4,7 +4,7 @@ Ancestors
   pureTokenUtils grammar pure_lexer_impl[qualified]
   ispegexec pureNT
 Libs
-  stringLib[qualified]
+  stringLib[qualified] finite_mapSyntax
 
 Definition sumID_def[simp]:
   sumID (INL x) = x ∧ sumID (INR y) = y
@@ -80,10 +80,10 @@ Definition purePEG_def[nocompute]:
          choicel [
              (* declare id and its type *)
              seql [tok lcname_tok mktokLf lrEQ;
-                   tokGT ((=) $ SymbolT "::");
+                   tokGT ((=) $ SymbolT «::»);
                    NT nTy I lrGT] (mkNT nDecl);
              (* declare new data type and its constructors *)
-             seql [tokEQ ((=) $ AlphaT "data") ;
+             seql [tokEQ ((=) $ AlphaT «data») ;
                    tokGT capname_tok;
                    rpt (tokGT lcname_tok) FLAT;
                    tokGT ((=) EqualsT) ;
@@ -117,7 +117,7 @@ Definition purePEG_def[nocompute]:
                   pegf (NT nTyBase I lrGE) (mkNT nTyApp)]);
 
         (INL nTy,
-         pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=) $ SymbolT "->")))
+         pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=) $ SymbolT «->»)))
               (mkNT nTy));
 
         (INL nEqBindSeq,
@@ -138,7 +138,7 @@ Definition purePEG_def[nocompute]:
                         tok ((=) EqualsT) mktokLf lrOK;
                         NT nExp I lrOK] (mkNT nEqBind);
                   seql [tok lcname_tok mktokLf lrOK;
-                        tok ((=) $ SymbolT "::") mktokLf lrOK;
+                        tok ((=) $ SymbolT «::») mktokLf lrOK;
                         NT nTy I lrOK]
                        (mkNT nEqBind)]);
 
@@ -146,14 +146,14 @@ Definition purePEG_def[nocompute]:
          choicel [seql [NT nExpEQ I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
                        (mkNT nEqBind);
                   seql [tok lcname_tok mktokLf lrEQ;
-                        tokGT ((=) $ SymbolT "::");
+                        tokGT ((=) $ SymbolT «::»);
                         NT nTy I lrGT]
                        (mkNT nEqBind)]);
         (INL nOp,
          choicel [pegf (tok isSymbolOpT mktokLf lrEQ) (mkNT nOp);
-                  seql [tok ((=) (SymbolT "`")) mktokLf lrEQ;
+                  seql [tok ((=) (SymbolT «`»)) mktokLf lrEQ;
                         tok isAlphaT mktokLf lrGE;
-                        tok ((=) (SymbolT "`")) mktokLf lrGE] (mkNT nOp)]);
+                        tok ((=) (SymbolT «`»)) mktokLf lrGE] (mkNT nOp)]);
 
         (INL nIExp,
          seql [NTEQ nFExp; rpt (seql [NTGT nOp; NTEQ nFExp2] I) FLAT]
@@ -183,7 +183,7 @@ Definition purePEG_def[nocompute]:
         (INL nDoStmt,
          choicel [
              seql [NTEQ nExp;
-                   choicel [seql [tokGT ((=) $ SymbolT "<-"); NTGT nExp] I;
+                   choicel [seql [tokGT ((=) $ SymbolT «<-»); NTGT nExp] I;
                             empty []]
                   ] (mkNT nDoStmt);
              seql [tokGT ((=) LetT); NTGT nEqBindSeq'] (mkNT nDoStmt)
@@ -191,7 +191,7 @@ Definition purePEG_def[nocompute]:
         (INL nDoStmtEQ,
          choicel [
              seql [NTEQ nExpEQ;
-                   choicel [seql [tokGT ((=) $ SymbolT "<-"); NTGT nExp] I;
+                   choicel [seql [tokGT ((=) $ SymbolT «<-»); NTGT nExp] I;
                             empty []]
                   ] (mkNT nDoStmt);
              seql [tokEQ ((=) LetT); NTGT nEqBindSeq'] (mkNT nDoStmt)
@@ -202,28 +202,28 @@ Definition purePEG_def[nocompute]:
            after the beginning left-token.  These are lambda, if-then-else,
            do, and let expressions *)
         (INL nLSafeExp,
-         choicel [seql [tokGT ((=) $ SymbolT "\\") ; RPT1 (NTEQ nAPat);
-                        tokGT ((=) $ SymbolT "->");
+         choicel [seql [tokGT ((=) $ SymbolT «\\») ; RPT1 (NTEQ nAPat);
+                        tokGT ((=) $ SymbolT «->»);
                         NTEQ nExp] (mkNT nExp);
                   seql [tokGT ((=) IfT); NTEQ nExp;
                         tokGT ((=) ThenT); NTEQ nExp;
                         tokGT ((=) ElseT); NTEQ nExp] (mkNT nExp);
                   seql [tokGT ((=) LetT) ; NTEQ nEqBindSeq ;
                         tokGT ((=) InT) ; NTEQ nExp] (mkNT nExp);
-                  seql [tokGT ((=) $ AlphaT "do"); NTEQ nDoBlock] (mkNT nExp);
+                  seql [tokGT ((=) $ AlphaT «do»); NTEQ nDoBlock] (mkNT nExp);
                   seql [tokGT ((=) CaseT); NTEQ nExp; tokGT ((=) OfT);
                         NTGT nPatAlts] (mkNT nExp);
                  ]);
         (INL nLSafeExpEQ,
-         choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTEQ nAPat);
-                        tokGT ((=) $ SymbolT "->");
+         choicel [seql [tokEQ ((=) $ SymbolT «\\») ; RPT1 (NTEQ nAPat);
+                        tokGT ((=) $ SymbolT «->»);
                         NTEQ nExp] (mkNT nExp);
                   seql [tokEQ ((=) IfT); NTEQ nExp;
                         tokGT ((=) ThenT); NTEQ nExp;
                         tokGT ((=) ElseT); NTEQ nExp] (mkNT nExp);
                   seql [tokEQ ((=) LetT) ; NTEQ nEqBindSeq ;
                         tokGT ((=) InT) ; NTEQ nExp] (mkNT nExp);
-                  seql [tokEQ ((=) $ AlphaT "do"); NTGT nDoBlock] (mkNT nExp);
+                  seql [tokEQ ((=) $ AlphaT «do»); NTGT nDoBlock] (mkNT nExp);
                   seql [tokEQ ((=) CaseT); NTEQ nExp; tokGT ((=) OfT);
                         NTGT nPatAlts] (mkNT nExp);
                  ]);
@@ -235,7 +235,7 @@ Definition purePEG_def[nocompute]:
         (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
 
         (INL nPatAlts, pegf (rpt (NTEQ nPatAlt) FLAT) (mkNT nPatAlts));
-        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) $ SymbolT "->"); NTGT nExp]
+        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) $ SymbolT «->»); NTGT nExp]
                            (mkNT nPatAlt));
         (INL nExp,
          choicel [NTEQ nLSafeExp; pegf (NTEQ nIExp) (mkNT nExp)]);

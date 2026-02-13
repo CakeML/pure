@@ -47,7 +47,7 @@ Definition cns_arities_def:
   cns_arities (Var v :cexp) = {} ∧
   cns_arities (Prim op es) = (
     (case op of
-     | Cons cn => {{explode cn, LENGTH es}}
+     | Cons cn => {{cn, LENGTH es}}
      | _ => {}) ∪
     BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (App e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
@@ -57,11 +57,11 @@ Definition cns_arities_def:
   cns_arities (Let x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (If e e1 e2) = cns_arities e ∪ cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Case v css d) = (
-    let css_cn_ars = set (MAP (λ(cn,vs,e). explode cn, LENGTH vs) css) in
+    let css_cn_ars = set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) in
     (case d of
       | NONE => {css_cn_ars}
       | SOME (a,e) =>
-        (set (MAP (λ(cn,ar). explode cn, ar) a) ∪ css_cn_ars) INSERT cns_arities e) ∪
+        (set (MAP (λ(cn,ar). cn, ar) a) ∪ css_cn_ars) INSERT cns_arities e) ∪
     BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
   cns_arities (Box e) = cns_arities e ∧
   cns_arities (Delay e) = cns_arities e ∧

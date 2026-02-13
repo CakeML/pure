@@ -47,11 +47,11 @@ Datatype:
        | HandleApp cexp cexp                       (* handle that takes fun   *)
 End
 
-Overload True  = “App (Cons (strlit "True"))  []”;
-Overload False = “App (Cons (strlit "False")) []”;
+Overload True  = “App (Cons «True»)  []”;
+Overload False = “App (Cons «False») []”;
 
 Overload "app" = “λe1 e2. App AppOp [e1;(e2:cexp)]”;
-Overload "Unit" = “App (Cons (strlit "")) [] :cexp”;
+Overload "Unit" = “App (Cons «») [] :cexp”;
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
 Overload StrLit = “λs. App (AtomOp (Lit (Str s))) []”
@@ -125,7 +125,7 @@ End
 Definition cns_arities_def:
   cns_arities (Var v :cexp) = {} ∧
   cns_arities (App op es) = (
-    (case op of | Cons cn => {{explode cn, LENGTH es}} | _ => {}) ∪
+    (case op of | Cons cn => {{cn, LENGTH es}} | _ => {}) ∪
       BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (Lam x e) = cns_arities e ∧
   cns_arities (Letrec funs e) =
@@ -133,11 +133,11 @@ Definition cns_arities_def:
   cns_arities (Let x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (If e e1 e2) = cns_arities e ∪ cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Case v css d) = (
-    let css_cn_ars = set (MAP (λ(cn,vs,e). explode cn, LENGTH vs) css) in
+    let css_cn_ars = set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) in
     (case d of
       | NONE => {css_cn_ars}
       | SOME (a,e) =>
-        (set (MAP (λ(cn,ar). explode cn, ar) a) ∪ css_cn_ars) INSERT cns_arities e) ∪
+        (set (MAP (λ(cn,ar). cn, ar) a) ∪ css_cn_ars) INSERT cns_arities e) ∪
     BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
   cns_arities (Raise e) = cns_arities e ∧
   cns_arities (Handle e1 x e2) = cns_arities e1 ∪ cns_arities e2 ∧

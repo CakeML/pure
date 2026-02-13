@@ -1,6 +1,6 @@
 Theory typeclass_typingProof
 Ancestors
-  pair arithmetic integer string option misc list alist relation
+  pair arithmetic integer mlstring option misc list alist relation
   set_relation pred_set rich_list pure_cexp pure_config
   typeclass_types typeclass_kindCheck typeclass_typesProps
   pure_tcexp pure_tcexp_typing pure_tcexp_typingProps
@@ -2400,7 +2400,7 @@ Theorem namespace_ok_IMP_tcexp_namespace_ok:
   namespace_ok ns ∧
   ALL_DISTINCT (FLAT (MAP (MAP FST ∘ SND) tds)) ∧
   DISJOINT (set $ FLAT (MAP (MAP FST ∘ SND) tds))
-    (set $ (MAP implode (SET_TO_LIST reserved_cns)) ++
+    (set $ (SET_TO_LIST reserved_cns) ++
       (MAP FST (FST ns)) ++
       (FLAT (MAP (MAP FST o SND) (SND ns)))) ∧
   EVERY (λ(ks,td). td ≠ []) tds ∧
@@ -2540,7 +2540,7 @@ Theorem translate_ns_and_class_datatypes_IMP_tcexp_namespace_ok:
   class_map_kind_ok (SND ns) cl_map ∧
   ALL_DISTINCT (class_dict_constructor_names cl_map) ∧
   DISJOINT (set $ class_dict_constructor_names cl_map)
-    (set $ (MAP implode (SET_TO_LIST reserved_cns)) ++
+    (set $ (SET_TO_LIST reserved_cns) ++
       (MAP FST (FST ns)) ++
       (FLAT (MAP (MAP FST ∘ SND) (SND ns)))) ⇒
   tcexp_namespace_ok tcexp_ns

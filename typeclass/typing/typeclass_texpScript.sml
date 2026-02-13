@@ -3,7 +3,7 @@
 *)
 Theory typeclass_texp
 Ancestors
-  arithmetic list rich_list alist string option pair pred_set
+  arithmetic list rich_list alist mlstring option pair pred_set
   mlmap pure_cexp typeclass_types typeclass_kindCheck
 Libs
   BasicProvers dep_rewrite
@@ -86,7 +86,7 @@ Definition texp_wf_strong_def[nocompute]:
   texp_wf_strong (Prim op es) = (
     num_args_ok op (LENGTH es) ∧ EVERY texp_wf_strong es ∧
     (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
-    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ «»)) ∧
   texp_wf_strong (App e es) =
     (texp_wf_strong e ∧ EVERY texp_wf_strong es ∧ es ≠ []) ∧
   texp_wf_strong (Lam vs e) = (texp_wf_strong e ∧ vs ≠ []) ∧
@@ -115,7 +115,7 @@ Definition texp_Lits_wf_def:
   texp_Lits_wf (Prim op es) = (
     EVERY texp_Lits_wf es ∧
     (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
-    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ «»)) ∧
   texp_Lits_wf (PrimSeq _ e1 e2) =
     (texp_Lits_wf e1 ∧ texp_Lits_wf e2) ∧
   texp_Lits_wf (App e es) = (texp_Lits_wf e ∧ EVERY texp_Lits_wf es) ∧

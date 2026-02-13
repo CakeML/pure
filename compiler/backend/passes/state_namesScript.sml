@@ -4,12 +4,12 @@
  *)
 Theory state_names
 Ancestors
-  string option sum pair list mlstring state_cexp
+  option sum pair list mlstring state_cexp
 Libs
   BasicProvers dep_rewrite
 
 
-Overload str_prefix = “strlit "ignore"”
+Overload str_prefix = “«ignore»”
 Overload str_prefix_len = (EVAL “strlen str_prefix” |> concl |> rand);
 
 Definition max_name_def:
@@ -20,15 +20,15 @@ Definition max_name_def:
 End
 
 Theorem max_name_test[local]:
-  max_name (strlit "hello") = 0 ∧
-  max_name (strlit "ignore") = 1 ∧
-  max_name (strlit "ignore'") = 2
+  max_name «hello» = 0 ∧
+  max_name «ignore» = 1 ∧
+  max_name «ignore'» = 2
 Proof
   EVAL_TAC
 QED
 
 Definition make_name_def:
-  make_name n = str_prefix ^ concat (REPLICATE n (strlit "'"))
+  make_name n = str_prefix ^ concat (REPLICATE n «'»)
 End
 
 Definition list_max_def:

@@ -3,7 +3,7 @@
  *)
 Theory pure_to_cakeProof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic combin pure_to_thunkProof thunk_to_envProof
   env_to_stateProof state_to_cakeProof
   pure_to_cake pure_semantics[qualified] pure_cexp[qualified]
@@ -19,8 +19,7 @@ Theorem pure_to_env_correct:
   itree_of (exp_of x) =
   env_semantics$itree_of (envLang$exp_of (pure_to_env c x)) ∧
   envLang$cexp_wf (pure_to_env c x) ∧
-  cns_arities (pure_to_env c x) ⊆
-    IMAGE (IMAGE (explode ## I)) (cns_arities x)
+  cns_arities (pure_to_env c x) ⊆ cns_arities x
 Proof
   strip_tac
   \\ drule_all pure_to_thunkProofTheory.compile_to_thunk_itree_of
@@ -43,7 +42,7 @@ Theorem pure_to_state_correct:
   stateLang$itree_of (stateLang$exp_of (pure_to_state c x)) ∧
   state_cexp$cexp_wf (pure_to_state c x) ∧
   cns_arities (pure_to_state c x) ⊆
-    IMAGE (IMAGE (explode ## I)) (cns_arities x) ∪ {{("",0)}; {("True",0)}; {("False",0)}}
+    (cns_arities x) ∪ {{(«»,0)}; {(«True»,0)}; {(«False»,0)}}
 Proof
   strip_tac
   \\ drule_all pure_to_env_correct
@@ -65,7 +64,7 @@ Theorem pure_to_cake_correct:
   safe_itree (itree_of (exp_of x)) ∧ letrecs_distinct (exp_of x) ∧
   namespace_init_ok ((I ## K ns) initial_namespace) ∧
   state_to_cakeProof$cns_ok ((I ## K ns) initial_namespace)
-    (IMAGE (IMAGE (explode ## I)) (pure_cexp$cns_arities x))
+                            (pure_cexp$cns_arities x)
   ⇒
   state_to_cakeProof$itree_rel
     (itree_of (exp_of x))

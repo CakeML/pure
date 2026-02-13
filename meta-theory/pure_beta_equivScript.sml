@@ -5,7 +5,7 @@
 *)
 Theory pure_beta_equiv
 Ancestors
-  pair list rich_list alist finite_map pred_set pure_misc
+  pair list rich_list mlstring alist finite_map pred_set pure_misc
   pure_exp pure_exp_lemmas pure_eval pure_exp_rel
   pure_alpha_equiv pure_congruence
 Libs
@@ -438,10 +438,11 @@ QED
 (********** Freshening as a function **********)
 
 Definition fresh_var_def:
-  fresh_var v xs = if ¬MEM v xs then v else fresh_var (v ++ "'") xs
+  fresh_var v xs = if ¬MEM v xs then v else fresh_var (v ^ «'») xs
 Termination
-  WF_REL_TAC ‘measure (λ(v,xs). (LENGTH (FLAT xs) + 1) - LENGTH v)’ \\ rw[]
-  \\ Induct_on ‘xs’ \\ fs[] \\ rpt strip_tac \\ fs[]
+  WF_REL_TAC ‘measure (λ(v,xs). (strlen (concat xs) + 1) - strlen v)’ \\ rw[]
+  \\ Induct_on ‘xs’ \\ fs[concat_def] \\ rpt strip_tac \\ fs[]
+  \\ TOP_CASE_TAC \\ gvs []
 End
 
 Definition fresh_var_list_def:
@@ -731,16 +732,16 @@ QED
 (******** Example:  λx.x ≅ λy. (λx.x) y **********)
 
 Definition id_exp_def:
-  id_exp = Lam "x" (Var "x")
+  id_exp = Lam «x» (Var «x»)
 End
 
 Definition iidd_exp_def:
-  iidd_exp = Lam "y" (App id_exp (Var "y"))
+  iidd_exp = Lam «y» (App id_exp (Var «y»))
 End
 
 (* Would be nice to have a tactic that, given a goal like:
 
-        exp_alpha (Lam "y" (Var "y")) (Lam "x" (Var "x"))
+        exp_alpha (Lam «y» (Var «y»)) (Lam «x» (Var «x»))
 
         checks whether two closed expressions are exp_alpha, and, if so,
         proves the goal.
@@ -752,13 +753,13 @@ Theorem id_iidd_equivalence:
 Proof
  simp[id_exp_def,iidd_exp_def]
  \\ once_rewrite_tac [exp_eq_sym]
- \\ qspecl_then [‘"x"’,‘Var "x"’,‘Var "y"’] assume_tac (GEN_ALL beta_equivalence)
+ \\ qspecl_then [‘«x»’,‘Var «x»’,‘Var «y»’] assume_tac (GEN_ALL beta_equivalence)
  \\ fs[ca_subst_def,freshen_def,GSYM FUPDATE_EQ_FUPDATE_LIST,subst1_def]
- \\ drule exp_eq_Lam_cong \\ disch_then $ qspec_then `"y"` assume_tac
+ \\ drule exp_eq_Lam_cong \\ disch_then $ qspec_then `«y»` assume_tac
  \\ irule exp_eq_trans
- \\ qexists_tac ‘Lam "y" (Var "y")’ \\ fs[]
+ \\ qexists_tac ‘Lam «y» (Var «y»)’ \\ fs[]
  \\ irule exp_alpha_exp_eq
- \\ qspecl_then [‘"x"’,‘"y"’,‘Lam "y" (Var "y")’] assume_tac exp_alpha_perm_irrel
+ \\ qspecl_then [‘«x»’,‘«y»’,‘Lam «y» (Var «y»)’] assume_tac exp_alpha_perm_irrel
  \\ fs[perm_exp_def,perm1_def]
 QED
 

@@ -3,7 +3,7 @@
 *)
 Theory thunk_remove_unuseful_bindings
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   thunkLang thunkLang_primitives wellorder arithmetic pure_misc
   thunkLangProps thunk_semantics
 Libs
@@ -590,7 +590,7 @@ Proof
       \\ qexists_tac ‘j + j1’ \\ gs []
       \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ gs [dest_anyClosure_def, v_rel_def]
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-          \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
           \\ gvs [OPTREL_def]
@@ -599,7 +599,7 @@ Proof
           \\ qpat_x_assum ‘clean_rel x0 _’ mp_tac
           \\ rw [Once clean_rel_cases] \\ gs [ok_bind_def])
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-          \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
           \\ gvs [REVERSE_APPEND, SNOC_APPEND]
@@ -892,14 +892,14 @@ Proof
       >~[‘Recclosure _ _’]
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
           \\ ‘OPTREL clean_rel
-              (ALOOKUP (REVERSE xs) s)
-              (ALOOKUP (REVERSE ys) s)’
+              (ALOOKUP (REVERSE xs) m)
+              (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
           \\ gs [OPTREL_def]
           >- (qexists_tac ‘j’ \\ gvs [])
           \\ rename1 ‘clean_rel x0 y0’
-          \\ ‘MEM (s, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
+          \\ ‘MEM (m, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
           \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
           \\ first_assum $ dxrule_then assume_tac
           \\ Cases_on ‘x0’ \\ gvs [ok_bind_def, clean_rel_def]
@@ -938,15 +938,15 @@ Proof
       >~[‘Recclosure _ _’]
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
           \\ ‘OPTREL clean_rel
-              (ALOOKUP (REVERSE xs) s)
-              (ALOOKUP (REVERSE ys) s)’
+              (ALOOKUP (REVERSE xs) m)
+              (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
           \\ gs [OPTREL_def]
           >- (qexists_tac ‘j’ \\ gvs [REVERSE_APPEND, SNOC_APPEND]
               \\ IF_CASES_TAC \\ gvs [])
           \\ rename1 ‘clean_rel x0 y0’
-          \\ ‘MEM (s, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
+          \\ ‘MEM (m, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
           \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
           \\ first_assum $ dxrule_then assume_tac
           \\ Cases_on ‘x0’ \\ gvs [ok_bind_def, clean_rel_def]
@@ -1393,7 +1393,7 @@ Proof
     \\ irule clean_rel_eval
     \\ irule clean_rel_subst \\ gs [])
   >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
       \\ gs [OPTREL_def]
@@ -1410,7 +1410,7 @@ Proof
                GSYM FST_THM]
       \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EVERY_EL, EL_MAP, LIST_EQ_REWRITE])
   >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
       \\ gvs [REVERSE_APPEND, SNOC_APPEND] \\ IF_CASES_TAC \\ gs []

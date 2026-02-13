@@ -3,7 +3,7 @@
  *)
 Theory state_app_unit
 Ancestors
-  string option sum pair list alist finite_map
+  mlstring option sum pair list alist finite_map
   pred_set rich_list arithmetic pure_misc pure_config
   state_cexp
 Libs

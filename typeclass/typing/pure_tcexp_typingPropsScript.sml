@@ -1,6 +1,6 @@
 Theory pure_tcexp_typingProps
 Ancestors
-  pair arithmetic integer string option list rich_list alist
+  pair arithmetic integer mlstring option list rich_list alist
   pred_set finite_map pure_misc pure_cexp pure_tcexp pure_config
   typeclass_types typeclass_typesProps typeclass_kindCheck
   typeclass_typing typeclass_typingProps pure_tcexp_typing
@@ -197,7 +197,7 @@ Theorem tcexp_namespace_ok_get_cases_not_monad_cns:
   tcexp_namespace_ok ns ∧
   tcexp_get_cases ns t = SOME constructors ∧
   MEM cons constructors ⇒
-  explode (FST cons) ∉ monad_cns
+  FST cons ∉ monad_cns
 Proof
   Cases_on `ns` >>
   simp[tcexp_get_cases_def,tcexp_namespace_ok_def] >>
@@ -247,7 +247,7 @@ Proof
       pair_CASE_def,ALL_DISTINCT_APPEND] >>
     imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD] >>
     last_x_assum $ drule_at Concl >> rw[] >>
-    gvs[reserved_cns_def, implodeEQ,num_monad_args_def]
+    gvs[reserved_cns_def, num_monad_args_def]
   )
   >- (
     gvs[tcexp_type_cons_def,oneline tcexp_namespace_ok_def] >>
@@ -264,7 +264,7 @@ Proof
     strip_tac >>
     qpat_x_assum `!e. _ ⇒ ∀y. _ ⇒ ¬MEM y (FLAT (MAP _ _))` $
       qspec_then `cname` mp_tac >>
-    fs[implodeEQ] >>
+    fs[] >>
     drule ALOOKUP_SOME_EL >>
     rw[MEM_FLAT,MEM_MAP,MEM_EL,LAMBDA_PROD,
       GSYM PFORALL_THM,GSYM PEXISTS_THM] >>

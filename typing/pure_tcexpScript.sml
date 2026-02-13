@@ -3,7 +3,7 @@
 *)
 Theory pure_tcexp
 Ancestors
-  arithmetic list alist string option pair pred_set finite_map
+  arithmetic list alist mlstring option pair pred_set finite_map
   pure_cexp pureLang pure_exp
 Libs
   BasicProvers dep_rewrite
@@ -34,21 +34,21 @@ Definition rows_of_def:
 End
 
 Definition exp_of_def:
-  exp_of (Var n)       = pure_exp$Var (explode n) ∧
+  exp_of (Var n)       = pure_exp$Var n ∧
   exp_of (Prim p xs)   = Prim (op_of p) (MAP exp_of xs) ∧
-  exp_of (Let v x y)   = Let (explode v) (exp_of x) (exp_of y) ∧
+  exp_of (Let v x y)   = Let v (exp_of x) (exp_of y) ∧
   exp_of (App f xs)    = Apps (exp_of f) (MAP exp_of xs) ∧
-  exp_of (Lam vs x)    = Lams (MAP explode vs) (exp_of x) ∧
-  exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs)
+  exp_of (Lam vs x)    = Lams vs (exp_of x) ∧
+  exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (n,exp_of x)) rs)
                                 (exp_of x) ∧
   exp_of (Case x v rs eopt) =
-    Let (explode v) (exp_of x)
-        (rows_of (explode v)
-         (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)
+    Let v (exp_of x)
+        (rows_of v
+         (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs)
          (case eopt of NONE => Fail | SOME (a,e) => IfDisj v a (exp_of e))) ∧
   exp_of (SafeProj cn ar i e) =
-    If (IsEq (explode cn) ar T (exp_of e))
-       (Proj (explode cn) i (exp_of e))
+    If (IsEq cn ar T (exp_of e))
+       (Proj cn i (exp_of e))
        Bottom
 Termination
   WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"] >>
@@ -122,10 +122,10 @@ Definition tcexp_wf_def:
     tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
     EVERY ALL_DISTINCT $ MAP (FST o SND) css ∧
     OPTION_ALL
-      (λ(a,e). a ≠ [] ∧ tcexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
+      (λ(a,e). a ≠ [] ∧ tcexp_wf e ∧ EVERY (λ(cn,_). cn ∉ monad_cns) a) eopt ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
     ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
-    ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
+    ∀cn. MEM cn (MAP FST css) ⇒ cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>
@@ -138,7 +138,7 @@ Definition cexp_Lits_wf_def:
   cexp_Lits_wf (Prim _ op es) = (
     EVERY cexp_Lits_wf es ∧
     (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
-    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ «»)) ∧
   cexp_Lits_wf (App _ e es) = (cexp_Lits_wf e ∧ EVERY cexp_Lits_wf es) ∧
   cexp_Lits_wf (Lam _ vs e) = cexp_Lits_wf e ∧
   cexp_Lits_wf (Let _ v e1 e2) = (cexp_Lits_wf e1 ∧ cexp_Lits_wf e2) ∧

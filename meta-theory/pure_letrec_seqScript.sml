@@ -3,14 +3,14 @@
 *)
 Theory pure_letrec_seq
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp pure_value
   pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
   pure_exp_rel pure_alpha_equiv pure_misc pure_congruence
 Libs
   term_tactic dep_rewrite BasicProvers
 
-Type bind = “:string # (string # bool) list # exp”;
+Type bind = “:mlstring # (mlstring # bool) list # exp”;
 
 Definition mk_lams_def:
   mk_lams ((n,vs,e):bind) = (n, Lams (MAP FST vs) e)

@@ -1,7 +1,6 @@
-
 Theory pure_ctxt_equiv
 Ancestors
-  arithmetic list rich_list alist string option pair pred_set
+  arithmetic list rich_list alist mlstring option pair pred_set
   finite_map pure_misc pure_exp pure_exp_lemmas pure_eval
   pure_eval_lemmas pure_semantics pure_exp_rel pure_congruence
   itree pure_obs_sem_equal
@@ -185,7 +184,7 @@ Overload "∽" = “ctxt_equiv”;
 
 Datatype:
   wh_cons = wh_At lit
-          | wh_Cons string
+          | wh_Cons mlstring
           | wh_Clos
           | wh_Div
           | wh_Err
@@ -231,13 +230,13 @@ QED
 (* Creating a context to distinguish `Loc`s: *)
 Definition BindAllocs_def:
   BindAllocs 0 e = Length e ∧
-  BindAllocs (SUC n) e = Bind (Alloc (Lit (Int 0)) Fail) (Lam "" $ BindAllocs n e)
+  BindAllocs (SUC n) e = Bind (Alloc (Lit (Int 0)) Fail) (Lam «» $ BindAllocs n e)
 End
 
 Definition BindAllocsC_def:
-  BindAllocsC 0 = Prim (Cons "Length") [] Hole [] ∧
+  BindAllocsC 0 = Prim (Cons «Length») [] Hole [] ∧
   BindAllocsC (SUC n) =
-    Prim (Cons "Bind") [Alloc (Lit (Int 0)) Fail] (Lam "" $ BindAllocsC n) []
+    Prim (Cons «Bind») [Alloc (Lit (Int 0)) Fail] (Lam «» $ BindAllocsC n) []
 End
 
 Theorem plug_BindAllocsC:
@@ -299,8 +298,8 @@ Proof
     ) >>
   simp[LIST_REL_EL_EQN] >> conj_asm1_tac >> rw[]
   >- (
-    first_assum $ qspec_then `[INL (s, LENGTH l)]` mp_tac >>
-    first_x_assum $ qspec_then `[INL (s, LENGTH e1s)]` mp_tac >>
+    first_assum $ qspec_then `[INL (m, LENGTH l)]` mp_tac >>
+    first_x_assum $ qspec_then `[INL (m, LENGTH e1s)]` mp_tac >>
     simp[step_eval_wh_def, oEL_THM]
     ) >>
   irule companion_rel >> simp[] >>
@@ -308,7 +307,7 @@ Proof
   gvs[closed_def, DISJ_EQ_IMP, MEM_MAP, PULL_FORALL] >>
   rw[EMPTY_iff_NOTIN] >- metis_tac[EL_MEM] >- metis_tac[EL_MEM] >>
   rename1 `step_eval_wh ll` >>
-  last_x_assum $ qspec_then `INL (s,n) :: ll` mp_tac >>
+  last_x_assum $ qspec_then `INL (m,n) :: ll` mp_tac >>
   simp[step_eval_wh_def, oEL_THM]
 QED
 
@@ -409,7 +408,7 @@ Proof
   gvs[step_eval_wh_def]
   >- (
     Cases_on `eval_wh e1` >> gvs[oEL_THM] >> rename1 `eval_wh e1 = _ e1s` >>
-    reverse $ Cases_on `∃e2s. eval_wh e2 = wh_Constructor s e2s` >> gvs[]
+    reverse $ Cases_on `∃e2s. eval_wh e2 = wh_Constructor m e2s` >> gvs[]
     >- (
       qexists_tac `[]` >> gvs[step_eval_wh_def] >>
       Cases_on `eval_wh e2` >> gvs[wh_to_cons_def]
@@ -418,21 +417,21 @@ Proof
     Cases_on `x1 < LENGTH e2s` >> gvs[]
     >- (
       rename1 `step_eval_wh ll` >>
-      qexists_tac `INL (s,x1) :: ll` >> gvs[step_eval_wh_def, oEL_THM]
+      qexists_tac `INL (m,x1) :: ll` >> gvs[step_eval_wh_def, oEL_THM]
       )
-    >- (qexists_tac `[INL (s,x1)]` >> gvs[step_eval_wh_def, oEL_THM])
+    >- (qexists_tac `[INL (m,x1)]` >> gvs[step_eval_wh_def, oEL_THM])
     ) >>
   Cases_on `eval_wh e2` >> gvs[oEL_THM] >>
-  Cases_on `∃e1s. eval_wh e1 = wh_Constructor s e1s` >> gvs[]
-  >- (qexists_tac `[INL (s,x1)]` >> gvs[step_eval_wh_def, oEL_THM])
+  Cases_on `∃e1s. eval_wh e1 = wh_Constructor m e1s` >> gvs[]
+  >- (qexists_tac `[INL (m,x1)]` >> gvs[step_eval_wh_def, oEL_THM])
   >- (
     rename1 `eval_wh e2 = _ e2s` >>
     last_x_assum $ qspecl_then [`EL x1 e1s`,`EL x1 e2s`] mp_tac >> rw[] >>
     rename1 `step_eval_wh ll` >>
-    qexists_tac `INL (s,x1) :: ll` >> simp[step_eval_wh_def, oEL_THM]
+    qexists_tac `INL (m,x1) :: ll` >> simp[step_eval_wh_def, oEL_THM]
     )
   >- (
-    qexists_tac `[INL (s,x1)]` >> gvs[step_eval_wh_def, oEL_THM] >>
+    qexists_tac `[INL (m,x1)]` >> gvs[step_eval_wh_def, oEL_THM] >>
     Cases_on `eval_wh e1` >> gvs[]
     )
 QED
@@ -489,14 +488,14 @@ Proof
   gvs[step_eval_wh_def]
   >- (
     Cases_on `eval_wh e1` >> gvs[oEL_THM] >> rename1 `eval_wh e1 = _ e1s` >>
-    reverse $ Cases_on `∃e2s. eval_wh e2 = wh_Constructor s e2s` >> gvs[]
+    reverse $ Cases_on `∃e2s. eval_wh e2 = wh_Constructor m e2s` >> gvs[]
     >- (
       qexists_tac `Hole` >> gvs[plug_def] >>
       Cases_on `eval_wh e2` >> gvs[wh_to_cons_def]
       ) >>
     reverse $ Cases_on `x1 < LENGTH e2s` >> gvs[]
     >- (
-      rw[] >> qexists_tac `Prim (IsEq s (LENGTH e1s) F) [] Hole []` >>
+      rw[] >> qexists_tac `Prim (IsEq m (LENGTH e1s) F) [] Hole []` >>
       simp[plug_def, closed_simps, eval_wh_thm, wh_to_cons_def]
       ) >>
     last_x_assum $ qspecl_then [`EL x1 e1s`,`EL x1 e2s`] mp_tac >> gvs[] >>
@@ -505,30 +504,30 @@ Proof
       imp_res_tac eval_wh_freevars_SUBSET >> gvs[PULL_EXISTS, MEM_MAP] >>
       gvs[closed_def, EMPTY_iff_NOTIN] >> metis_tac[EL_MEM]
       ) >>
-    rw[] >> qexists_tac `plug_ctxt ctxt (Prim (Proj s x1) [] Hole [])` >>
+    rw[] >> qexists_tac `plug_ctxt ctxt (Prim (Proj m x1) [] Hole [])` >>
     simp[plug_plug_ctxt, plug_def] >> simp[CONJ_ASSOC] >> conj_asm1_tac
     >- (
       gvs[closed_def] >>
-      qspecl_then [`ctxt`,`Proj s x1 e1`,`EL x1 e1s`]
+      qspecl_then [`ctxt`,`Proj m x1 e1`,`EL x1 e1s`]
         assume_tac freevars_plug_eq >> gvs[] >>
-      qspecl_then [`ctxt`,`Proj s x1 e2`,`EL x1 e2s`]
+      qspecl_then [`ctxt`,`Proj m x1 e2`,`EL x1 e2s`]
         assume_tac freevars_plug_eq >> gvs[]
       ) >>
-    `(plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj s x1 e1)) T ∧
-     (plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj s x1 e2)) T` by (
+    `(plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj m x1 e1)) T ∧
+     (plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj m x1 e2)) T` by (
       rw[] >> irule app_bisimilarity_plug >> simp[] >> rw[app_bisimilarity_eq] >>
       irule eval_wh_IMP_exp_eq >> rw[eval_wh_thm]) >>
     imp_res_tac app_bisimilarity_wh_to_cons >> gvs[]
     ) >>
   Cases_on `eval_wh e2` >> gvs[oEL_THM] >> rename1 `eval_wh _ = _ e2s` >>
-  reverse $ Cases_on `∃e1s. eval_wh e1 = wh_Constructor s e1s` >> gvs[]
+  reverse $ Cases_on `∃e1s. eval_wh e1 = wh_Constructor m e1s` >> gvs[]
   >- (
-    qexists_tac `Prim (IsEq s (LENGTH e2s) F) [] Hole []` >>
+    qexists_tac `Prim (IsEq m (LENGTH e2s) F) [] Hole []` >>
     simp[plug_def, eval_wh_thm] >>
     Cases_on `eval_wh e1` >> gvs[wh_to_cons_def]
     )
   >- (
-    qexists_tac `Prim (IsEq s (LENGTH e2s) F) [] Hole []` >>
+    qexists_tac `Prim (IsEq m (LENGTH e2s) F) [] Hole []` >>
     simp[plug_def, eval_wh_thm] >>
     Cases_on `eval_wh e1` >> gvs[wh_to_cons_def]
     ) >>
@@ -538,17 +537,17 @@ Proof
     imp_res_tac eval_wh_freevars_SUBSET >> gvs[PULL_EXISTS, MEM_MAP] >>
     gvs[closed_def, EMPTY_iff_NOTIN] >> metis_tac[EL_MEM]
     ) >>
-  rw[] >> qexists_tac `plug_ctxt ctxt (Prim (Proj s x1) [] Hole [])` >>
+  rw[] >> qexists_tac `plug_ctxt ctxt (Prim (Proj m x1) [] Hole [])` >>
   simp[plug_plug_ctxt, plug_def] >> simp[CONJ_ASSOC] >> conj_asm1_tac
   >- (
     gvs[closed_def] >>
-    qspecl_then [`ctxt`,`Proj s x1 e1`,`EL x1 e1s`]
+    qspecl_then [`ctxt`,`Proj m x1 e1`,`EL x1 e1s`]
       assume_tac freevars_plug_eq >> gvs[] >>
-    qspecl_then [`ctxt`,`Proj s x1 e2`,`EL x1 e2s`]
+    qspecl_then [`ctxt`,`Proj m x1 e2`,`EL x1 e2s`]
       assume_tac freevars_plug_eq >> gvs[]
     ) >>
-  `(plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj s x1 e1)) T ∧
-   (plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj s x1 e2)) T` by (
+  `(plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj m x1 e1)) T ∧
+   (plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj m x1 e2)) T` by (
     rw[] >> irule app_bisimilarity_plug >> simp[] >> rw[app_bisimilarity_eq] >>
     irule eval_wh_IMP_exp_eq >> rw[eval_wh_thm]) >>
   imp_res_tac app_bisimilarity_wh_to_cons >> gvs[]
@@ -575,7 +574,7 @@ QED
 
 Theorem interp_simps[local,simp]:
   (∀k st. interp wh_Diverge k st = Div) ∧
-  (∀x. interp (wh_Constructor "Ret" [x]) Done [] = Ret Termination) ∧
+  (∀x. interp (wh_Constructor «Ret» [x]) Done [] = Ret Termination) ∧
   (∀k st. interp wh_Error k st = Ret Error)
 Proof
   once_rewrite_tac[interp_def] >> simp[next_action_def] >> rw[] >>
@@ -645,7 +644,7 @@ Proof
       )
     >- ( (* Str *)
       qexists_tac
-        `Prim If [] (Prim (AtomOp StrEq) [Lit (Str s)] Hole []) [Ret Fail; Fail]` >>
+        `Prim If [] (Prim (AtomOp StrEq) [Lit (Str m)] Hole []) [Ret Fail; Fail]` >>
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
@@ -689,7 +688,7 @@ Proof
         )
       )
     >- ( (* Msg *)
-      qexists_tac `Prim (Cons "Act") [] Hole []` >> simp[plug_def] >>
+      qexists_tac `Prim (Cons «Act») [] Hole []` >> simp[plug_def] >>
       simp[itree_of_def] >> drule semantics_Act >> strip_tac >> simp[] >>
       simp[semantics_def, eval_wh_thm] >>
       once_rewrite_tac[interp_def] >>
@@ -720,7 +719,7 @@ Proof
       )
     >- ( (* Str *)
       qexists_tac
-        `Prim If [] (Prim (AtomOp StrEq) [Lit (Str s)] Hole []) [Ret Fail; Fail]` >>
+        `Prim If [] (Prim (AtomOp StrEq) [Lit (Str m)] Hole []) [Ret Fail; Fail]` >>
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
@@ -738,7 +737,7 @@ Proof
       EVERY_CASE_TAC >> gvs[]
       )
     >- ( (* Msg *)
-      qexists_tac `Prim (Cons "Act") [] Hole []` >> simp[plug_def] >>
+      qexists_tac `Prim (Cons «Act») [] Hole []` >> simp[plug_def] >>
       simp[itree_of_def] >> drule semantics_Act >> strip_tac >> simp[] >>
       simp[semantics_def, eval_wh_thm] >>
       once_rewrite_tac[interp_def] >>

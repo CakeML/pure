@@ -1,6 +1,6 @@
 Theory typeclassAST
 Ancestors[qualified]
-  string integer pure_config
+  mlstring integer pure_config
 
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
@@ -8,29 +8,29 @@ Ancestors[qualified]
    The tyTup constructor should never be applied to a singleton list
 *)
 
-Type ty_consAST = ``:num + string``;
+Type ty_consAST = ``:num + mlstring``;
 
 Datatype:
   tyAST = tyOp ty_consAST (tyAST list) (* INL for Tuple *)
-        | tyVarOp string (tyAST list)
+        | tyVarOp mlstring (tyAST list)
 End
 
 Datatype:
-  PredtyAST = Predty ((string # tyAST) list) tyAST
+  PredtyAST = Predty ((mlstring # tyAST) list) tyAST
 End
 
-Overload boolTy = “tyOp (INR "Bool") []”;
-Overload intTy = “tyOp (INR "Integer") []”
-Overload listTy = “λty. tyOp (INR "[]") [ty]”
-Overload funTy = “λd r. tyOp (INR "Fun") [d; r]”
+Overload boolTy = “tyOp (INR «Bool») []”;
+Overload intTy = “tyOp (INR «Integer») []”
+Overload listTy = “λty. tyOp (INR «[]») [ty]”
+Overload funTy = “λd r. tyOp (INR «Fun») [d; r]”
 
 Datatype:
-  litAST = litInt int | litString string
+  litAST = litInt int | litString mlstring
 End
 
 Datatype:
-  patAST = patVar string
-         | patApp string (patAST list)
+  patAST = patVar mlstring
+         | patApp mlstring (patAST list)
          | patTup (patAST list)
          | patLit litAST
          (* TODO: annotate the type of the pattern *)
@@ -39,8 +39,8 @@ Datatype:
 End
 
 Datatype:
-  expAST = expVar string
-         | expCon string (expAST list)
+  expAST = expVar mlstring
+         | expCon mlstring (expAST list)
          | expOp pure_config$atom_op (expAST list)
          | expTup (expAST list)
          | expApp expAST expAST
@@ -51,9 +51,9 @@ Datatype:
          | expDo (expdostmtAST list) expAST
          | expCase expAST ((patAST # expAST) list)
          | expUserAnnot tyAST expAST;
-  expdecAST = expdecTysig string PredtyAST
+  expdecAST = expdecTysig mlstring PredtyAST
             | expdecPatbind patAST expAST
-            | expdecFunbind string (patAST list) expAST ;
+            | expdecFunbind mlstring (patAST list) expAST ;
   expdostmtAST = expdostmtExp expAST
                | expdostmtBind patAST expAST
                | expdostmtLet (expdecAST list)
@@ -74,9 +74,8 @@ Theorem better_expAST_induction =
           |> DISCH_ALL
           |> Q.GENL [‘eP’, ‘dP’, ‘doP’]
 
-val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
-Overload pNIL = “expCon "[]" []”
-Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
+Overload pNIL = “expCon «[]» []”
+Overload pCONS = “λe1 e2. expCon «::» [e1;e2]”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)
@@ -105,9 +104,9 @@ val _ = add_rule {term_name = "expAbs", fixity = Prefix 1,
                   pp_elements = [TOK "𝝺", TM, TOK "．", BreakSpace(1,2)],
                   paren_style = OnlyIfNecessary}
 
-Type classname = ``:string``;
+Type classname = ``:mlstring``;
 
-Type minImplAST = ``:(string list) list``; (* DNF of function names*)
+Type minImplAST = ``:(mlstring list) list``; (* DNF of function names*)
 
 (* for declClass:
 *  we only allow something like class Functor a => Monad a,
@@ -124,20 +123,20 @@ Type minImplAST = ``:(string list) list``; (* DNF of function names*)
 *)
 
 Datatype:
-  declAST = declTysig string PredtyAST
-          | declData string (string list)
-                     ((string # tyAST list) list)
-          | declFunbind string (patAST list) expAST
+  declAST = declTysig mlstring PredtyAST
+          | declData mlstring (mlstring list)
+                     ((mlstring # tyAST list) list)
+          | declFunbind mlstring (patAST list) expAST
           | declPatbind patAST expAST
-          | declClass (classname list) classname string minImplAST (expdecAST list)
+          | declClass (classname list) classname mlstring minImplAST (expdecAST list)
             (* enforce type sigs for functions definintion in class *)
           | declInst
               (* constraints: list of class and variables *)
-              ((classname # string) list)
+              ((classname # mlstring) list)
               classname
               (* type must be in the form `C v1 v2 ...`,
                * where C is a type constructor *)
-              ty_consAST (string list)
+              ty_consAST (mlstring list)
               (expdecAST list)
 End
 

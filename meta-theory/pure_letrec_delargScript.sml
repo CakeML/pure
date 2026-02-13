@@ -3,7 +3,7 @@
 *)
 Theory pure_letrec_delarg
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp pure_value
   pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
   pure_exp_rel pure_alpha_equiv pure_misc pure_congruence
@@ -12,13 +12,13 @@ Libs
   term_tactic dep_rewrite BasicProvers
 
 Datatype:
-  info = <| fname : string      ;  (* function name *)
-            args  : string list ;  (* arguments up to argument to delete *)
-            arg   : string      ;  (* argument to delete *)
-            w_arg : string      ;  (* argument to delete is this before deletion *)
-            args' : string list ;  (* arguments after argument to delete *)
-            rhs_T : exp         ;  (* without argument *)
-            rhs_F : exp         |> (* with argument *)
+  info = <| fname : mlstring      ;  (* function name *)
+            args  : mlstring list ;  (* arguments up to argument to delete *)
+            arg   : mlstring      ;  (* argument to delete *)
+            w_arg : mlstring      ;  (* argument to delete is this before deletion *)
+            args' : mlstring list ;  (* arguments after argument to delete *)
+            rhs_T : exp           ;  (* without argument *)
+            rhs_F : exp           |> (* with argument *)
 End
 
 Definition mk_apps_def:
@@ -2095,6 +2095,15 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem INFINITE_mlstring[local]:
+  INFINITE 𝕌(:mlstring)
+Proof
+  strip_assume_tac explode_BIJ
+  \\ strip_tac
+  \\ drule_all pred_setTheory.FINITE_BIJ
+  \\ simp [INFINITE_LIST_UNIV]
+QED
+
 Theorem letrec_spec_delarg_lemma:
   can_spec_arg f vs v ws rhs1 rhs2 ∧
   (vs = [] ⇒ ws ≠ []) ∧
@@ -2122,7 +2131,8 @@ Proof
   \\ irule_at (Pos hd) Letrec_specialise'
   \\ irule_at Any exp_eq_Letrec_cong \\ fs []
   \\ ‘∃w. w ∉ ({v;f} ∪ set vs ∪ set ws ∪ freevars rhs1 ∪ freevars rhs2 ∪
-               boundvars rhs1 ∪ boundvars rhs2)’ by (irule invent_name \\ fs [])
+               boundvars rhs1 ∪ boundvars rhs2)’
+    by (irule invent_name \\ fs [INFINITE_mlstring])
   \\ qexists_tac ‘w’
   \\ qexists_tac ‘w’
   \\ gvs [exp_eq_refl]

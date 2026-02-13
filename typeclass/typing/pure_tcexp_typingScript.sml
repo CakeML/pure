@@ -1,6 +1,6 @@
 Theory pure_tcexp_typing
 Ancestors
-  pair arithmetic integer string option misc list alist relation
+  pair arithmetic integer mlstring option misc list alist relation
   set_relation pred_set typeclass_types typeclass_kindCheck
   pure_cexp pure_config pure_tcexp pure_tcexp_lemmas
   typeclass_texp typeclass_typing
@@ -22,7 +22,7 @@ Definition tcexp_namespace_ok_def:
       EVERY (λ(ak,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
       ALL_DISTINCT
-        (MAP implode (SET_TO_LIST (reserved_cns DELETE "Subscript")) ++
+        (SET_TO_LIST (reserved_cns DELETE «Subscript») ++
          MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
     (* Every constructor type is closed wrt kinds and uses only defined
        types: *)

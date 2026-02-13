@@ -3,7 +3,7 @@
  *)
 Theory thunkLangProps
 Ancestors
-  string option sum pair list alist finite_map
+  mlstring option sum pair list alist finite_map
   pred_set rich_list thunkLang_primitives
   pure_semantics[qualified]
   thunkLang pure_misc thunk_semantics
@@ -16,7 +16,7 @@ val _ = numLib.prefer_num ();
 Theorem exp_size_lemma:
   (∀x xs. MEM x xs ⇒ exp_size x ≤ list_size exp_size xs) ∧
   (∀x y xs. MEM (x,y) xs ⇒
-    exp_size y ≤ list_size (pair_size (list_size char_size) exp_size) xs) ∧
+    exp_size y ≤ list_size (pair_size mlstring_size exp_size) xs) ∧
   (∀x xs. MEM x xs ⇒ v_size x < list_size v_size xs)
 Proof
   rpt conj_tac
@@ -95,7 +95,8 @@ Proof
 QED
 
 Theorem eval_to_Lams:
-  ∀(l : string list) k e. l ≠ [] ⇒ eval_to k (Lams l e) = INR (Closure (HD l) (Lams (TL l) e))
+  ∀(l :mlstring list) k e. l ≠ [] ⇒
+    eval_to k (Lams l e) = INR (Closure (HD l) (Lams (TL l) e))
 Proof
   Cases >> gvs [eval_to_def]
 QED
@@ -560,7 +561,7 @@ Definition next_rel_def[simp]:
   next_rel Rv Re Ret Ret = T ∧
   next_rel Rv Re Div Div = T ∧
   next_rel Rv Re Err Err = T ∧
-  next_rel Rv Re (_: (string # string) next_res) _ = F
+  next_rel Rv Re (_: (mlstring # mlstring) next_res) _ = F
 End
 
 Definition rel_ok_def:

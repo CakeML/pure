@@ -3,7 +3,7 @@
 *)
 Theory pure_cexp
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp
   mlstring[qualified]
 Libs
@@ -158,7 +158,7 @@ Termination
 End
 
 Definition op_of_def:
-  op_of (Cons s) = Cons (explode s) ∧
+  op_of (Cons s) = Cons s ∧
   op_of (AtomOp p) = AtomOp p ∧
   op_of (Seq:cop) = (Seq:op)
 End
@@ -254,7 +254,7 @@ End
 
 Definition num_args_ok_def:
   num_args_ok (Cons cn) n = (
-    case num_monad_args (explode cn) of
+    case num_monad_args cn of
     | SOME ar => n = ar
     | NONE => T) ∧
   num_args_ok (AtomOp aop) n = num_atomop_args_ok aop n ∧
@@ -266,7 +266,7 @@ Definition cexp_wf_def[nocompute]:
   cexp_wf (Prim _ op es) = (
     num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es ∧
     (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
-    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ «»)) ∧
   cexp_wf (App _ e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
   cexp_wf (Lam _ vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
@@ -275,10 +275,10 @@ Definition cexp_wf_def[nocompute]:
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
     EVERY ALL_DISTINCT $ MAP (FST o SND) css ∧
     OPTION_ALL
-      (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
+      (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). cn ∉ monad_cns) a) eopt ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
     ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
-    (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns)) ∧
+    (∀cn. MEM cn (MAP FST css) ⇒ cn ∉ monad_cns)) ∧
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
     ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))
@@ -370,7 +370,7 @@ Definition cns_arities_def:
   cns_arities (Var d v) = {} ∧
   cns_arities (Prim d cop es) = (
     (case cop of
-     | Cons cn => if explode cn ∈ monad_cns then {} else {{cn, LENGTH es}}
+     | Cons cn => if cn ∈ monad_cns then {} else {{cn, LENGTH es}}
      | _ => {}) ∪
       BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (App d e es) =

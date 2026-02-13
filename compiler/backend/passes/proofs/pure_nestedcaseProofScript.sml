@@ -36,7 +36,7 @@ Definition nested_rows_term_def:
   nested_rows_term v t (pe::pes) =
   let (gd,binds) = patguards [(v, FST pe)]
   in
-    If gd (FOLDR (λ(u,e) A. Let (explode u) e A) (SND pe) binds)
+    If gd (FOLDR (λ(u,e) A. Let u e A) (SND pe) binds)
        (nested_rows_term v t pes)
 End
 
@@ -122,7 +122,7 @@ Proof
   gs[] >> irule exp_eq_If_cong >> simp[] >>
   rename [‘(FOLDR _ A1 r1 ≅? FOLDR _ A2 r2) b’] >>
   qmatch_abbrev_tac ‘(FOLDR f _ _ ≅? FOLDR f _ _) b’ >>
-  ‘f = (λp y. (λ(v,e) A. Let v e A) ((explode ## I) p) y)’
+  ‘f = (λp y. (λ(v,e) A. Let v e A) p y)’
     by simp[FUN_EQ_THM, Abbr‘f’, FORALL_PROD] >>
   qunabbrev_tac ‘f’ >> simp[GSYM rich_listTheory.FOLDR_MAP] >>
   irule exp_eq_FOLDR_Let_cong >>
@@ -218,8 +218,7 @@ Proof
           dxrule_then assume_tac $ iffLR exp_eq_sym >>
           simp[SF EXPEQ_ss, Abbr‘BASE’, exp_of_def] >>
           qmatch_goalsub_abbrev_tac
-            ‘Let (explode s) (Var (explode s))
-                 (nested_rows (Var (explode s)) allpes)’ >>
+            ‘Let s (Var s) (nested_rows (Var s) allpes)’ >>
           gs[SF EXPEQ_ss] >>
           simp[nested_rows_def, patguards_def, SF EXPEQ_ss]) >>
       pop_assum SUBST_ALL_TAC >> simp[] >>
@@ -251,6 +250,3 @@ Proof
       gs[dest_var_EQ_SOME, exp_of_def, SF EXPEQ_ss, nested_rows_to_termform] >>
       simp[Abbr‘allpes’, ELIM_UNCURRY])
 QED
-
-
-

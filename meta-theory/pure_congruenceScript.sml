@@ -4,7 +4,7 @@
 *)
 Theory pure_congruence
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_exp pure_value
   pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
   pure_exp_rel pure_alpha_equiv pure_misc
@@ -2737,7 +2737,7 @@ Proof
   pop_assum irule >>
   ‘∀f. FLOOKUP f n = SOME v ⇒ v ∈ FRANGE f’ by (rw [FRANGE_FLOOKUP] >> pop_assum $ irule_at Any) >>
   pop_assum $ dxrule_then assume_tac >>
-  ‘∀(f : string |-> exp) l v. v ∈ FRANGE (f |++ l) ⇒ v ∈ FRANGE f ∪ set (MAP SND l)’
+  ‘∀(f :mlstring |-> exp) l v. v ∈ FRANGE (f |++ l) ⇒ v ∈ FRANGE f ∪ set (MAP SND l)’
     by (rpt strip_tac >> irule $ iffLR SUBSET_DEF >> irule_at Any FRANGE_FUPDATE_LIST_SUBSET >> fs []) >>
   pop_assum $ dxrule_then assume_tac >>
   gvs [FRANGE_FEMPTY, MEM_EL, EL_MAP, closed_def] >>

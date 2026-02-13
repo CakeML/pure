@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib BasicProvers intLib;
-open stringTheory optionTheory sumTheory pairTheory listTheory rich_listTheory
+open mlstringTheory optionTheory sumTheory pairTheory listTheory rich_listTheory
      alistTheory itreeTheory thunkLangTheory thunkLang_primitivesTheory
      thunk_semanticsTheory;
 
@@ -88,7 +88,7 @@ Definition next_delayed_def:
                         stack state
                     else
                       next_delayed (k - 1)
-                        (INR $ Monadic Raise [Delay $ Cons "Subscript" []])
+                        (INR $ Monadic Raise [Delay $ Cons «Subscript» []])
                         stack state)
                | _ => Err))
           else if mop = Update ∧ LENGTH vs = 3 then
@@ -103,11 +103,11 @@ Definition next_delayed_def:
                            let new_state =
                              LUPDATE (LUPDATE v (Num i) (EL n state)) n state
                            in next_delayed (k - 1)
-                                (INR $ Monadic Ret [Delay $ Cons "" []])
+                                (INR $ Monadic Ret [Delay $ Cons «» []])
                                 stack new_state
                          else
                            next_delayed (k - 1)
-                             (INR $ Monadic Raise [Delay $ Cons "Subscript" []])
+                             (INR $ Monadic Raise [Delay $ Cons «Subscript» []])
                              stack state
                      | _ => Err))
              | INL Diverge => Div
@@ -135,7 +135,7 @@ Definition interp'_delayed_def:
             Vis' a
               (λy. (INR $ Monadic Ret [Delay $ Lit (Str y)],
                     new_stack, new_state)))
-      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+      ((λ_ ret. strlen ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
 End
@@ -155,7 +155,7 @@ Theorem interp_delayed_def:
             INL x =>
               Ret $ pure_semantics$FinalFFI a x
           | INR y =>
-              if STRLEN y ≤ max_FFI_return_size then
+              if strlen y ≤ max_FFI_return_size then
                 interp_delayed (INR $ Monadic Ret [Delay $ Lit (Str y)])
                                new_stack new_state
               else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
@@ -185,40 +185,40 @@ Proof
   \\ ntac 2 $ pop_assum mp_tac
   \\ once_rewrite_tac [next_delayed_def]
   \\ TOP_CASE_TAC \\ gvs [] \\ TOP_CASE_TAC \\ gvs []
-  \\ rename1 ‘s = Ret’
-  \\ Cases_on ‘s = Bind’ >- (gvs [] \\ rw [])
-  \\ Cases_on ‘s = Handle’ >- (gvs [] \\ rw [])
-  \\ Cases_on ‘s = Act’ >- (gvs [] \\ rw [])
-  \\ Cases_on ‘s = Raise’ \\ gvs []
+  \\ rename1 ‘m' = Ret’
+  \\ Cases_on ‘m' = Bind’ >- (gvs [] \\ rw [])
+  \\ Cases_on ‘m' = Handle’ >- (gvs [] \\ rw [])
+  \\ Cases_on ‘m' = Act’ >- (gvs [] \\ rw [])
+  \\ Cases_on ‘m' = Raise’ \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs [] \\ simp [with_value_def]
     \\ ntac 3 (TOP_CASE_TAC \\ gvs [])
     >- (IF_CASES_TAC \\ gvs [] \\ first_x_assum drule \\ rw [])
     \\ simp [apply_closure_def, with_value_def] \\ rpt $ TOP_CASE_TAC \\ gvs []
     \\ first_x_assum drule \\ rw [])
-  \\ Cases_on ‘s = Ret’ \\ gvs []
+  \\ Cases_on ‘m' = Ret’ \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs [] \\ simp [with_value_def]
     \\ ntac 3 (reverse TOP_CASE_TAC \\ gvs [])
     >- (IF_CASES_TAC \\ gvs [] \\ first_x_assum drule \\ rw [])
     \\ simp [apply_closure_def, with_value_def] \\ rpt $ TOP_CASE_TAC \\ gvs []
     \\ first_x_assum drule \\ rw [])
-  \\ Cases_on ‘s = Alloc’ \\ gvs []
+  \\ Cases_on ‘m' = Alloc’ \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs [] \\ rw [with_atoms_def, with_value_def]
     \\ rpt (TOP_CASE_TAC \\ gvs []) \\ first_x_assum drule \\ simp [])
-  \\ Cases_on ‘s = Length’ \\ gvs []
+  \\ Cases_on ‘m' = Length’ \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs [] \\ rw [with_atoms_def]
     \\ ntac 5 (TOP_CASE_TAC \\ gvs [])
     \\ first_x_assum irule \\ simp [] \\ qexists_tac ‘[Loc n]’ \\ simp [])
-  \\ Cases_on ‘s = Deref’ \\ gvs []
+  \\ Cases_on ‘m' = Deref’ \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs [] \\ rw [with_atoms_def]
     \\ ntac 7 (TOP_CASE_TAC \\ gvs [])
     \\ first_x_assum irule \\ simp []
     \\ qexists_tac ‘[Loc n; Int i]’ \\ simp [])
-  \\ Cases_on ‘s = Update’ \\ gvs []
+  \\ Cases_on ‘m' = Update’ \\ gvs []
   >- (
     IF_CASES_TAC \\ gvs [] \\ rw [with_atoms_def, with_value_def]
     \\ rpt (TOP_CASE_TAC \\ gvs [])
@@ -266,7 +266,7 @@ Definition next_rel_delayed_def[simp]:
   next_rel_delayed Rv Re Ret Ret = T ∧
   next_rel_delayed Rv Re Div Div = T ∧
   next_rel_delayed Rv Re Err Err = T ∧
-  next_rel_delayed Rv Re (_: (string # string) next_res) _ = F
+  next_rel_delayed Rv Re (_: (mlstring # mlstring) next_res) _ = F
 End
 
 Definition rel_ok_delayed_def:

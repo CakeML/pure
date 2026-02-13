@@ -6,7 +6,7 @@
 *)
 Theory thunk_force_delay
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   thunkLang thunkLang_primitives wellorder arithmetic pure_misc
   thunkLangProps thunk_semantics thunk_remove_unuseful_bindings
 Libs
@@ -358,7 +358,7 @@ Proof
     >- (
       Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ gs [dest_anyClosure_def, v_rel_def]
       \\ rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
       \\ gvs [OPTREL_def]
@@ -712,7 +712,7 @@ Proof
     \\ irule exp_rel_eval
     \\ irule exp_rel_subst \\ gs [])
   >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
       \\ gs [OPTREL_def]

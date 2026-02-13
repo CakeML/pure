@@ -4,7 +4,7 @@
 *)
 Theory pure_pres
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map combin pure_exp
   pure_value pure_eval pure_eval_lemmas pure_exp_lemmas
   pure_limit pure_exp_rel pure_alpha_equiv pure_misc
@@ -27,7 +27,7 @@ val freevars_exp_of = pure_cexp_lemmasTheory.freevars_exp_of
 Inductive unidir:
 [~Let:]
   (∀(x:'a cexp) y v a.
-    explode v ∉ freevars (exp_of y) ⇒
+    v ∉ freevars (exp_of y) ⇒
     unidir (Let a v x y) y)
 
 [~freshen:]
@@ -158,7 +158,7 @@ Inductive bidir:
           (Lam a ws x))
 [~Letrec_Lam:]
   (∀a b c d vs l e.
-    EVERY (λ(v,e). DISJOINT (IMAGE explode (set vs)) (freevars (exp_of e)) ∧
+    EVERY (λ(v,e). DISJOINT (set vs) (freevars (exp_of e)) ∧
                    ~MEM v vs) l
     ⇒
     bidir (Letrec a l (Lam b vs e))
@@ -184,7 +184,7 @@ Inductive bidir:
 [~Letrec_App_forget:]
   (∀a b l e es.
     EVERY (λe. DISJOINT (freevars (exp_of e))
-                        (IMAGE explode (set (MAP FST l)))) es
+                        (set (MAP FST l))) es
     ⇒
     bidir (Letrec a l (App b e es))
           (App b (Letrec a l e) es))
@@ -212,14 +212,14 @@ Inductive bidir:
              <= direction needs to reconcile differing polymorphism *)
   (∀v w x y e a.
      v ≠ w ∧
-     explode w ∉ freevars (exp_of x) ∧
-     explode v ∉ freevars (exp_of x)
+     w ∉ freevars (exp_of x) ∧
+     v ∉ freevars (exp_of x)
      ⇒
      bidir (Let a v x (Let a v x (Let a w y e)))
            (Let a v x (Let a w y (Let a v x e))))
 [~Let_dup:]
   (∀v x e a.
-     explode v ∉ freevars (exp_of x)
+     v ∉ freevars (exp_of x)
      ⇒
      bidir (Let a v x e)
            (Let a v x (Let a v x e)))
@@ -460,9 +460,7 @@ QED
 Theorem spec_arg_IMP_can_spec_arg:
   ∀f vs v ws x y.
     spec_arg f vs v ws x y ⇒
-    can_spec_arg (explode f)
-                 (MAP explode vs) (explode v)
-                 (MAP explode ws) (exp_of x) (exp_of y)
+    can_spec_arg f vs v ws (exp_of x) (exp_of y)
 Proof
   Induct_on ‘spec_arg’ \\ rw []
   >-
@@ -634,10 +632,8 @@ Proof
    (fs [exp_of_def]
     \\ irule Letrec_eq_Let_Letrec)
   >-
-   (fs [exp_of_def,MAP_MAP_o,o_DEF]
+   (fs [exp_of_def,MAP_MAP_o,o_DEF,SF ETA_ss]
     \\ irule exp_eq_Lams_cong
-    \\ ‘MAP (λx. Var (explode x) : exp) vs = MAP Var (MAP explode vs)’ by
-          fs [MAP_MAP_o,o_DEF]
     \\ simp [Apps_Lams_Vars])
   >-
    (last_x_assum mp_tac \\ rpt $ pop_assum kall_tac
@@ -672,7 +668,7 @@ Proof
     \\ metis_tac [])
   >-
    (gvs [exp_of_def,MEM_EL]
-    \\ qspec_then ‘MAP (λ(n,x'). (explode n,exp_of x')) l’ mp_tac
+    \\ qspec_then ‘MAP (λ(n,x'). (n,exp_of x')) l’ mp_tac
                   pure_demandTheory.Letrec_unfold \\ fs []
     \\ gvs [EL_MAP] \\ disch_then drule \\ fs []
     \\ disch_then $ qspec_then ‘T’ mp_tac

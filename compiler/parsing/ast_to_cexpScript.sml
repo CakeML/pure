@@ -14,7 +14,7 @@ Definition build_tyinfo_def:
   build_tyinfo A (d :: ds) =
   case d of
     declData opnm args cons =>
-      build_tyinfo (insert A (implode opnm) (args, MAP (implode ## I) cons)) ds
+      build_tyinfo (insert A opnm (args, cons)) ds
   | _ => build_tyinfo A ds
 End
 
@@ -56,7 +56,7 @@ QED
 Overload If = “λl g t e. Case l g «» [(«True», [], t); («False», [], e)] NONE”
 
 Definition dest_pvar_def[simp]:
-  dest_pvar (patVar s) = SOME (implode s) ∧
+  dest_pvar (patVar s) = SOME s ∧
   dest_pvar _ = NONE
 End
 
@@ -83,7 +83,7 @@ Definition translate_headop_def:
 End
 
 Definition dest_patVar_def:
-  dest_patVar (patVar s) = SOME (implode s) ∧
+  dest_patVar (patVar s) = SOME s ∧
   dest_patVar _ = NONE
 End
 
@@ -96,7 +96,7 @@ Definition translate_pat_def:
   translate_pat (patApp s pvs) =
   do
     vs <- OPT_MMAP dest_patVar pvs ;
-    SOME (implode s, vs)
+    SOME (s, vs)
   od ∧
   translate_pat _ = NONE
 End
@@ -108,11 +108,11 @@ End
 
 Overload Bind = “λa1 a2. pure_cexp$Prim () (Cons «Bind») [a1;a2]”
 Definition translate_exp_def:
-  translate_exp tyinfo (expVar s) = SOME (Var () (implode s)) ∧
+  translate_exp tyinfo (expVar s) = SOME (Var () s) ∧
   translate_exp tyinfo (expCon s es) =
   do
     rs <- OPT_MMAP (translate_exp tyinfo) es;
-    SOME (Prim () (Cons (implode s)) rs)
+    SOME (Prim () (Cons s) rs)
   od ∧
   translate_exp tyinfo (expOp op es) =
   do
@@ -136,7 +136,7 @@ Definition translate_exp_def:
    case p of
      patVar n => do
                   body <- translate_exp tyinfo e ;
-                  SOME (Lam () [implode n] body)
+                  SOME (Lam () [n] body)
                 od
    | _ => do
            ce <- translate_patcase tyinfo «» p e;
@@ -200,7 +200,7 @@ Definition translate_exp_def:
              do
                e <- translate_exp tyinfo ee ;
                rest <- translate_exp tyinfo (expDo reste finalexp) ;
-               return (Bind e $ Lam () [implode n] rest)
+               return (Bind e $ Lam () [n] rest)
              od
          | patUScore =>
              do
@@ -238,14 +238,14 @@ Definition translate_exp_def:
      | expdecPatbind (patVar s) e =>
          do
            ce <- translate_exp tyinfo e ;
-           SOME ((implode s, ce) :: rest)
+           SOME ((s, ce) :: rest)
          od
      | expdecPatbind _ _ => NONE
      | expdecFunbind s args body =>
          do
            vs <- OPT_MMAP dest_pvar args ;
            bce <- translate_exp tyinfo body ;
-           SOME ((implode s, mkLam () vs bce) :: rest)
+           SOME ((s, mkLam () vs bce) :: rest)
          od
    od)
 Termination
@@ -310,7 +310,7 @@ Definition translate_decs_def:
     rest <- translate_decs tyinfo ds ;
     vs <- OPT_MMAP dest_pvar args ;
     bce <- translate_exp tyinfo body ;
-    SOME ((implode s, mkLam () vs bce) :: rest)
+    SOME ((s, mkLam () vs bce) :: rest)
   od ∧
   translate_decs tyinfo (declPatbind p e :: ds) =
   do
@@ -321,53 +321,6 @@ Definition translate_decs_def:
   od
 End
 
-Definition uniq_prefix_def:
-  uniq_prefix pfx slist =
-  case FILTER (λs. pfx ≼ s) slist of
-    [] => pfx
-  | bads => uniq_prefix (pfx ++ "%") bads
-Termination
-  WF_REL_TAC ‘measure (λ(p,l). 1 + SUM (MAP LENGTH l) - LENGTH p)’ >> rw[] >>
-  gvs[listTheory.FILTER_EQ_CONS] >> rename [‘pfx ≼ s’] >>
-  ‘∃sfx. s = pfx ++ sfx’ by metis_tac[rich_listTheory.IS_PREFIX_APPEND] >>
-  gvs[listTheory.SUM_APPEND] >>
-  qmatch_abbrev_tac ‘SUM (MAP LENGTH (FILTER P ll)) + 1 < _’ >>
-  ‘SUM (MAP LENGTH (FILTER P ll)) ≤ SUM (MAP LENGTH ll)’
-    suffices_by simp[] >>
-  rpt (pop_assum kall_tac) >> qid_spec_tac ‘ll’ >> Induct >> rw[]
-End
-
-Theorem uniq_prefix_prefix:
-  ∀p ss. p ≼ uniq_prefix p ss
-Proof
-  recInduct uniq_prefix_ind >> rw[] >> simp[Once uniq_prefix_def] >>
-  BasicProvers.TOP_CASE_TAC >> gs[] >>
-  irule rich_listTheory.IS_PREFIX_TRANS >>
-  first_assum $ irule_at Any >> simp[]
-QED
-
-Theorem uniq_prefix_correct:
-  ∀p ss sfx. ¬MEM (uniq_prefix p ss ++ sfx) ss
-Proof
-  recInduct uniq_prefix_ind >> rw[] >>
-  simp[Once uniq_prefix_def] >> rename [‘FILTER _ strings’] >>
-  Cases_on ‘FILTER (λs. pfx ≼ s) strings’ >> simp[]
-  >- (gvs[listTheory.FILTER_EQ_NIL, listTheory.EVERY_MEM] >>
-      strip_tac >> first_x_assum drule >> simp[]) >>
-  gvs[listTheory.FILTER_EQ_CONS] >>
-  qmatch_abbrev_tac ‘¬MEM (UP ++ sfx) l1 ∧ ¬MEM (UP ++ sfx) l2’ >>
-  ‘∀sfx. pfx ≼ UP ++ sfx’
-    by (strip_tac >> irule rich_listTheory.IS_PREFIX_TRANS >>
-        irule_at Any rich_listTheory.IS_PREFIX_APPEND3 >>
-        irule rich_listTheory.IS_PREFIX_TRANS >> simp[Abbr‘UP’] >>
-        irule_at Any rich_listTheory.IS_PREFIX_APPEND3 >>
-        irule_at Any uniq_prefix_prefix) >>
-  rpt strip_tac
-  >- (gvs[listTheory.EVERY_MEM, listTheory.FILTER_EQ_NIL] >>
-      first_x_assum drule >> simp[]) >>
-  gvs[FORALL_AND_THM, listTheory.MEM_FILTER]
-QED
-
 (* nm_map maps type-operator names to their indices in the typing
    signature/map; the arg_map maps type variables (the vector vs after
    something like data Op vs = ...) into integers
@@ -375,7 +328,7 @@ QED
 
 Definition translate_type_def:
   translate_type nm_map arg_map (tyOp s tys) =
-  (if s = "Fun" then
+  (if s = «Fun» then
      do
        assert (LENGTH tys = 2);
        dty <- oHD tys ;
@@ -384,27 +337,27 @@ Definition translate_type_def:
        r <- translate_type nm_map arg_map rty;
        return (pure_typing$Function d r)
      od
-   else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
-   else if s = "Integer" then do assert (tys = []); return $ PrimTy Integer od
-   else if s = "String" then do assert (tys = []); return $ PrimTy String od
-   else if s = "IO" then do assert (LENGTH tys = 1);
+   else if s = «Bool» then do assert (tys = []); return $ PrimTy Bool; od
+   else if s = «Integer» then do assert (tys = []); return $ PrimTy Integer od
+   else if s = «String» then do assert (tys = []); return $ PrimTy String od
+   else if s = «IO» then do assert (LENGTH tys = 1);
                             t <- translate_type nm_map arg_map (HD tys);
                             return $ M t;
                          od
-   else if s = "Array" then do assert (LENGTH tys = 1);
+   else if s = «Array» then do assert (LENGTH tys = 1);
                                t <- translate_type nm_map arg_map (HD tys);
                                return $ Array t;
                             od
    else
      do
-       opidx <- lookup nm_map (implode s) ;
+       opidx <- lookup nm_map s ;
        args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
        return $ TypeCons opidx args
      od) ∧
 
   translate_type nm_map arg_map (tyVar s) =
   do
-    varidx <- lookup arg_map (implode s);
+    varidx <- lookup arg_map s;
     return $ TypeVar varidx
   od ∧
 
@@ -462,7 +415,7 @@ Definition build_tysig1_def:
   build_tysig1 nm_map (opname, (vs, cons)) sig =
   do
     (arg_map, numvs) <<-
-      FOLDL (λ(m,i) v. (mlmap$insert m (implode v) i, i + 1))
+      FOLDL (λ(m,i) v. (mlmap$insert m v i, i + 1))
             (empty str_compare, 0n)
             vs;
     coninfo <-
@@ -479,7 +432,7 @@ Definition build_tysig1_def:
 End
 
 Definition listinfo_def:
-  listinfo = (["a"], [(«[]», []); («::», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
+  listinfo = ([«a»], [(«[]», []); («::», [tyVar «a»; tyOp «[]» [tyVar «a»]])])
 End
 
 Definition decls_to_letrec_def:
@@ -681,10 +634,9 @@ Proof
 QED
 
 Theorem MEM_monad_cn_mlstrings[local]:
-  MEM x monad_cn_mlstrings ⇔ explode x ∈ monad_cns
+  MEM x monad_cn_mlstrings ⇔ x ∈ monad_cns
 Proof
-  rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def] >>
-  simp[SRULE [mlstringTheory.implode_def] implodeEQ]
+  rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def]
 QED
 
 Theorem cexp_wf_alt_def[compute]:
@@ -696,7 +648,7 @@ Theorem cexp_wf_alt_def[compute]:
      | AtomOp (Lit (Int i)) => T
      | AtomOp (Lit (Str s)) => T
      | AtomOp (Lit _) => F
-     | AtomOp (Message m) => m ≠ ""
+     | AtomOp (Message m) => m ≠ «»
      | _ => T)) ∧
   (∀v2 es e.
     cexp_wf (App v2 e es : 'a cexp) ⇔

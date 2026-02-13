@@ -10,7 +10,7 @@
  *)
 Theory envLang
 Ancestors
-  string option sum pair list alist pure_exp thunkLang_primitives
+  option sum pair list alist pure_exp thunkLang_primitives
   pure_misc mlstring env_cexp
 Libs
   term_tactic monadsyntax
@@ -18,7 +18,7 @@ Libs
 
 val _ = numLib.prefer_num();
 
-Type vname = “:string”
+Type vname = “:mlstring”
 
 Datatype:
   exp = Var vname                            (* variable                *)
@@ -35,13 +35,13 @@ Datatype:
 End
 
 Definition op_of_def[simp]:
-  op_of ((Cons n):cop) = (Cons (explode n)):op ∧
+  op_of ((Cons n):cop) = (Cons n):op ∧
   op_of (AtomOp m) = AtomOp m
 End
 
-Overload True[local] = “Prim (Cons "True") []”;
-Overload False[local] = “Prim (Cons "False") []”;
-Overload Unit[local] = “Prim (Cons "") []”;
+Overload True[local] = “Prim (Cons «True») []”;
+Overload False[local] = “Prim (Cons «False») []”;
+Overload Unit[local] = “Prim (Cons «») []”;
 Overload Fail = “Prim (AtomOp Add) []”;
 
 Definition lets_for_def:
@@ -68,19 +68,19 @@ Definition rows_of_def:
 End
 
 Definition exp_of_def:
-  exp_of ((Var n):cexp) = (Var (explode n)):envLang$exp ∧
+  exp_of ((Var n):cexp) = (Var n):envLang$exp ∧
   exp_of (Prim p xs) = Prim (op_of p) (MAP exp_of xs) ∧
   exp_of (App x y) = App (exp_of x) (exp_of y) ∧
-  exp_of (Lam v x) = Lam (explode v) (exp_of x) ∧
-  exp_of (Letrec fs x) = Letrec (MAP (λ(n,y). (explode n,exp_of y)) fs) (exp_of x) ∧
-  exp_of (Let v x y) = Let (OPTION_MAP explode v) (exp_of x) (exp_of y) ∧
+  exp_of (Lam v x) = Lam v (exp_of x) ∧
+  exp_of (Letrec fs x) = Letrec (MAP (λ(n,y). (n,exp_of y)) fs) (exp_of x) ∧
+  exp_of (Let v x y) = Let v (exp_of x) (exp_of y) ∧
   exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
   exp_of (Delay x) = Delay (exp_of x) ∧
   exp_of (Box x) = Box (exp_of x) ∧
   exp_of (Force x) = Force (exp_of x) ∧
-  exp_of (Case v rs d) = rows_of (explode v)
-                           (MAP (λ(cn,vs,e). (explode cn, MAP explode vs, exp_of e)) rs)
-                           (OPTION_MAP (λ(a,e). (MAP (explode ## I) a, exp_of e)) d) ∧
+  exp_of (Case v rs d) = rows_of v
+                           (MAP (λ(cn,vs,e). (cn, vs, exp_of e)) rs)
+                           (OPTION_MAP (λ(a,e). (a, exp_of e)) d) ∧
   (* monads *)
   exp_of (Ret x)        = Monad Ret    [exp_of x] ∧
   exp_of (Raise x)      = Monad Raise  [exp_of x] ∧
@@ -108,7 +108,7 @@ Definition Apps_def:
 End
 
 Datatype:
-  v = Constructor string (v list)
+  v = Constructor mlstring (v list)
     | Monadic ((vname # v) list) mop (exp list)
     | Closure vname ((vname # v) list) exp
     | Recclosure ((vname # exp) list) ((vname # v) list) vname
@@ -174,7 +174,7 @@ Definition dest_Constructor_def[simp]:
 End
 
 Definition unit_def:
-  unit = Constructor "" []
+  unit = Constructor «» []
 End
 
 Definition freevars_def:
@@ -233,9 +233,9 @@ Definition eval_to_def:
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) env x;
-         if v = Constructor "True" [] then
+         if v = Constructor «True» [] then
            eval_to (k - 1) env y
-         else if v = Constructor "False" [] then
+         else if v = Constructor «False» [] then
            eval_to (k - 1) env z
          else
            fail Type_error
@@ -288,7 +288,7 @@ Definition eval_to_def:
              v <- if k = 0 then fail Diverge else eval_to (k - 1) env (HD xs);
              (t, ys) <- dest_Constructor v;
              assert ((t = s ⇒ i = LENGTH ys) ∧ t ∉ monad_cns);
-             return (Constructor (if t ≠ s then "False" else "True") [])
+             return (Constructor (if t ≠ s then «False» else «True») [])
            od
        | AtomOp aop =>
            do
@@ -300,7 +300,7 @@ Definition eval_to_def:
              case eval_op aop ys of
                SOME (INL v) => return (Atom v)
              | SOME (INR b) =>
-               return (Constructor (if b then "True" else "False") [])
+               return (Constructor (if b then «True» else «False») [])
              | NONE => fail Type_error
            od) ∧
   eval_to k env (Monad mop xs) = return (Monadic env mop xs)
@@ -519,21 +519,21 @@ Definition cexp_wf_def[simp]:
   cexp_wf (App x y) = (cexp_wf x ∧ cexp_wf y) ∧
   cexp_wf (Letrec fs x) =
     (EVERY I (MAP (λ(_,x). cexp_wf x) fs) ∧ cexp_wf x ∧
-     ALL_DISTINCT (MAP (λx. explode (FST x)) fs) ∧
+     ALL_DISTINCT (MAP FST fs) ∧
      EVERY (λ(_,x). ∃n m. x = Lam n m ∨ x = Delay m) fs) ∧
   cexp_wf (Case v rs x) =
     (EVERY I (MAP (λ(_,vs,x). ALL_DISTINCT vs ∧ cexp_wf x) rs) ∧ rs ≠ [] ∧
      OPTION_ALL (λ(a,x). cexp_wf x ∧
-          DISJOINT (set (MAP (explode o FST) a)) monad_cns ∧
+          DISJOINT (set (MAP FST a)) monad_cns ∧
           a ≠ []) x ∧
-     DISJOINT (set (MAP (explode o FST) rs)) monad_cns ∧
+     DISJOINT (set (MAP FST rs)) monad_cns ∧
      ALL_DISTINCT (MAP FST rs ++ case x of NONE => [] | SOME (a,_) => MAP FST a) ∧
      ~MEM v (FLAT (MAP (FST o SND) rs))) ∧
   cexp_wf (Prim p xs) =
     (EVERY cexp_wf xs ∧
      (case p of
       | Cons m => T
-      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1 ∧ m ≠ "") ∧
+      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1 ∧ m ≠ «») ∧
                     num_atomop_args_ok b (LENGTH xs) ∧
                     (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
   cexp_wf _ = T

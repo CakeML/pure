@@ -9,7 +9,7 @@
  *)
 Theory thunk_case_projProof
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   thunkLang_primitives pure_misc thunk_tickProof thunk_untickProof
   finite_map pred_set rich_list thunkLang wellorder
   thunkLangProps thunk_semantics
@@ -447,7 +447,7 @@ Proof
       \\ simp [])
         (* Recclosure *)
     \\ rename1 ‘LIST_REL _ xs ys’
-    \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+    \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
       by (irule LIST_REL_OPTREL
           \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
     \\ gs [OPTREL_def]
@@ -563,10 +563,10 @@ Proof
           by gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gvs [SF SFY_ss]
         \\ IF_CASES_TAC \\ gs []
-        \\ rename1 ‘m < LENGTH ys’
+        \\ rename1 ‘n' < LENGTH ys’
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
-        \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs [])
+        \\ Cases_on ‘eval_to k (EL n' xs)’ \\ gs [])
       \\ Cases_on ‘result_map (eval_to k) ys’ \\ gs []
       >- (
         gvs [result_map_def, CaseEq "bool", MEM_EL, EL_MAP,
@@ -670,7 +670,7 @@ Proof
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
     >- ((* Recclosure *)
       rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
       \\ gs [OPTREL_def]
@@ -786,8 +786,8 @@ Proof
     \\ strip_tac \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. ok_binder x ∧ exp_rel x y ∧ freevars x ⊆ set (MAP FST xs))
-             (ALOOKUP (REVERSE xs) s)
-             (ALOOKUP (REVERSE ys) s)’
+             (ALOOKUP (REVERSE xs) m)
+             (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]

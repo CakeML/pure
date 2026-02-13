@@ -76,22 +76,22 @@ Definition next_line_def:
 End
 
 Definition read_string_def:
-  read_string str s (loc:locn) =
-    if str = "" then (ErrorS, loc, "") else
-    if HD str = #"\"" then (StringS s, loc, TL str) else
-    if HD str = #"\n" then (ErrorS, next_line loc, TL str) else
-    if HD str <> #"\\" then
-      read_string (TL str) (s ++ [HD str]) (next_loc 1 loc)
+  read_string strng s (loc:locn) =
+    if strng = "" then (ErrorS, loc, "") else
+    if HD strng = #"\"" then (StringS s, loc, TL strng) else
+    if HD strng = #"\n" then (ErrorS, next_line loc, TL strng) else
+    if HD strng <> #"\\" then
+      read_string (TL strng) (s ++ [HD strng]) (next_loc 1 loc)
     else
-      case TL str of
+      case TL strng of
       | #"\\"::cs => read_string cs (s ++ "\\") (next_loc 2 loc)
       | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
       | #"n"::cs => read_string cs (s ++ "\n") (next_loc 2 loc)
       | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
-      | _ => (ErrorS, loc, TL str)
+      | _ => (ErrorS, loc, TL strng)
 Termination
   WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
-  THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC
+  THEN Cases_on `strng` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC
 End
 
 Theorem read_string_thm:
@@ -183,77 +183,77 @@ QED
 
 Definition next_sym_alt_def:
   (next_sym_alt "" _ = NONE) /\
-  (next_sym_alt (c::str) loc =
+  (next_sym_alt (c::strng) loc =
      if c = #"\n" then (* skip new line *)
-        next_sym_alt str (next_line loc)
+        next_sym_alt strng (next_line loc)
      else if isSpace c then (* skip blank space *)
-       next_sym_alt str (next_loc 1 loc)
+       next_sym_alt strng (next_loc 1 loc)
      else if isDigit c then (* read number *)
-       if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
-         if TL str = "" then SOME (ErrorS, Locs loc loc, "")
-         else if isDigit (HD (TL str)) then
-           let (n,rest) = read_while isDigit (TL str) [] in
+       if strng ≠ "" ∧ c = #"0" ∧ HD strng = #"w" then
+         if TL strng = "" then SOME (ErrorS, Locs loc loc, "")
+         else if isDigit (HD (TL strng)) then
+           let (n,rest) = read_while isDigit (TL strng) [] in
              SOME (WordS (num_from_dec_string_alt n),
                    Locs loc (next_loc (LENGTH n + 1) loc),
                    rest)
-         else if HD(TL str) = #"x" then
-           let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
+         else if HD(TL strng) = #"x" then
+           let (n,rest) = read_while isHexDigit (TL (TL strng)) [] in
              SOME (WordS (num_from_hex_string_alt n),
                    Locs loc (next_loc (LENGTH n + 2) loc),
                    rest)
-         else SOME (ErrorS, Locs loc loc, TL str)
+         else SOME (ErrorS, Locs loc loc, TL strng)
        else
-         if str ≠ "" ∧ c = #"0" ∧ HD str = #"x" then
-           let (n,rest) = read_while isHexDigit (TL str) [] in
+         if strng ≠ "" ∧ c = #"0" ∧ HD strng = #"x" then
+           let (n,rest) = read_while isHexDigit (TL strng) [] in
              SOME (NumberS (& num_from_hex_string_alt n),
                    Locs loc (next_loc (LENGTH n) loc),
                    rest)
          else
-           let (n,rest) = read_while isDigit str [] in
+           let (n,rest) = read_while isDigit strng [] in
              SOME (NumberS (&(num_from_dec_string_alt (c::n))),
                    Locs loc (next_loc (LENGTH n) loc),
                    rest)
-     else if c = #"~" /\ str <> "" /\ isDigit (HD str) then
+     else if c = #"~" /\ strng <> "" /\ isDigit (HD strng) then
        (* read negative number *)
-       let (n,rest) = read_while isDigit str [] in
+       let (n,rest) = read_while isDigit strng [] in
          SOME (NumberS (0- &(num_from_dec_string_alt n)),
                Locs loc (next_loc (LENGTH n) loc),
                rest)
      else if c = #"'" then (* read type variable *)
-       let (n,rest) = read_while isAlphaNumPrime str [c] in
+       let (n,rest) = read_while isAlphaNumPrime strng [c] in
          SOME (OtherS n,
                Locs loc (next_loc (LENGTH n - 1) loc),
                rest)
      else if c = #"\"" then (* read string *)
-       let (t, loc', rest) = read_string str "" (next_loc 1 loc) in
+       let (t, loc', rest) = read_string strng "" (next_loc 1 loc) in
          SOME (t, Locs loc loc', rest)
-     else if c = #"`" then SOME (OtherS "`", Locs loc loc, str)
-     else if isPREFIX "#\"" (c::str) then
-       let (t, loc', rest) = read_string (TL str) "" (next_loc 2 loc) in
+     else if c = #"`" then SOME (OtherS "`", Locs loc loc, strng)
+     else if isPREFIX "#\"" (c::strng) then
+       let (t, loc', rest) = read_string (TL strng) "" (next_loc 2 loc) in
          SOME (mkCharS t, Locs loc loc', rest)
-     else if isPREFIX "#(" (c::str) then
+     else if isPREFIX "#(" (c::strng) then
        let (t, loc', rest) =
-             read_FFIcall (TL str) "" (next_loc 2 loc)
+             read_FFIcall (TL strng) "" (next_loc 2 loc)
        in
          SOME (t, Locs loc loc', rest)
-     else if isPREFIX "{-" (c::str) then
-       case skip_nested_comment (TL str) (0:num) (next_loc 2 loc) of
+     else if isPREFIX "{-" (c::strng) then
+       case skip_nested_comment (TL strng) (0:num) (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
-     else if isPREFIX "--" (c::str) ∧ (2 ≤ LENGTH str ⇒ ¬isPunct (EL 1 str))
+     else if isPREFIX "--" (c::strng) ∧ (2 ≤ LENGTH strng ⇒ ¬isPunct (EL 1 strng))
      then
-       case skip_eol_comment (TL str) (next_loc 2 loc) of
+       case skip_eol_comment (TL strng) (next_loc 2 loc) of
          NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
-       SOME (OtherS [c], Locs loc loc, str)
+       SOME (OtherS [c], Locs loc loc, strng)
      else if isSymbol c then
-       let (n,rest) = read_while isSymbol str [c] in
+       let (n,rest) = read_while isSymbol strng [c] in
          SOME (OtherS n,
                Locs loc (next_loc (LENGTH n - 1) loc),
                rest)
      else if isAlpha c then (* read identifier *)
-       let (n,rest) = read_while isAlphaNumPrime str [c] in
+       let (n,rest) = read_while isAlphaNumPrime strng [c] in
          case rest of
               #"."::rest' =>
                 (case rest' of
@@ -280,16 +280,16 @@ Definition next_sym_alt_def:
             | _ => SOME (OtherS n,
                          Locs loc (next_loc (LENGTH n - 1) loc),
                          rest)
-     else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
+     else if c = #"_" then SOME (OtherS "_", Locs loc loc, strng)
      else (* input not recognised *)
-       SOME (ErrorS, Locs loc loc, str))
+       SOME (ErrorS, Locs loc loc, strng))
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’ >> rpt strip_tac >> simp[] >~
   [‘skip_nested_comment’]
-  >- (drule skip_nested_comment_thm >> rename [‘TL str’] >> Cases_on ‘str’ >>
+  >- (drule skip_nested_comment_thm >> rename [‘TL strng’] >> Cases_on ‘strng’ >>
       gs[]) >~
   [‘skip_eol_comment’]
-  >- (drule skip_eol_comment_thm >> rename [‘TL str’] >> Cases_on ‘str’ >>
+  >- (drule skip_eol_comment_thm >> rename [‘TL strng’] >> Cases_on ‘strng’ >>
       gs[])
 End
 
@@ -355,23 +355,23 @@ Theorem next_sym_alt_LESS:
 Proof
   recInduct next_sym_alt_ind >> simp[next_sym_alt_def] >> rw[] >>
   rpt (pairarg_tac >> gvs[AllCaseEqs()]) >> gvs[AllCaseEqs()] >>~-
-  ([‘TL (TL str)’, ‘read_while’],
-   Cases_on ‘str’ >> gvs[] >> rename [‘TL str0’] >>
+  ([‘TL (TL strng)’, ‘read_while’],
+   Cases_on ‘strng’ >> gvs[] >> rename [‘TL str0’] >>
    Cases_on ‘str0’ >> gvs[] >> drule read_while_thm >> simp[]) >>~-
-  ([‘TL str’, ‘read_while’],
-   Cases_on ‘str’ >> gvs[] >> drule read_while_thm >> simp[]) >>~-
+  ([‘TL strng’, ‘read_while’],
+   Cases_on ‘strng’ >> gvs[] >> drule read_while_thm >> simp[]) >>~-
   ([‘read_while’], rpt $ dxrule read_while_thm >> simp[]) >~
-  [‘skip_nested_comment (TL str) _ _ = _’]
-  >- (drule skip_nested_comment_thm >> Cases_on ‘str’ >> gvs[]) >~
-  [‘read_string’, ‘TL str’]
-  >- (Cases_on ‘str’ >> gvs[] >> drule read_string_thm >> simp[]) >~
+  [‘skip_nested_comment (TL strng) _ _ = _’]
+  >- (drule skip_nested_comment_thm >> Cases_on ‘strng’ >> gvs[]) >~
+  [‘read_string’, ‘TL strng’]
+  >- (Cases_on ‘strng’ >> gvs[] >> drule read_string_thm >> simp[]) >~
   [‘read_string’]
   >- (drule read_string_thm >> simp[]) >~
-  [‘read_FFIcall (TL str)’]
-  >- (Cases_on ‘str’ >> gs[] >> drule read_FFIcall_reduces_input >> simp[]) >~
+  [‘read_FFIcall (TL strng)’]
+  >- (Cases_on ‘strng’ >> gs[] >> drule read_FFIcall_reduces_input >> simp[]) >~
   [‘skip_eol_comment’]
-  >- (drule skip_eol_comment_thm >> Cases_on ‘str’ >> gvs[]) >>
-  rename [‘TL str’] >> Cases_on ‘str’ >> gs[]
+  >- (drule skip_eol_comment_thm >> Cases_on ‘strng’ >> gvs[]) >>
+  rename [‘TL strng’] >> Cases_on ‘strng’ >> gs[]
 QED
 
 (* lex_until_toplevel_semicolon *)
@@ -381,9 +381,9 @@ Definition processIdent_def:
        | "" => LexErrorT
        | c::s =>
            if isAlpha c then
-             AlphaT (c::s)
+             AlphaT (implode (c::s))
            else
-             SymbolT (c::s)
+             SymbolT (implode (c::s))
 End
 
 Definition get_token_def[nocompute]:
@@ -417,13 +417,14 @@ Definition token_of_sym_def:
   token_of_sym s =
     case s of
     | ErrorS    => LexErrorT
-    | StringS s => StringT s
+    | StringS s => StringT (implode s)
     | CharS c => CharT c
     | NumberS i => IntT i
     | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
-                   LongidT (Mod s1 End) (case s2 of "" => "" | (c::cs) => cs)
-    | FFIS s => FFIT s
+                   LongidT (Mod (implode s1) End)
+                           (case s2 of "" => «» | (c::cs) => implode cs)
+    | FFIS s => FFIT (implode s)
     | OtherS s  => get_token s
 End
 
@@ -460,4 +461,3 @@ End
 Definition lexer_fun_def:
   lexer_fun input = lexer_fun_aux input (POSN 1 1)
 End
-

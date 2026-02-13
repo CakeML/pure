@@ -18,7 +18,7 @@ End
 
 Definition get_var_name_def:
   get_var_name ((pure_cexp$Var c v)::_) = v ∧
-  get_var_name _ = strlit "forced"
+  get_var_name _ = «forced»
 End
 
 Definition mk_delay_def:
@@ -111,7 +111,7 @@ Definition to_thunk_def:
   to_thunk flag s (Case c x v ys opt) =
     (let (x,s) = to_thunk flag s x in
      let (rs,s) = to_thunk_list flag s (MAP (SND o SND) ys) in
-     let (w,s) = invent_var (v ^ strlit "_forced") s in
+     let (w,s) = invent_var (v ^ «_forced») s in
        case opt of
        | NONE =>
            ((Let (SOME v) (mk_delay flag x) $

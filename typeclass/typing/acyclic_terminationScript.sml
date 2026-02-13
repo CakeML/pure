@@ -1,7 +1,6 @@
 Theory acyclic_termination
 Ancestors
-  arithmetic list relation set_relation pred_set finite_map
-  misc[qualified]  (* for list_max *)
+  arithmetic list rich_list relation set_relation pred_set finite_map
 Libs
   BasicProvers dep_rewrite
 
@@ -44,14 +43,14 @@ Termination
 End
 
 Definition acyclic_depth_def:
-  acyclic_depth r x = acyclic_rec r (λx xs ys. list_max ys + 1n) 0 x
+  acyclic_depth r x = acyclic_rec r (λx xs ys. MAX_LIST ys + 1n) 0 x
 End
 
-Theorem list_max_MAX_SET_set:
-  list_max l = MAX_SET (set l)
+Theorem MAX_LIST_MAX_SET_set:
+  MAX_LIST l = MAX_SET (set l)
 Proof
   Induct_on `l` >>
-  rw[miscTheory.list_max_def,MAX_SET_THM,MAX_DEF]
+  rw[MAX_LIST_def,MAX_SET_THM]
 QED
 
 (* helper function for termination proof with acyclicity *)
@@ -65,7 +64,7 @@ Theorem acyclic_depth_alt:
 Proof
   simp[lambdify acyclic_depth_def] >>
   `∀r f e x.
-     f = (λx xs ys. list_max ys + 1) ∧ e = 0 ⇒
+     f = (λx xs ys. MAX_LIST ys + 1) ∧ e = 0 ⇒
      acyclic_rec r f e x =
      if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s then
        MAX_SET (IMAGE (λx. acyclic_rec r f e x) {y | r (y,x)}) + 1
@@ -76,7 +75,7 @@ Proof
   simp[Once acyclic_rec_def] >>
   reverse $ IF_CASES_TAC
   >- metis_tac[] >>
-  simp[list_max_MAX_SET_set,LIST_TO_SET_MAP] >>
+  simp[MAX_LIST_MAX_SET_set,LIST_TO_SET_MAP] >>
   DEP_REWRITE_TAC[SET_TO_LIST_INV] >>
   gvs[domain_def,IN_DEF] >>
   drule_then irule SUBSET_FINITE >>

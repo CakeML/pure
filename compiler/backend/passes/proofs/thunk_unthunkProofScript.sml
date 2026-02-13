@@ -4,7 +4,7 @@
  *)
 Theory thunk_unthunkProof
 Ancestors
-  string option sum pair list alist thunkLang_primitives
+  mlstring option sum pair list alist thunkLang_primitives
   pure_misc thunk_untickProof
   finite_map pred_set rich_list thunkLang thunk_semantics
   thunk_semantics_delayed thunkLangProps
@@ -859,8 +859,8 @@ Proof
         rename1 ‘LIST_REL _ xs ys’
         \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧
                             exp_rel _x _y)
-                   (ALOOKUP (REVERSE xs) s)
-                   (ALOOKUP (REVERSE ys) s)’
+                   (ALOOKUP (REVERSE xs) m)
+                   (ALOOKUP (REVERSE ys) m)’
           by (irule LIST_REL_OPTREL
               \\ gs [LIST_REL_CONJ, ELIM_UNCURRY])
         \\ gs [OPTREL_def]
@@ -958,8 +958,8 @@ Proof
       rename1 ‘LIST_REL _ xs ys’
       \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧
                           exp_rel _x _y)
-                 (ALOOKUP (REVERSE xs) s)
-                 (ALOOKUP (REVERSE ys) s)’
+                 (ALOOKUP (REVERSE xs) m)
+                 (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gs [LIST_REL_CONJ, ELIM_UNCURRY])
       \\ rgs [OPTREL_def]
@@ -1242,8 +1242,8 @@ Proof
     \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. is_delay x ∧ is_delay y)
-             (ALOOKUP (REVERSE xs) s)
-             (ALOOKUP (REVERSE ys) s)’
+             (ALOOKUP (REVERSE xs) m)
+             (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]

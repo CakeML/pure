@@ -3,7 +3,7 @@
  *)
 Theory pure_to_thunk_1Proof
 Ancestors
-  string option sum pair list alist thunkLang pure_eval thunkLang_primitives
+  mlstring option sum pair list alist thunkLang pure_eval thunkLang_primitives
   finite_map pred_set rich_list pure_semantics thunk_semantics
   thunk_semantics_delayed pure_exp_lemmas pure_misc pure_config
 Libs
@@ -77,21 +77,21 @@ Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
 
 (* Simple monadic operation mapping *)
 Inductive mop_rel:
-  mop_rel "Bind" pure_config$Bind ∧
-  mop_rel "Handle" Handle
+  mop_rel «Bind» pure_config$Bind ∧
+  mop_rel «Handle» Handle
 End
 
 (* Ret/Raise require a Delay operation *)
 Inductive mop_ret_rel:
-  mop_ret_rel "Ret" pure_config$Ret ∧
-  mop_ret_rel "Raise" Raise
+  mop_ret_rel «Ret» pure_config$Ret ∧
+  mop_ret_rel «Raise» Raise
 End
 
 (* Length/Alloc/Act require wrapping in a `Ret $ Delay` *)
 Inductive mop_delay_rel:
-  mop_delay_rel "Length" pure_config$Length NONE ∧
-  mop_delay_rel "Alloc" Alloc (SOME 1n) ∧
-  mop_delay_rel "Act" Act NONE
+  mop_delay_rel «Length» pure_config$Length NONE ∧
+  mop_delay_rel «Alloc» Alloc (SOME 1n) ∧
+  mop_delay_rel «Act» Act NONE
 End
 
 (* Deref / Update handled separately *)
@@ -165,11 +165,11 @@ Inductive exp_rel:
 [exp_rel_Deref:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ⇒
-        exp_rel (Cons "Deref" xs) (Monad Deref ys))
+        exp_rel (Cons «Deref» xs) (Monad Deref ys))
 [exp_rel_Update:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ∧ 2 < LENGTH xs ⇒
-        exp_rel (Cons "Update" xs) (Monad Update (opt_delay_arg (SOME 2n) ys)))
+        exp_rel (Cons «Update» xs) (Monad Update (opt_delay_arg (SOME 2n) ys)))
 [exp_rel_Proj:]
   (∀s i xs ys.
      LIST_REL exp_rel xs ys ∧ s ∉ monad_cns ⇒
@@ -229,11 +229,11 @@ Definition v_rel_def[simp]:
         (∀idx. idopt = SOME idx ⇒ idx < LENGTH xs) ∧
         LIST_REL exp_rel xs zs) ∨
      (∃zs.
-        s = "Deref" ∧ mop = Deref ∧
+        s = «Deref» ∧ mop = Deref ∧
         ys = zs ∧
         LIST_REL exp_rel xs zs) ∨
      (∃zs.
-        s = "Update" ∧ mop = Update ∧
+        s = «Update» ∧ mop = Update ∧
         ys = opt_delay_arg (SOME 2) zs ∧
         LIST_REL exp_rel xs zs ∧ 2 < LENGTH xs)
      )) ∧
@@ -274,11 +274,11 @@ Theorem v_rel_rev[local,simp]:
           (∀idx. idopt = SOME idx ⇒ idx < LENGTH xs) ∧
           LIST_REL exp_rel xs ys) ∨
        (∃ys.
-          s = "Deref" ∧ mop = Deref ∧
+          s = «Deref» ∧ mop = Deref ∧
           zs = ys ∧
           LIST_REL exp_rel xs ys) ∨
        (∃ys.
-          s = "Update" ∧ mop = Update ∧
+          s = «Update» ∧ mop = Update ∧
           zs = opt_delay_arg (SOME 2) ys ∧
           LIST_REL exp_rel xs ys ∧ 2 < LENGTH xs)
          )) ∧
@@ -1388,34 +1388,34 @@ Definition next'_def:
   next' (k:num) v stack state =
     case v of
     | wh_Constructor s es =>
-       (if s = "Ret" ∧ LENGTH es = 1 then
+       (if s = «Ret» ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
            | BC f fs =>
              apply_closure' f (HD es)
                (λw. if k = 0 then Div else next' (k-1) w fs state)
            | HC f fs => if k = 0 then Div else next' (k-1) v fs state)
-        else if s = "Raise" ∧ LENGTH es = 1 then
+        else if s = «Raise» ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
            | BC f fs => if k = 0 then Div else next' (k-1) v fs state
            | HC f fs =>
                apply_closure' f (HD es)
                  (λw. if k = 0 then Div else next' (k-1) w fs state))
-        else if s = "Bind" ∧ LENGTH es = 2 then
+        else if s = «Bind» ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
              if k = 0 then Div else next' (k-1) (eval_wh m) (BC f stack) state)
-        else if s = "Handle" ∧ LENGTH es = 2 then
+        else if s = «Handle» ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
              if k = 0 then Div else next' (k-1) (eval_wh m) (HC f stack) state)
-        else if s = "Act" ∧ LENGTH es = 1 then
+        else if s = «Act» ∧ LENGTH es = 1 then
           (with_atom es (λa.
              case a of
              | Msg channel content => Act (channel, content) stack state
              | _ => Err))
-        else if s = "Alloc" ∧ LENGTH es = 2 then
+        else if s = «Alloc» ∧ LENGTH es = 2 then
           (with_atom [HD es] (λa.
              case a of
              | Int len =>
@@ -1423,44 +1423,44 @@ Definition next'_def:
                   let new_state = state ++ [REPLICATE n (EL 1 es)] in
                     if k = 0 then Div else
                     next' (k-1)
-                      (wh_Constructor "Ret" [Lit (Loc (LENGTH state))])
+                      (wh_Constructor «Ret» [Lit (Loc (LENGTH state))])
                       stack new_state)
              | _ => Err))
-        else if s = "Length" ∧ LENGTH es = 1 then
+        else if s = «Length» ∧ LENGTH es = 1 then
           (with_atom es (λa.
              case a of
              | Loc n =>
                  (if LENGTH state ≤ n then Err else
                   if k = 0 then Div else
                   next' (k-1)
-                    (wh_Constructor "Ret" [Lit (Int (& (LENGTH (EL n state))))])
+                    (wh_Constructor «Ret» [Lit (Int (& (LENGTH (EL n state))))])
                     stack state)
              | _ => Err))
-        else if s = "Deref" ∧ LENGTH es = 2 then
+        else if s = «Deref» ∧ LENGTH es = 2 then
           (with_atom2 es (λa a'.
              case (a, a') of
              | (Loc n, Int i) =>
                  (if LENGTH state ≤ n then Err else
                   if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                   if k = 0 then Div else
-                    next' (k-1) (wh_Constructor "Ret" [EL (Num i) (EL n state)])
+                    next' (k-1) (wh_Constructor «Ret» [EL (Num i) (EL n state)])
                           stack state
                   else if k = 0 then Div else
-                    next' (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
+                    next' (k-1) (wh_Constructor «Raise» [Cons «Subscript» []])
                           stack state)
              | _ => Err))
-        else if s = "Update" ∧ LENGTH es = 3 then
+        else if s = «Update» ∧ LENGTH es = 3 then
           (with_atom2 [EL 0 es; EL 1 es] (λa a'.
              case (a, a') of
              | (Loc n, Int i) =>
                  (if LENGTH state ≤ n then Err else
                   if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                     if k = 0 then Div else
-                      next' (k-1) (wh_Constructor "Ret" [Cons "" []]) stack
+                      next' (k-1) (wh_Constructor «Ret» [Cons «» []]) stack
                             (LUPDATE (LUPDATE (EL 2 es) (Num i)
                                               (EL n state)) n state)
                   else if k = 0 then Div else
-                    next' (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
+                    next' (k-1) (wh_Constructor «Raise» [Cons «Subscript» []])
                           stack state)
              | _ => Err))
         else Err)
@@ -1720,14 +1720,14 @@ Proof
       by (strip_tac \\ irule eval_wh_inc \\ gs [])
     \\ Cases_on ‘eval_wh_to k f’ \\ Cases_on ‘eval_wh_to (j + k) g’ \\ gvs []
     \\ rename1 ‘tick_rel e1 e2’
-    \\ ‘tick_rel (bind1 q x e1) (bind1 q y e2)’
+    \\ ‘tick_rel (bind1 m x e1) (bind1 m y e2)’
       by (simp [bind1_def]
           \\ imp_res_tac tick_rel_freevars
           \\ rw [pure_expTheory.closed_def]
           \\ irule tick_rel_subst
           \\ gs [fmap_rel_def])
     \\ first_x_assum (drule_all_then (qx_choose_then ‘j1’ assume_tac))
-    \\ Cases_on ‘eval_wh_to (k - 1) (bind1 q x e1) = wh_Diverge’ \\ gs []
+    \\ Cases_on ‘eval_wh_to (k - 1) (bind1 m x e1) = wh_Diverge’ \\ gs []
     >- (
       Cases_on ‘j1 ≤ j’
       >- (
@@ -1742,12 +1742,12 @@ Proof
       \\ drule_then (qspec_then ‘j1 + k - 1’ (assume_tac o GSYM)) eval_wh_inc
       \\ gs [])
     \\ qexists_tac ‘j + j1’ \\ gs []
-    \\ ‘eval_wh_to (j + (j1 + k) - 1) (bind1 q y e2) =
-        eval_wh_to (j1 + k - 1) (bind1 q y e2)’
+    \\ ‘eval_wh_to (j + (j1 + k) - 1) (bind1 m y e2) =
+        eval_wh_to (j1 + k - 1) (bind1 m y e2)’
       suffices_by rw []
     \\ irule eval_wh_inc \\ gs []
     \\ strip_tac
-    \\ Cases_on ‘eval_wh_to (k - 1) (bind1 q x e1)’ \\ gs [])
+    \\ Cases_on ‘eval_wh_to (k - 1) (bind1 m x e1)’ \\ gs [])
   >~ [‘Letrec f x’] >- (
     Cases_on ‘f = []’ \\ gvs []
     >~ [‘tick_rel (Tick x) y’] >- (
@@ -1876,14 +1876,14 @@ Proof
         \\ gvs [LIST_REL_EL_EQN]
         \\ IF_CASES_TAC \\ gs []
         \\ IF_CASES_TAC \\ gs [])
-      \\ reverse (Cases_on ‘s = "True" ∨ s = "False"’)
+      \\ reverse (Cases_on ‘s = «True» ∨ s = «False»’)
       >- (
         qexists_tac ‘j’
         \\ gvs [LIST_REL_EL_EQN]
         \\ IF_CASES_TAC \\ gs []
         \\ IF_CASES_TAC \\ gs [])
       \\ gs [Once DISJ_EQ_IMP]
-      \\ rename [‘if s = "True" then _ (k - 1) y1 else _’, ‘tick_rel y1 y2’]
+      \\ rename [‘if s = «True» then _ (k - 1) y1 else _’, ‘tick_rel y1 y2’]
       \\ qpat_x_assum ‘tick_rel y1 _’ assume_tac
       \\ first_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
       \\ rename [‘if _ then _ else _ (k - 1) z1’, ‘tick_rel z1 z2’]
@@ -2444,32 +2444,32 @@ Proof
   \\ qpat_x_assum ‘next' _ _ _ _ ≠ _’ mp_tac
   \\ once_rewrite_tac [next'_def]
   \\ Cases_on ‘x’ \\ fs [apply_closure'_def]
-  \\ Cases_on ‘s = "Bind"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Handle"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Act"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Raise"’
+  \\ Cases_on ‘m = «Bind»’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘m = «Handle»’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘m = «Act»’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘m = «Raise»’
   THEN1
    (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
     \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
     \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
-  \\ Cases_on ‘s = "Ret"’
+  \\ Cases_on ‘m = «Ret»’
   THEN1
    (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
     \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
     \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
-  \\ Cases_on ‘s = "Alloc"’ THEN1
+  \\ Cases_on ‘m = «Alloc»’ THEN1
    (fs [] \\ rw [with_atom_def,pure_semanticsTheory.with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ fs [])
-  \\ Cases_on ‘s = "Length"’ THEN1
+  \\ Cases_on ‘m = «Length»’ THEN1
    (fs [] \\ rw [with_atom_def,pure_semanticsTheory.with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ fs [] \\ IF_CASES_TAC \\ fs [])
-  \\ Cases_on ‘s = "Deref"’ THEN1
+  \\ Cases_on ‘m = «Deref»’ THEN1
    (fs [] \\ rw [with_atom2_def,pure_semanticsTheory.with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
@@ -2480,7 +2480,7 @@ Proof
     \\ fs [AllCaseEqs()]
     \\ first_x_assum irule \\ fs []
     \\ metis_tac [])
-  \\ Cases_on ‘s = "Update"’ THEN1
+  \\ Cases_on ‘m = «Update»’ THEN1
    (fs [] \\ rw [with_atom2_def,pure_semanticsTheory.with_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
@@ -2533,9 +2533,9 @@ Definition interp'_alt_def:
         | Err => Ret' Error
         | Div => Div'
         | Act a new_stack new_state =>
-            Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)],
+            Vis' a (λy. (wh_Constructor «Ret» [Lit (Str y)],
                     new_stack, new_state)))
-      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+      ((λ_ ret. strlen ret ≤ max_FFI_return_size),
        FinalFFI,
        λs. FinalFFI s FFI_failure)
 End
@@ -2554,8 +2554,8 @@ Theorem interp_alt_def:
         Vis a (λs. case s of
           | INL x => Ret $ FinalFFI a x
           | INR y =>
-              if STRLEN y ≤ max_FFI_return_size then
-                interp_alt (wh_Constructor "Ret" [Lit (Str y)])
+              if strlen y ≤ max_FFI_return_size then
+                interp_alt (wh_Constructor «Ret» [Lit (Str y)])
                            new_stack new_state
               else Ret $ FinalFFI a FFI_failure)
 Proof
@@ -2682,7 +2682,7 @@ Proof
     \\ fs [pure_expTheory.closed_def, EXTENSION]
     \\ strip_tac \\ gs [Once next'_def]
     )
-  >~ [`wh_Constructor "Ret"`]
+  >~ [`wh_Constructor «Ret»`]
   >- ((* Ret - thunk_rel *)
     `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
@@ -2747,7 +2747,7 @@ Proof
     \\ fs [pure_expTheory.closed_def, EXTENSION]
     \\ strip_tac \\ gs [Once next'_def]
     )
-  >~ [`wh_Constructor "Raise"`]
+  >~ [`wh_Constructor «Raise»`]
   >- ((* Raise - thunk_rel *)
     `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
@@ -2781,7 +2781,7 @@ Proof
     \\ fs [pure_expTheory.closed_def, EXTENSION]
     \\ strip_tac \\ gs [Once next'_def]
     )
-  >~ [`wh_Constructor "Bind"`]
+  >~ [`wh_Constructor «Bind»`]
   >- ((* Bind *)
     `LENGTH xs = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
@@ -2792,7 +2792,7 @@ Proof
     \\ irule exp_rel_eval \\ gs []
     \\ gvs[Once next'_def] \\ CCONTR_TAC \\ gvs[]
     )
-  >~ [`wh_Constructor "Handle"`]
+  >~ [`wh_Constructor «Handle»`]
   >- ((* Handle *)
     `LENGTH l = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
@@ -2879,7 +2879,7 @@ Proof
     )
   >~ [`Deref`]
   >- ((* Deref *)
-    rename1 `wh_Constructor "Deref" zs` >>
+    rename1 `wh_Constructor «Deref» zs` >>
     `LENGTH zs = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
     rename1 `wh_Constructor _ [x1;x2]` >> rename1 `Monadic Deref [z1;z2]` >>
@@ -3165,11 +3165,11 @@ Inductive compile_rel:
 [~Deref:]
   (∀xs ys.
      LIST_REL compile_rel xs ys ⇒
-       compile_rel (Cons "Deref" xs) (Monad Deref ys))
+       compile_rel (Cons «Deref» xs) (Monad Deref ys))
 [~Update:]
   (∀xs ys.
      LIST_REL compile_rel xs ys ∧ 2 < LENGTH xs ⇒
-       compile_rel (Cons "Update" xs)
+       compile_rel (Cons «Update» xs)
                    (Monad Update (opt_delay_arg (SOME 2n) ys)))
 [~Proj:]
   (∀s i xs ys.

@@ -1,21 +1,20 @@
-
 Theory pure_exp
 Ancestors
-  string option pair list finite_map pred_set pure_config
+  mlstring option pair list finite_map pred_set pure_config
 Libs
   term_tactic
 
 (* AST for a small functional language *)
 
-Type vname = “:string”  (* variable name *)
+Type vname = “:mlstring”  (* variable name *)
 
 Datatype:
-  op = If                    (* if-expression                             *)
-     | Cons string           (* datatype constructor                      *)
-     | IsEq string num bool  (* compare cons tag and num of args (strict) *)
-     | Proj string num       (* reading a field of a constructor          *)
-     | AtomOp atom_op        (* primitive parametric operator over Atoms  *)
-     | Seq                   (* diverges if arg1 does, else same as arg2  *)
+  op = If                      (* if-expression                             *)
+     | Cons mlstring           (* datatype constructor                      *)
+     | IsEq mlstring num bool  (* compare cons tag and num of args (strict) *)
+     | Proj mlstring num       (* reading a field of a constructor          *)
+     | AtomOp atom_op          (* primitive parametric operator over Atoms  *)
+     | Seq                     (* diverges if arg1 does, else same as arg2  *)
 End
 
 Datatype:
@@ -61,7 +60,7 @@ Definition Lets_def:
 End
 
 Definition Bottom_def:
-  Bottom = Letrec [("bot",Var "bot")] (Var "bot")
+  Bottom = Letrec [(«bot»,Var «bot»)] (Var «bot»)
 End
 
 Definition freevars_def[simp]:
@@ -136,7 +135,7 @@ End
 
 Theorem exp_size_lemma:
   (∀xs     a. MEM      a  xs ⇒ exp_size a < list_size exp_size xs) ∧
-  (∀xs x   a. MEM   (x,a) xs ⇒ exp_size a < list_size (pair_size (list_size char_size) exp_size) xs)
+  (∀xs x   a. MEM   (x,a) xs ⇒ exp_size a < list_size (pair_size mlstring_size exp_size) xs)
 Proof
   conj_tac \\ TRY conj_tac \\ Induct \\ rw []
   \\ res_tac \\ fs [fetch "-" "exp_size_def"]

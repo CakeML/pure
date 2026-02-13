@@ -1,6 +1,6 @@
 Theory pure_inferenceProof
 Ancestors
-  pair arithmetic string option pred_set list rich_list alist
+  pair arithmetic mlstring option pred_set list rich_list alist
   finite_map sptree mlmap pure_misc pure_typing pure_typingProps
   pure_typingProof pure_tcexp pure_tcexp_lemmas
   pure_inference_common pure_unification pure_inference
@@ -4220,7 +4220,7 @@ Proof
   Cases_on `tysig` >> gvs[] >> simp[namespace_ok_def] >> rw[]
   >- (gvs[EVERY_MEM] >> rw[] >> first_x_assum drule >> pairarg_tac >> gvs[])
   >- (
-    gvs[ALL_DISTINCT_APPEND] >> gvs[MEM_MAP, implodeEQ] >>
+    gvs[ALL_DISTINCT_APPEND] >> gvs[MEM_MAP] >>
     strip_tac >> strip_tac >> first_x_assum irule >> simp[] >>
     simp[pure_configTheory.reserved_cns_def]
     )

@@ -1,14 +1,14 @@
 
 Theory pure_value
 Ancestors
-  arithmetic list string alist option ltree llist quotient_llist
+  arithmetic list mlstring alist option ltree llist quotient_llist
   pure_config pure_exp pure_misc
 Libs
   term_tactic
 
 Datatype:
   v_prefix = Atom' lit
-           | Constructor' string
+           | Constructor' mlstring
            | Closure' vname exp
            | Diverge'
            | Error'
@@ -346,8 +346,8 @@ QED
 Theorem datatype_v:
   DATATYPE ((v
              (Atom : pure_config$lit -> v)
-             (Constructor : string -> v list -> v)
-             (Closure : string -> exp -> v)
+             (Constructor : mlstring -> v list -> v)
+             (Closure : mlstring -> exp -> v)
              (Diverge : v)
              (Error : v)) : bool)
 Proof

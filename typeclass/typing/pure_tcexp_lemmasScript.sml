@@ -1,7 +1,6 @@
-
 Theory pure_tcexp_lemmas
 Ancestors
-  arithmetic list rich_list alist string option pair pred_set
+  arithmetic list rich_list alist mlstring option pair pred_set
   finite_map pure_misc pure_cexp pure_cexp_lemmas pure_tcexp
   pure_exp pure_exp_lemmas pure_eval pure_exp_rel pure_congruence
 Libs
@@ -61,7 +60,7 @@ Proof
 QED
 
 Theorem freevars_exp_of:
-  ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_tcexp ce
+  ∀ce. freevars (exp_of ce) = freevars_tcexp ce
 Proof
   recInduct freevars_tcexp_ind >>
   rpt strip_tac
@@ -70,15 +69,15 @@ Proof
     PURE_REWRITE_TAC[exp_of_def,freevars_tcexp_def] >>
     `∀pes.
       (∀p' e'. MEM (p',e') pes ⇒
-        freevars (exp_of e') = IMAGE explode (freevars_tcexp e')) ⇒
+        freevars (exp_of e') = freevars_tcexp e') ⇒
       freevars
-       (nested_rows (Var (explode v))
-          (MAP (λx. (FST x,exp_of (SND x))) pes)) DELETE explode v =
+       (nested_rows (Var v)
+          (MAP (λx. (FST x,exp_of (SND x))) pes)) DELETE v =
       BIGUNION
         (set (MAP (λx.
-          IMAGE explode (freevars_tcexp (SND x)) DIFF
-          IMAGE explode (cepat_vars (FST x))) pes))
-        DELETE explode v` suffices_by (
+          (freevars_tcexp (SND x)) DIFF
+          (cepat_vars (FST x))) pes))
+        DELETE v` suffices_by (
       disch_then $ qspec_then `(p,e)::pes` strip_assume_tac >>
       gvs[exp_of_def,freevars_tcexp_def] >>
       pop_assum $ strip_assume_tac o
@@ -94,7 +93,7 @@ Proof
     conj_tac
     >- (
       irule SUBSET_TRANS >>
-      qrefine `_ DELETE explode v` >>
+      qrefine `_ DELETE v` >>
       irule_at (Pos hd) SUBSET_DELETE_BOTH >>
       irule_at (Pos hd) freevars_nested_rows_UB >>
       IF_CASES_TAC >- simp[] >>
@@ -107,7 +106,7 @@ Proof
       metis_tac[]
     ) >>
     irule SUBSET_TRANS >>
-    qrefine `_ DELETE explode v` >>
+    qrefine `_ DELETE v` >>
     irule_at (Pos last) SUBSET_DELETE_BOTH >>
     irule_at (Pos hd) freevars_nested_rows_LB >>
     simp[LAMBDA_PROD,MAP_MAP_o,combinTheory.o_DEF] >>
@@ -122,7 +121,8 @@ Proof
   gvs[MAP_MAP_o, combinTheory.o_DEF, Bottom_def, IMAGE_BIGUNION,
       GSYM LIST_TO_SET_MAP, IMAGE_DIFFDELETE, Cong MAP_CONG,
       freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY,
-      exp_of_def]
+      exp_of_def] >>
+  simp [SF ETA_ss]
   >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG] >>
   Cases_on `css` >> gvs[] >>
   every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
@@ -175,7 +175,7 @@ QED
 Theorem subst_exp_of:
   ∀f ce.
     exp_of (subst_tc f ce) =
-    subst (FUN_FMAP (λs. exp_of (f ' (implode s))) (IMAGE explode $ FDOM f))
+    subst (FUN_FMAP (λs. exp_of (f ' s)) (FDOM f))
           (exp_of ce)
 Proof
   recInduct subst_tc_ind >> rw[subst_def, subst_tc_def, exp_of_def] >>
@@ -196,7 +196,7 @@ Proof
   >- (gvs[MEM_adjustlemma] >> simp[LAMBDA_PROD] >>
       irule app3_eq >>
       simp[FUN_FMAP_DEF, fmap_EXT, PULL_EXISTS, MEM_MAP, FORALL_PROD,
-           FDIFF_def, DRESTRICT_DEF])
+           FDIFF_def, DRESTRICT_DEF, FST_THM])
   >- (simp[LAMBDA_PROD] >> simp[ELIM_UNCURRY] >>
       gvs[MEM_adjustlemma, Cong MAP_CONG, FDIFF_FUN_FMAP,
           FDIFF_FDOMSUB_INSERT] >>
@@ -225,7 +225,7 @@ Proof
       drule patguards_onebound_preserved >>
       rw[]
       >- (
-        qexists_tac `{explode v}` >>
+        qexists_tac `{v}` >>
         simp[DELETE_INTER] >>
         conj_tac
         >- simp[INTER_DEF,DELETE_DEF,DIFF_DEF,EXTENSION] >>
@@ -425,8 +425,8 @@ Proof
   simp[eval_wh_thm] >>
   Cases_on `eval_wh x` >> gvs[] >>
   IF_CASES_TAC >> gvs[] >>
-  Cases_on `s ∈ monad_cns` >> gvs[] >>
-  Cases_on `s ≠ cn` >> gvs[]
+  Cases_on `m ∈ monad_cns` >> gvs[] >>
+  Cases_on `m ≠ cn` >> gvs[]
   >- (
     qsuff_tac `(subst f rest ≃ subst f rest) T`
     >- simp[Once app_bisimilarity_iff] >>
@@ -565,12 +565,8 @@ Proof
     last_x_assum $ irule_at Any >>
     (rw[]
      >- metis_tac[]
-     >- (irule exp_eq_lets_for_cong >> simp[]) >>
-     rename [‘MAP explode vv’] >>
-     simp[lets_for_exp_eq
-            |> Q.INST [‘vs’ |-> ‘MAP explode vv’]
-            |> SRULE[PULL_EXISTS, MEM_MAP]])
-    )
+     >- (irule exp_eq_lets_for_cong >> simp[])
+     >- simp [lets_for_exp_eq]))
   >- (
     fs[EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
     irule exp_eq_App_cong >> simp[] >>
@@ -603,5 +599,3 @@ Proof
     metis_tac[]
   )
 QED
-
-

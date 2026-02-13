@@ -3,7 +3,7 @@
 *)
 Theory pure_demand
 Ancestors
-  arithmetic list string alist option pair ltree llist bag
+  arithmetic list mlstring alist option pair ltree llist bag
   pred_set relation rich_list finite_map pure_exp pure_value
   pure_eval pure_eval_lemmas pure_exp_lemmas pure_misc
   pure_exp_rel pure_congruence pure_alpha_equiv pure_alpha_equiv
@@ -18,9 +18,9 @@ Libs
 
 Datatype:
   ctxt = Nil
-       | IsFree string ctxt
-       | Bind string exp ctxt
-       | RecBind ((string # exp) list) ctxt
+       | IsFree mlstring ctxt
+       | Bind mlstring exp ctxt
+       | RecBind ((mlstring # exp) list) ctxt
 End
 
 Definition unfold_ctxt_def:
@@ -96,7 +96,8 @@ QED
 Definition ctxt_size_def[allow_rebind]:
   ctxt_size Nil = 0n ∧
   ctxt_size (IsFree s ctxt) = 1 + ctxt_size ctxt ∧
-  ctxt_size (Bind s e ctxt) = 1 + list_size char_size s +  exp_size e + ctxt_size ctxt ∧
+  ctxt_size (Bind s e ctxt) =
+    1 + mlstring_size s +  exp_size e + ctxt_size ctxt ∧
   ctxt_size (RecBind sel ctxt) = 1 + exp1_size sel + ctxt_size ctxt
 End
 
@@ -802,6 +803,15 @@ Proof
   \\ gvs [Let_Let]
 QED
 
+Theorem INFINITE_mlstring[local]:
+  INFINITE 𝕌(:mlstring)
+Proof
+  strip_assume_tac explode_BIJ
+  \\ strip_tac
+  \\ drule_all pred_setTheory.FINITE_BIJ
+  \\ simp [INFINITE_LIST_UNIV]
+QED
+
 Theorem exp_eq_in_ctxt_Lam:
   ∀c s e1 e2. exp_eq_in_ctxt (IsFree s c) e1 e2
               ⇒ exp_eq_in_ctxt c (Lam s e1) (Lam s e2)
@@ -819,8 +829,10 @@ Proof
   >>~ [‘Letrec l (Lam w _)’]
   >- (‘∃s. s ∉ {w} ∪ set (MAP FST l) ∪ BIGUNION (set (MAP (freevars o SND) l))
              ∪ freevars e1 ∪ freevars e2’
-        by  (‘INFINITE 𝕌(:string)’ by simp [] \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
-             \\ pop_assum $ irule_at Any \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
+        by  (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
+             \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
+             \\ pop_assum $ irule_at Any
+             \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
              \\ gvs [EL_MAP])
       \\ irule exp_eq_in_ctxt_trans
       \\ irule_at (Pos hd) exp_eq_IMP_exp_eq_in_ctxt
@@ -882,7 +894,7 @@ Proof
       \\ rw [])
   \\ rename1 ‘Let v e3 (Lam w _)’
   \\ ‘∃s. s ∉ {v} ∪ {w} ∪ freevars e3 ∪ freevars e1 ∪ freevars e2’
-    by (‘INFINITE 𝕌(:string)’ by simp []
+    by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
         \\ gvs [NOT_IN_FINITE])
   \\ irule exp_eq_in_ctxt_trans
   \\ irule_at (Pos hd) exp_eq_IMP_exp_eq_in_ctxt
@@ -944,8 +956,10 @@ Proof
   \\ fs[eq_when_applied_def] \\ rw [eq_when_applied_def]
   >~[‘Apps (Lam s e1) l ≈ Apps (Lam s e2) l’]
   >- (‘∃v. v ∉ BIGUNION (set (MAP freevars l)) ∪ {s} ∪ freevars e1 ∪ freevars e2 ’
-        by  (‘INFINITE 𝕌(:string)’ by simp [] \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
-             \\ pop_assum $ irule_at Any \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
+        by  (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
+             \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
+             \\ pop_assum $ irule_at Any
+             \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
              \\ gvs [EL_MAP])
       \\ irule exp_eq_trans \\ irule_at (Pos hd) exp_eq_Apps_cong
       \\ irule_at Any exp_eq_l_refl
@@ -997,8 +1011,10 @@ Proof
   >>~ [‘Letrec l (Lam w _)’]
   >- (‘∃s. s ∉ {w} ∪ set (MAP FST l) ∪ BIGUNION (set (MAP (freevars o SND) l))
              ∪ freevars e1 ∪ freevars e2’
-        by  (‘INFINITE 𝕌(:string)’ by simp [] \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
-             \\ pop_assum $ irule_at Any \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
+        by  (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
+             \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
+             \\ pop_assum $ irule_at Any
+             \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
              \\ gvs [EL_MAP])
       \\ irule eq_when_applied_trans
       \\ irule_at (Pos hd) exp_eq_IMP_eq_when_applied
@@ -1060,7 +1076,7 @@ Proof
       \\ rw [])
   \\ rename1 ‘Let v e3 (Lam w _)’
   \\ ‘∃s. s ∉ {v} ∪ {w} ∪ freevars e3 ∪ freevars e1 ∪ freevars e2’
-    by (‘INFINITE 𝕌(:string)’ by simp []
+    by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
         \\ gvs [NOT_IN_FINITE])
   \\ irule eq_when_applied_trans
   \\ irule_at (Pos hd) exp_eq_IMP_eq_when_applied
@@ -1182,7 +1198,8 @@ Proof
   >- (qexists_tac ‘λx. x’ >> qexists_tac ‘λx. x’ >> rw [exp_eq_refl]) >>
   rename1 ‘lc ++ v::ld’ >>
   ‘∃v2. v2 ∉ s ∪ set (lc ++ v::ld)’
-    by (‘INFINITE 𝕌(:string)’ by simp [] \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
+    by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
+        \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
         \\ pop_assum $ irule_at Any \\ rw [FINITE_UNION]) >>
   rename1 ‘v2 ∉ _’ >>
   ‘ALL_DISTINCT (lc ++ [v2] ++ ld)’
@@ -1292,7 +1309,7 @@ Proof
           dxrule_then assume_tac $ iffLR MEM_EL >>
           gvs[freevars_subst, DIFF_SUBSET, FDOM_FDIFF, SUBSET_DEF, EL_MAP] >>
           rename1 ‘n < _’ >> qabbrev_tac ‘pair = EL n binds’ >> PairCases_on ‘pair’ >> gvs [] >>
-          qabbrev_tac ‘folded = (λ((p1: string), p2). freevars p2)’ >>
+          qabbrev_tac ‘folded = (λ((p1: mlstring), p2). freevars p2)’ >>
           ‘MEM (folded (EL n binds)) (MAP folded binds)’
             by (gvs [MEM_EL] >> first_assum $ irule_at Any >> gvs [EL_MAP]) >>
           first_x_assum $ dxrule_then assume_tac >> unabbrev_all_tac >> gvs [] >>
@@ -1396,7 +1413,7 @@ Proof
           dxrule_then assume_tac $ iffLR MEM_EL >>
           gvs[freevars_subst, DIFF_SUBSET, FDOM_FDIFF, SUBSET_DEF, EL_MAP] >>
           rename1 ‘n < _’ >> qabbrev_tac ‘pair = EL n binds2’ >> PairCases_on ‘pair’ >> gvs [] >>
-          qabbrev_tac ‘folded = (λ((p1: string), p2). freevars p2)’ >>
+          qabbrev_tac ‘folded = (λ((p1: mlstring), p2). freevars p2)’ >>
           ‘MEM (folded (EL n binds2)) (MAP folded binds2)’
             by (gvs [MEM_EL] >> first_assum $ irule_at Any >> gvs [EL_MAP]) >>
           first_x_assum $ dxrule_then assume_tac >> unabbrev_all_tac >> gvs [] >>
@@ -1425,7 +1442,7 @@ Proof
           dxrule_then assume_tac $ iffLR MEM_EL >> fs [] >>
           rename1 ‘n < _’ >> qabbrev_tac ‘pair = EL n binds1’ >> PairCases_on ‘pair’ >>
           gvs[freevars_subst, DIFF_SUBSET, FDOM_FDIFF, EL_MAP, SUBSET_DEF] >>
-          qabbrev_tac ‘folded = (λ((p1: string), p2). freevars p2)’ >>
+          qabbrev_tac ‘folded = (λ((p1: mlstring), p2). freevars p2)’ >>
           ‘MEM (folded (EL n binds1)) (MAP folded binds1)’
             by (gvs [MEM_EL] >> first_assum $ irule_at Any >> gvs [EL_MAP]) >>
           first_x_assum $ dxrule_then assume_tac >> unabbrev_all_tac >> gvs [] >>
@@ -3145,8 +3162,10 @@ Proof
   rw [] >> irule eq_when_applied_trans_exp_eq
   >~[‘Letrec l (Lam v (Seq p f))’]
   >- (‘∃s. s ∉ {v} ∪ freevars p ∪ freevars f ∪ set (MAP FST l) ∪ BIGUNION (set (MAP freevars (MAP SND l)))’
-        by (‘INFINITE 𝕌(:string)’ by simp [] \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
-             \\ pop_assum $ irule_at Any \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
+        by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
+             \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
+             \\ pop_assum $ irule_at Any
+             \\ rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL]
              \\ gvs [EL_MAP]) >>
       irule_at Any exp_eq_IMP_exp_eq_in_ctxt >>
       irule_at Any exp_eq_trans >> irule_at (Pos hd) exp_eq_Letrec_cong >>
@@ -3184,7 +3203,8 @@ Proof
       irule exp_alpha_exp_eq >> gvs [exp_alpha_perm_irrel]) >>
   rename1 ‘Let w e (Seq p (Lam v f))’ >>
   ‘∃s. s ∉ {v} ∪ {w} ∪ freevars p ∪ freevars f ∪ freevars e’
-    by (‘INFINITE 𝕌(:string)’ by simp [] \\ gvs [NOT_IN_FINITE]) >>
+    by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring]
+        \\ gvs [NOT_IN_FINITE]) >>
   irule_at Any exp_eq_IMP_exp_eq_in_ctxt >>
   irule_at Any exp_eq_trans >> irule_at (Pos hd) exp_eq_App_cong >>
   irule_at (Pos hd) exp_eq_Lam_cong >> irule_at (Pos $ el 2) exp_eq_refl >>
@@ -3352,7 +3372,7 @@ Proof
       irule_at Any Letrec_Lam_weak >> gvs [perm_exp_def, perm_exp_Projs, perm1_def] >>
       ‘∃s. s ∉ BIGUNION (set (MAP freevars (MAP SND lcs))) ∪ set (MAP FST lcs)
              ∪ {v} ∪ freevars e’
-        by (‘INFINITE 𝕌(:string)’ by simp [] >>
+        by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
             dxrule_then irule $ iffLR NOT_IN_FINITE >>
             gvs [NOT_IN_FINITE, FINITE_BIGUNION, MEM_MAP] >> rw [] >> fs [freevars_FINITE]) >>
       fs [] >> first_assum $ irule_at Any >>
@@ -3377,7 +3397,8 @@ Proof
   irule_at Any exp_alpha_exp_eq >> irule_at Any exp_alpha_Alpha >>
   irule_at Any Let_Lam_weak >> gvs [perm_exp_def, perm_exp_Projs, perm1_def] >>
   ‘∃s. s ∉ {w} ∪ freevars e1 ∪ {v} ∪ freevars e2’
-    by (‘INFINITE 𝕌(:string)’ by simp [] >> gvs [NOT_IN_FINITE]) >>
+    by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
+        gvs [NOT_IN_FINITE]) >>
   fs [] >> first_assum $ irule_at Any >>
   gvs [freevars_Projs] >>
   irule fdemands_exp_eq >>
@@ -3414,8 +3435,10 @@ Proof
       irule_at Any exp_eq_App_cong >> irule_at (Pos hd) exp_alpha_exp_eq >>
       irule_at Any exp_alpha_Alpha >> rename1 ‘EL n t’ >>
       ‘∃s. s ∉ freevars e ∪ {v} ∪ BIGUNION (set (MAP freevars t))’
-        by (‘INFINITE 𝕌(:string)’ by simp [] >> dxrule_then assume_tac $ iffLR NOT_IN_FINITE >>
-             pop_assum $ irule_at Any >> rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL] >>
+        by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
+             dxrule_then assume_tac $ iffLR NOT_IN_FINITE >>
+             pop_assum $ irule_at Any >>
+             rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL] >>
              gvs [EL_MAP]) >>
       fs [] >> first_assum $ irule_at Any >> fs [] >>
       irule_at Any exp_eq_refl >>
@@ -3479,8 +3502,10 @@ Proof
       irule_at Any Letrec_Lam_weak >>
       last_x_assum $ irule_at $ Pos last >>
       ‘∃s. s ∉ {v} ∪ freevars e ∪ set (MAP FST lcs) ∪ BIGUNION (set (MAP freevars (MAP SND lcs)))’
-        by (‘INFINITE 𝕌(:string)’ by simp [] >> dxrule_then assume_tac $ iffLR NOT_IN_FINITE >>
-             pop_assum $ irule_at Any >> rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL] >>
+        by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
+             dxrule_then assume_tac $ iffLR NOT_IN_FINITE >>
+             pop_assum $ irule_at Any >>
+             rw [FINITE_UNION, FINITE_BIGUNION, MEM_EL] >>
              gvs [EL_MAP]) >>
       fs [] >> first_assum $ irule_at Any >> gvs [fdemands_def] >>
       conj_asm2_tac >> rw [EVERY_MEM]
@@ -3503,7 +3528,8 @@ Proof
   irule_at Any Let_Lam_weak >>
   last_x_assum $ irule_at $ Pos last >>
   ‘∃s. s ∉ {v} ∪ freevars e1 ∪ freevars e2 ∪ {w}’
-    by (‘INFINITE 𝕌(:string)’ by simp [] >> gvs [NOT_IN_FINITE]) >>
+    by (‘INFINITE 𝕌(:mlstring)’ by simp [INFINITE_mlstring] >>
+        gvs [NOT_IN_FINITE]) >>
   fs [] >> first_assum $ irule_at Any >> gvs [fdemands_def] >>
   rw [] >>
   irule fdemands_exp_eq >> last_x_assum $ irule_at Any >>
@@ -3661,7 +3687,7 @@ Inductive find_fixpoint:
   (∀v c binds.
      find_fixpoint binds (Var v) c {v} {} [])
 [~Var_known:]
-  (∀v (c : ctxt) binds (args : (string # bool) list) (body : exp).
+  (∀v (c : ctxt) binds (args : (mlstring # bool) list) (body : exp).
      MEM (v, args, body) binds ⇒
      find_fixpoint binds (Var v) c {} {} (MAP SND args))
 [~App:]
@@ -4316,10 +4342,10 @@ Inductive find: (* i i i o o o *)
      find e c fds ds e' (SOME (bL, fd)) ∧ fd' ⊆ fd
      ⇒ find e c fds ds e' (SOME (bL, fd')))
 [find_Bottom:]
-  (∀e (c:ctxt) (fdc : (string # (bool list)) -> bool).
+  (∀e (c:ctxt) (fdc : (mlstring # (bool list)) -> bool).
     find e c fdc {} e NONE)
 [find_Seq:]
-  (∀e e' c (p:(string#num) list) ds v fdc fd.
+  (∀e e' c (p:(mlstring#num) list) ds v fdc fd.
     find e c fdc ds e' fd ∧ (p,v) ∈ ds ⇒
     find e c fdc ds (Seq (Var v) e') fd)
 [find_Seq2:]

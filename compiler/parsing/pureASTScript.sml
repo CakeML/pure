@@ -1,6 +1,6 @@
 Theory pureAST
 Ancestors[qualified]
-  string integer pure_config
+  mlstring integer pure_config
 
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
@@ -8,31 +8,31 @@ Ancestors[qualified]
    The tyTup constructor should never be applied to a singleton list
 *)
 Datatype:
-  tyAST = tyOp string (tyAST list)
-        | tyVar string
+  tyAST = tyOp mlstring (tyAST list)
+        | tyVar mlstring
         | tyTup (tyAST list)
 End
 
-Overload boolTy = “tyOp "Bool" []”;
-Overload intTy = “tyOp "Integer" []”
-Overload listTy = “λty. tyOp "[]" [ty]”
-Overload funTy = “λd r. tyOp "Fun" [d; r]”
+Overload boolTy = “tyOp «Bool» []”;
+Overload intTy = “tyOp «Integer» []”
+Overload listTy = “λty. tyOp «[]» [ty]”
+Overload funTy = “λd r. tyOp «Fun» [d; r]”
 
 Datatype:
-  litAST = litInt int | litString string
+  litAST = litInt int | litString mlstring
 End
 
 Datatype:
-  patAST = patVar string
-         | patApp string (patAST list)
+  patAST = patVar mlstring
+         | patApp mlstring (patAST list)
          | patTup (patAST list)
          | patLit litAST
          | patUScore
 End
 
 Datatype:
-  expAST = expVar string
-         | expCon string (expAST list)
+  expAST = expVar mlstring
+         | expCon mlstring (expAST list)
          | expOp pure_config$atom_op (expAST list)
          | expTup (expAST list)
          | expApp expAST expAST
@@ -42,9 +42,9 @@ Datatype:
          | expLet (expdecAST list) expAST
          | expDo (expdostmtAST list) expAST
          | expCase expAST ((patAST # expAST) list);
-  expdecAST = expdecTysig string tyAST
+  expdecAST = expdecTysig mlstring tyAST
             | expdecPatbind patAST expAST
-            | expdecFunbind string (patAST list) expAST ;
+            | expdecFunbind mlstring (patAST list) expAST ;
   expdostmtAST = expdostmtExp expAST
                | expdostmtBind patAST expAST
                | expdostmtLet (expdecAST list)
@@ -65,9 +65,8 @@ Theorem better_expAST_induction =
           |> DISCH_ALL
           |> Q.GENL [‘eP’, ‘dP’, ‘doP’]
 
-val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
-Overload pNIL = “expCon "[]" []”
-Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
+Overload pNIL = “expCon «[]» []”
+Overload pCONS = “λe1 e2. expCon «::» [e1;e2]”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)
@@ -94,10 +93,10 @@ val _ = add_rule {term_name = "expAbs", fixity = Prefix 1,
                   paren_style = OnlyIfNecessary}
 
 Datatype:
-  declAST = declTysig string tyAST
-          | declData string (string list)
-                     ((string # tyAST list) list)
-          | declFunbind string (patAST list) expAST
+  declAST = declTysig mlstring tyAST
+          | declData mlstring (mlstring list)
+                     ((mlstring # tyAST list) list)
+          | declFunbind mlstring (patAST list) expAST
           | declPatbind patAST expAST
 End
 

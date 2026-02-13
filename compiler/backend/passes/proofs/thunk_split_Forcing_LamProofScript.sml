@@ -1,7 +1,6 @@
-
 Theory thunk_split_Forcing_LamProof
 Ancestors
-  pair list string option sum pair list alist finite_map pred_set
+  pair list option sum pair list alist finite_map pred_set
   rich_list wellorder arithmetic mlmap mlstring var_set
   thunk_cexp pure_misc thunkLangProps thunkLang
   thunkLang_primitives thunk_cexp thunk_exp_of thunk_semantics
@@ -80,7 +79,7 @@ Theorem extract_names_soundness_lemma:
   (∀s css. vars_ok s ∧ EVERY cexp_wf (MAP (SND o SND) css) ⇒
     set_of (extract_names_rows s css) = set_of s ∪
       BIGUNION (set $
-        MAP (λ(cn,vs,ce). freevars (exp_of ce) DIFF set (MAP explode vs)) css) ∧
+        MAP (λ(cn,vs,ce). freevars (exp_of ce) DIFF set vs) css) ∧
     vars_ok (extract_names_rows s css))
 Proof
   ho_match_mp_tac extract_names_ind >>
@@ -90,7 +89,7 @@ Proof
   >- (
     `EVERY cexp_wf (MAP SND xs)` by (
       gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
-    gvs[] >> simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+    gvs[] >> simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
     )
   >- (
     `EVERY cexp_wf (MAP SND xs)` by (
@@ -201,15 +200,15 @@ Theorem find_forcing_soundness:
       l1 = MAP SND (FILTER FST (ZIP (bL2, l))) ∧
       LENGTH l = LENGTH bL ∧
       (∀v. v ∈ freevars (exp_of e2) ∪ boundvars (exp_of e2) ⇒ v ∈ freevars (exp_of e) ∪ boundvars (exp_of e)) ∧
-      (∀v. MEM v l3 ⇒ explode v ∈ boundvars (exp_of e)) ∧
+      (∀v. MEM v l3 ⇒ v ∈ boundvars (exp_of e)) ∧
       LIST_REL (λb2 b. b2 ⇒ b) bL2 bL ∧
-      LIST_REL (λ(b, b2) v. b ⇒ (b2 ⇔ v ∈ freevars (exp_of e2))) (ZIP (bL, bL2)) (MAP explode l) ∧
+      LIST_REL (λ(b, b2) v. b ⇒ (b2 ⇔ v ∈ freevars (exp_of e2))) (ZIP (bL, bL2)) l ∧
       LENGTH l3 = LENGTH (FILTER FST (ZIP (bL, l))) ∧
-      vars_ok s2 ∧ set_of s2 = set (MAP explode l3) ∪ set (MAP explode l) ∧
+      vars_ok s2 ∧ set_of s2 = set l3 ∪ set l ∧
       (b1 ⇔ MEM T bL) ∧
       (b2 ⇒ ALL_DISTINCT (l ++ l3)) ∧
-      (exp_of e) = lets_force (REVERSE (ZIP (MAP explode $ MAP SND (FILTER FST (ZIP (bL, l2))),
-                                             MAP explode $ MAP SND (FILTER FST (ZIP (bL, l))))))
+      (exp_of e) = lets_force (REVERSE (ZIP (MAP SND (FILTER FST (ZIP (bL, l2))),
+                                             MAP SND (FILTER FST (ZIP (bL, l))))))
                                (exp_of e2) ∧
       set_of s = freevars (exp_of e2) ∧ vars_ok s ∧
       l2 = merge_inside l bL l3
@@ -252,23 +251,8 @@ Proof
               dxrule_then (qspec_then ‘big_list’ assume_tac) freevars_to_lets_force >>
               gs [])
           >- (dxrule_then assume_tac boundvars_to_lets_force >> gs [])
-          >- (‘∀v : string s1 s2. v ∈ s2 ∧ s1 = s2 ⇒ v ∈ s1’ by simp [] >>
-              disj1_tac >> pop_assum irule >>
-              irule_at (Pos hd) FEQUAL >>
-              irule_at (Pos hd) FEQUAL2 >> irule_at (Pos hd) FEQUAL >>
-              irule_at Any REVERSE_ZIP >>
-              conj_asm1_tac
-              >- (simp [] >>
-                  irule EQ_LENGTH_FILTER_ZIP >>
-                  simp [LENGTH_merge_inside]) >>
-              simp [boundvars_lets_force] >>
-              disj2_tac >>
-              irule $ iffRL MEM_MAP >> irule_at Any EQ_REFL >>
-              irule IMP_MEM_FILTER_merge_inside >>
-              simp [])
           >- simp [set_of_insert_var, vars_ok_insert_var, SET_EQ_SUBSET, SUBSET_DEF]
-          >- gs [MEM_MAP]
-          >- gs [MEM_MAP]
+          >- simp [set_of_insert_var, vars_ok_insert_var, SET_EQ_SUBSET, SUBSET_DEF]
           >- gs [ALL_DISTINCT_APPEND, MEM_MAP])
       >- (simp [freevars_def, boundvars_def] >>
           rw []
@@ -276,23 +260,8 @@ Proof
               dxrule_then (qspec_then ‘big_list’ assume_tac) freevars_to_lets_force >>
               gs [])
           >- (dxrule_then assume_tac boundvars_to_lets_force >> gs [])
-          >- (‘∀v : string s1 s2. v ∈ s2 ∧ s1 = s2 ⇒ v ∈ s1’ by simp [] >>
-              disj1_tac >> pop_assum irule >>
-              irule_at (Pos hd) FEQUAL >>
-              irule_at (Pos hd) FEQUAL2 >> irule_at (Pos hd) FEQUAL >>
-              irule_at Any REVERSE_ZIP >>
-              conj_asm1_tac
-              >- (simp [] >>
-                  irule EQ_LENGTH_FILTER_ZIP >>
-                  simp [LENGTH_merge_inside]) >>
-              simp [boundvars_lets_force] >>
-              disj2_tac >>
-              irule $ iffRL MEM_MAP >> irule_at Any EQ_REFL >>
-              irule IMP_MEM_FILTER_merge_inside >>
-              simp [])
           >- simp [set_of_insert_var, vars_ok_insert_var, SET_EQ_SUBSET, SUBSET_DEF]
-          >- gs [MEM_MAP]
-          >- gs [MEM_MAP]
+          >- simp [set_of_insert_var, vars_ok_insert_var, SET_EQ_SUBSET, SUBSET_DEF]
           >- gs [ALL_DISTINCT_APPEND, MEM_MAP]))
   >- (pairarg_tac >> rw [] >> simp [cexp_wf_def, PULL_EXISTS] >>
       last_x_assum $ dxrule_then assume_tac >> gs [merge_inside_def, cexp_wf_def] >>
@@ -489,7 +458,7 @@ Proof
 QED
 
 Theorem check_hypothesis_soundness:
-  ∀b v s l1 l2. check_hypothesis b v s ⇒ b ∧ (vars_ok s ⇒ explode v ∉ set_of s)
+  ∀b v s l1 l2. check_hypothesis b v s ⇒ b ∧ (vars_ok s ⇒ v ∉ set_of s)
 Proof
   simp [check_hypothesis_def] >>
   rw [] >> gs [contains_var_in_set_of]
@@ -633,15 +602,15 @@ Theorem my_function_row_lemma:
                                      ⇒ exp_rel s3 (exp_of e) (exp_of e2))) ⇒
               vars_ok s ∧
               EVERY (λ(v, vs, e). freevars (exp_of (e)) ⊆ set_of s ∧ boundvars (exp_of e) ⊆ set_of s
-                                  ∧ set (MAP explode vs) ⊆ set_of s) l ∧
+                                  ∧ set vs ⊆ set_of s) l ∧
               EVERY (λ(v, vs, e). cexp_wf e ∧ ALL_DISTINCT vs) l
               ⇒ vars_ok s2 ∧ set_of s ⊆ set_of s2 ∧
                 EVERY (λ(v, vs, e). freevars (exp_of (e)) ⊆ set_of s2 ∧ boundvars (exp_of e) ⊆ set_of s2
-                                    ∧ set (MAP explode vs) ⊆ set_of s2) l2 ∧
+                                    ∧ set vs ⊆ set_of s2) l2 ∧
                 MAP (FST o SND) l = MAP (FST o SND) l2 ∧
                 MAP FST l = MAP FST l2 ∧
                 EVERY (λ(v, vs, e). cexp_wf e ∧ ALL_DISTINCT vs) l2 ∧
-                (∀s3. EVERY (λ(_, vs, e2). DISJOINT s3 (set (MAP explode vs)
+                (∀s3. EVERY (λ(_, vs, e2). DISJOINT s3 (set vs
                                                         ∪ boundvars (exp_of e2) ∪ freevars (exp_of e2))) l2
                       ⇒ LIST_REL (λ(_, _, e) (_, _, e2). exp_rel s3 (exp_of e) (exp_of e2)) l l2)
 Proof
@@ -694,7 +663,6 @@ Theorem cexp_ok_bind_soundness:
   ∀e. cexp_wf e ∧ cexp_ok_bind e ⇒ ok_bind (exp_of e)
 Proof
   Cases >> simp [cexp_ok_bind_def, cexp_wf_def] >>
-  rename1 ‘MAP explode l’ >>
   Cases_on ‘l’ >> gs []
 QED
 
@@ -827,7 +795,7 @@ Proof
     irule exp_rel_Monad >> rename1 `exp_rel s3` >>
     first_x_assum $ qspec_then ‘s3’ mp_tac >> gs [] >> simp [LIST_REL_EL_EQN, EL_MAP]
     )
-  >~[‘Apps _ _’]
+  >~ [‘Apps _ _’]
   >- (strip_tac >> gen_tac >> strip_tac >>
       rpt gen_tac >> strip_tac >>
       pairarg_tac >> gs [] >> pairarg_tac >> gs [] >>
@@ -860,7 +828,7 @@ Proof
           gs [EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
           first_x_assum $ drule_all_then assume_tac >>
           gs [LIST_REL_EL_EQN, EL_MAP]))
-  >~[‘Lams _ _’]
+  >~ [‘Lams _ _’]
   >- (rename1 ‘cexp_size e’ >> strip_tac >>
       gs [PULL_FORALL] >>
       rpt $ gen_tac >> strip_tac >>
@@ -879,9 +847,9 @@ Proof
       >- (first_x_assum irule >>
           gs [DISJOINT_ALT] >> rw [] >>
           first_x_assum $ dxrule_then assume_tac >>
-          rename1 ‘¬MEM x (MAP explode l)’ >>
-          Cases_on ‘MEM x (MAP explode l)’ >> gs []))
-  >~[‘my_function _ (Let opt x y)’]
+          rename1 ‘¬MEM x l’ >>
+          Cases_on ‘MEM x l’ >> gs []))
+  >~ [‘my_function _ (Let opt x y)’]
   >- (strip_tac >> gs [PULL_FORALL] >>
       rpt $ gen_tac >> strip_tac >> fs [] >> strip_tac >>
       rename1 ‘exp_rel s3’ >>
@@ -907,8 +875,8 @@ Proof
           >- (gs [SUBSET_DEF] >>
               rw [] >> rename1 ‘v ∈ _’ >>
               rpt $ first_x_assum $ qspec_then ‘v’ assume_tac >> gs [] >>
-              rename1 ‘v ≠ explode x2’ >>
-              Cases_on ‘v = explode x2’ >> gs []) >>
+              rename1 ‘v ≠ x2’ >>
+              Cases_on ‘v = x2’ >> gs []) >>
           simp [] >> strip_tac >>
           pairarg_tac >> gs [] >>
           pairarg_tac >> gvs [SUBSET_DEF, cexp_wf_def, boundvars_def, freevars_def] >>
@@ -916,14 +884,13 @@ Proof
           irule exp_rel_Let >> simp [] >>
           first_x_assum irule >>
           gs [DISJOINT_ALT] >> rw [] >>
-          rename [‘explode v1 ∉ s3’, ‘v2 ∈ freevars _’] >>
-          Cases_on ‘v2 = explode v1’ >> simp []) >>
+          Cases_on ‘x' = x'''’ >> gvs []) >>
       Cases_on ‘x’ >> gs [dest_Lam_def, my_function_def] >>
       pairarg_tac >> gs [] >>
       pairarg_tac >> gs [] >>
       pairarg_tac >> gs [] >>
       rename1 ‘check_hypothesis (b1 ∧ b2) x' s_vars’ >> Cases_on ‘check_hypothesis (b1 ∧ b2) x' s_vars’
-      >~[‘¬check_hypothesis _ _ _’]
+      >~ [‘¬check_hypothesis _ _ _’]
       >- (rename1 ‘cexp_wf (Lam l x2)’ >>
           last_assum $ qspecl_then [‘Lam l x2’, ‘s’, ‘FST (my_function s (Lam l x2))’,
                                     ‘SND (my_function s (Lam l x2))’, ‘s3’] assume_tac >>
@@ -934,29 +901,28 @@ Proof
           simp [] >> impl_tac
           >- (gs [SUBSET_DEF] >> rw [] >> rename1 ‘v ∈ _’ >>
               rpt $ first_x_assum $ qspec_then ‘v’ assume_tac >> gs [] >>
-              rename1 ‘v ≠ explode x2’ >>
-              Cases_on ‘v = explode x2’ >> gs []) >>
+              rename1 ‘v ≠ x2’ >>
+              Cases_on ‘v = x2’ >> gs []) >>
           strip_tac >> gs [my_function_def, cexp_wf_def, SUBSET_DEF] >>
           rw [] >> irule_at Any exp_rel_Let >> simp [] >>
           first_x_assum irule >> simp [] >>
           gs [DISJOINT_ALT] >> rw [] >>
-          rename [‘explode v1 ∉ s3’, ‘v2 ∈ freevars _’] >>
-          Cases_on ‘v2 = explode v1’ >> simp []) >>
+          Cases_on ‘x = x'’ >> gvs []) >>
       gs [] >> pairarg_tac >> gs [] >>
       rename1 ‘invent_var _ _ = (v2, _)’ >>
       rename1 ‘cexp_wf (Lam l x2)’ >>
       last_assum $ qspecl_then [‘Lam l x2’, ‘s’, ‘FST (my_function s (Lam l x2))’,
-                                ‘SND (my_function s (Lam l x2))’, ‘{explode v2} ∪ s3’] assume_tac >>
+                                ‘SND (my_function s (Lam l x2))’, ‘{v2} ∪ s3’] assume_tac >>
       gs [boundvars_def, freevars_def] >>
       last_x_assum $ qspecl_then [‘y’, ‘FST (my_function s (Lam l x2))’,
                                   ‘FST (my_function (FST (my_function s (Lam l x2))) y)’,
                                   ‘SND (my_function (FST (my_function s (Lam l x2))) y)’,
-                                  ‘{explode v2} ∪ s3’] mp_tac >>
+                                  ‘{v2} ∪ s3’] mp_tac >>
       simp [] >> impl_tac
       >- (gs [SUBSET_DEF] >> rw [] >> rename1 ‘v ∈ _’ >>
           rpt $ first_x_assum $ qspec_then ‘v’ assume_tac >> gs [] >>
-          rename1 ‘v ≠ explode x2’ >>
-          Cases_on ‘v = explode x2’ >> gs []) >>
+          rename1 ‘v ≠ x2’ >>
+          Cases_on ‘v = x2’ >> gs []) >>
       strip_tac >> gs [my_function_def, cexp_wf_def, boundvars_def, boundvars_Lams, boundvars_Apps,
                        freevars_Apps, freevars_Lams, freevars_def] >>
       drule_then assume_tac find_forcing_soundness >>
@@ -975,8 +941,7 @@ Proof
       >- (dxrule_then assume_tac invent_var_thm >> gs [SUBSET_DEF])
       >- (dxrule_then assume_tac invent_var_thm >> gs [REV_REVERSE_LEM, MAP_REVERSE, SUBSET_DEF] >>
           rw []
-          >- (dxrule_then assume_tac $ iffLR MEM_MAP >> gs [] >>
-              dxrule_then assume_tac thunk_Forcing_LambdasTheory.MEM_MAP_FILTER_ZIP >>
+          >- (dxrule_then assume_tac thunk_Forcing_LambdasTheory.MEM_MAP_FILTER_ZIP >>
               gs [MEM_MAP, PULL_EXISTS, MEM_REVERSE])
           >- (gs [MEM_MAP, PULL_EXISTS] >>
               dxrule_then assume_tac MEM_merge_inside >>
@@ -985,7 +950,7 @@ Proof
           rw [] >> first_x_assum $ dxrule_then assume_tac >>
           gs [] >>
           rename1 ‘REV l []’ >> rename1 ‘x ∈ freevars _’ >>
-          Cases_on ‘MEM x (MAP explode l)’ >> gs [])
+          Cases_on ‘MEM x l’ >> gs [])
       >- (dxrule_then assume_tac invent_var_thm >> gs [SUBSET_DEF])
       >- (simp [BIGUNION_SUBSET, REV_REVERSE_LEM, MAP_REVERSE, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
           rw [] >> simp [exp_of_def, boundvars_def] >>
@@ -999,7 +964,7 @@ Proof
           rw [] >> first_x_assum $ dxrule_then assume_tac >>
           gs [] >>
           rename1 ‘REV l []’ >> rename1 ‘x ∈ freevars _’ >>
-          Cases_on ‘MEM x (MAP explode l)’ >> gs [])
+          Cases_on ‘MEM x l’ >> gs [])
       >- (simp [DIFF_SUBSET, UNION_SUBSET] >>
           conj_tac
           >- (simp [BIGUNION_SUBSET, REV_REVERSE_LEM, MAP_REVERSE, PULL_EXISTS] >>
@@ -1023,7 +988,7 @@ Proof
                   strip_tac >> gs [SUBSET_DEF])
               >- (dxrule_then assume_tac invent_var_thm >>
                   strip_tac >> gs [SUBSET_DEF])
-              >- (‘∀v : string -> bool s1 s2. DISJOINT s2 v ∧ s1 = s2 ⇒ DISJOINT s1 v’ by simp [] >>
+              >- (‘∀v : mlstring -> bool s1 s2. DISJOINT s2 v ∧ s1 = s2 ⇒ DISJOINT s1 v’ by simp [] >>
                   pop_assum irule >>
                   irule_at (Pos hd) FEQUAL >>
                   irule_at (Pos hd) FEQUAL2 >> irule_at (Pos hd) FEQUAL >>
@@ -1034,24 +999,22 @@ Proof
                       simp [LENGTH_merge_inside]) >>
                   simp [boundvars_lets_force] >>
                   gs [DISJOINT_ALT] >> rw [] >>
-                  dxrule_then assume_tac $ iffLR MEM_MAP >> fs [] >>
                   dxrule_then assume_tac thunk_Forcing_LambdasTheory.MEM_MAP_FILTER_ZIP >>
-                  ‘∀l y. MEM y l ⇒ MEM (explode y) (MAP explode l)’ by simp [MEM_MAP] >>
-                  pop_assum $ dxrule_then assume_tac >> gs [MAP_REVERSE])
-              >- (rename1 ‘MEM (explode v2) (MAP explode l)’ >>
-                  Cases_on ‘MEM (explode v2) (MAP explode l)’ >> simp [] >>
+                  gvs [])
+              >- (rename1 ‘MEM v2 l’ >>
+                  Cases_on ‘MEM v2 l’ >> simp [] >>
                   dxrule_then assume_tac invent_var_thm >>
                   strip_tac >> gs [SUBSET_DEF])
               >- (gs [DISJOINT_ALT] >> rpt $ strip_tac >>
-                  rename1 ‘x ∉ _ ∨ MEM x (MAP explode l)’ >>
-                  Cases_on ‘MEM x (MAP explode l)’ >> simp [] >> strip_tac >>
+                  rename1 ‘x ∉ _ ∨ MEM x l’ >>
+                  Cases_on ‘MEM x l’ >> simp [] >> strip_tac >>
                   dxrule_then assume_tac in_freevars_lets_force >>
                   gs [MAP_REVERSE]
                   >- (first_x_assum $ dxrule_then assume_tac >> gs []) >>
                   dxrule MEM_MAP_ZIP >> impl_tac
                   >- (simp [] >> irule EQ_LENGTH_FILTER_ZIP >>
                       simp [LENGTH_merge_inside]) >>
-                  strip_tac >> dxrule_then assume_tac $ iffLR MEM_MAP >>
+                  strip_tac >>
                   gs [] >> dxrule_then assume_tac thunk_Forcing_LambdasTheory.MEM_MAP_FILTER_ZIP >>
                   gs [MEM_MAP])) >>
           strip_tac >>
@@ -1062,21 +1025,21 @@ Proof
           rename1 ‘REVERSE (ZIP (bL2, REVERSE l))’ >>
           ‘LENGTH bL2 = LENGTH l’ by gs [LIST_REL_EL_EQN] >>
           gs [REVERSE_ZIP, MAP_FILTER_ZIP, MAP_REVERSE] >>
-          qspecl_then [‘bL’, ‘REVERSE l’, ‘l3’, ‘explode’] mp_tac MAP_merge_inside >>
+          qspecl_then [‘bL’, ‘REVERSE l’, ‘l3’, ‘I’] mp_tac MAP_merge_inside >>
           impl_tac >- simp [GSYM REVERSE_ZIP, FILTER_REVERSE] >>
           strip_tac >> gs [] >>
-          qspecl_then [‘MAP explode (REVERSE l)’, ‘bL’, ‘MAP explode l3’] mp_tac REVERSE_merge_inside >>
+          qspecl_then [‘REVERSE l’, ‘bL’, ‘l3’] mp_tac REVERSE_merge_inside >>
           impl_tac
           >- (simp [] >> irule EQ_TRANS >>
-              rename1 ‘ZIP (bL, MAP explode (REVERSE l))’ >>
-              qspecl_then [‘FILTER FST $ ZIP (bL, MAP explode (REVERSE l))’, ‘SND’] (irule_at Any) LENGTH_MAP >>
+              rename1 ‘ZIP (bL, REVERSE l)’ >>
+              qspecl_then [‘FILTER FST $ ZIP (bL, REVERSE l)’, ‘SND’] (irule_at Any) LENGTH_MAP >>
               irule_at Any EQ_TRANS >> irule_at (Pos last) FEQUAL >>
               irule_at Any MAP_FILTER_ZIP >>
               simp []) >>
           strip_tac >> gs [MAP_REVERSE] >>
           dxrule_then assume_tac check_hypothesis_soundness >>
-          qexists_tac ‘REVERSE (MAP explode l3)’ >>
-          qexists_tac ‘MAP explode l’ >>
+          qexists_tac ‘REVERSE l3’ >>
+          qexists_tac ‘l’ >>
           qexists_tac ‘REVERSE bL2’ >> qexists_tac ‘REVERSE bL’ >>
           rw []
           >- gs [DISJOINT_SYM]
@@ -1094,8 +1057,8 @@ Proof
           >- (dxrule_then assume_tac invent_var_thm >> strip_tac >> gs [SUBSET_DEF])
           >- (dxrule_then assume_tac invent_var_thm >> strip_tac >> gs [SUBSET_DEF])
           >- (dxrule_then assume_tac invent_var_thm >> strip_tac >> gs [SUBSET_DEF] >>
-              rename1 ‘_ ∈ freevars  _ ∧ _ ≠ explode x' ⇒ _ ∈ _’ >>
-              Cases_on ‘explode v2 = explode x'’ >> gs [])
+              rename1 ‘_ ∈ freevars  _ ∧ _ ≠ x' ⇒ _ ∈ _’ >>
+              Cases_on ‘v2 = x'’ >> gs [])
           >- (AP_THM_TAC >> AP_TERM_TAC >>
               AP_THM_TAC >> AP_TERM_TAC >>
               irule EQ_TRANS >> irule_at (Pos hd) REVERSE_ZIP >>
@@ -1103,6 +1066,7 @@ Proof
               conj_asm1_tac
               >- (irule LENGTH_merge_inside >> simp [] >>
                   irule_at Any EQ_LENGTH_FILTER_ZIP >> simp []) >>
+              gvs[] >>
               simp [] >> AP_TERM_TAC >> simp [] >>
               conj_tac
               >- (‘LENGTH l = LENGTH bL’ by simp [] >> pop_assum mp_tac >>
@@ -1117,7 +1081,7 @@ Proof
           >- (AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> MK_COMB_TAC
               >- (AP_TERM_TAC >> simp [MAP_FILTER_ZIP] >>
                   AP_TERM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> simp [] >>
-                  gs [MAP_MAP_o, combinTheory.o_DEF])
+                  gs [MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss])
               >- (irule LIST_EQ >> simp [EL_MAP2, EL_MAP, EL_ZIP] >>
                   rw [exp_of_def]))
           >- (irule EQ_TRANS >> irule_at Any LENGTH_REVERSE >>
@@ -1128,10 +1092,10 @@ Proof
               rpt $ pop_assum kall_tac >>
               rw [] >> gs [LIST_REL_EVERY_ZIP, GSYM REVERSE_ZIP] >>
               irule $ iffLR EVERY_REVERSE >>
-              ‘LENGTH (REVERSE (ZIP (bL, bL2))) = LENGTH (MAP explode l)’ by simp [] >>
+              ‘LENGTH (REVERSE (ZIP (bL, bL2))) = LENGTH l’ by simp [] >>
               dxrule_then assume_tac REVERSE_ZIP >>
               asm_rewrite_tac [REVERSE_REVERSE])))
-  >~[‘Letrec _ _’]
+  >~ [‘Letrec _ _’]
   >- (strip_tac >> gen_tac >> strip_tac >>
       rpt gen_tac >> strip_tac >>
       pairarg_tac >> gs [] >> pairarg_tac >> gs [] >>
@@ -1151,11 +1115,11 @@ Proof
       ‘freevars (exp_of e) ⊆ set_of s’
         by (gs [SUBSET_DEF, SF DNF_ss, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
             gen_tac >> rename1 ‘x ∈ freevars _’ >>
-            Cases_on ‘MEM (implode x) (MAP FST l)’
+            Cases_on ‘MEM x (MAP FST l)’
             >- (gs [MEM_MAP, FST_THM] >> pairarg_tac >>
                 gvs [] >>
                 first_x_assum $ dxrule_then assume_tac >>
-                gs [explode_implode]) >>
+                gs []) >>
             strip_tac >> last_x_assum irule >>
             gs [MEM_MAP]) >>
       impl_tac
@@ -1163,11 +1127,11 @@ Proof
           gs [FORALL_PROD, EXISTS_PROD, PULL_EXISTS] >>
           rw []
           >- (rename1 ‘x ∈ set_of _’ >>
-              Cases_on ‘MEM (implode x) (MAP FST l)’
+              Cases_on ‘MEM x (MAP FST l)’
               >- (gs [MEM_MAP, FST_THM] >> pairarg_tac >>
                   gvs [] >>
                   first_x_assum $ dxrule_then assume_tac >>
-                  gs [explode_implode]) >>
+                  gs []) >>
               last_x_assum irule >> last_x_assum irule >>
               gs [MEM_MAP] >> metis_tac [])
           >- (last_x_assum $ drule_then assume_tac >> fs [])
@@ -1184,7 +1148,7 @@ Proof
           first_x_assum $ drule_then assume_tac >>
           first_x_assum $ dxrule_then assume_tac >> gs [])
       >- (rename1 ‘MAP FST l = MAP FST l2’ >>
-          ‘MAP FST (MAP (λ(n,x'). (explode n,exp_of x')) l) = MAP FST (MAP (λ(n,x'). (explode n,exp_of x')) l2)’
+          ‘MAP FST (MAP (λ(n,x'). (n,exp_of x')) l) = MAP FST (MAP (λ(n,x'). (n,exp_of x')) l2)’
             suffices_by gs [SUBSET_DEF] >>
           irule LIST_EQ >>
           qpat_x_assum ‘MAP _ _ = MAP _ _’ mp_tac >>
@@ -1213,7 +1177,7 @@ Proof
           ‘DISJOINT (freevars (exp_of e2) ∪ BIGUNION (set (MAP (λ(p1, p2). freevars (exp_of p2)) l2))) s3'’
             by (gs [DISJOINT_ALT] >>
                 rw [] >> rename1 ‘x ∉ s3'’ >>
-                Cases_on ‘MEM x (MAP (λ(p1, p2). explode p1) l2)’ >> gs [] >>
+                Cases_on ‘MEM x (MAP (λ(p1, p2). p1) l2)’ >> gs [] >>
                 first_x_assum irule >> gs [] >>
                 metis_tac []) >>
           qpat_x_assum ‘DISJOINT (_ ∪ _ DIFF _) _’ kall_tac >>
@@ -1237,8 +1201,7 @@ Proof
           >- (first_x_assum $ drule_then assume_tac >>
               pairarg_tac >> gs [] >>
               pairarg_tac >> gs [])))
-  >~[‘rows_of _ _ _’]
-
+  >~ [‘rows_of _ _ _’]
   >- (strip_tac >> gen_tac >> strip_tac >>
       rpt gen_tac >> strip_tac >>
       pairarg_tac >> gs [] >> pairarg_tac >> gs [] >>
@@ -1317,7 +1280,7 @@ Proof
               assume_tac boundvars_rows_of_SOME_lemma >>
               gs [SUBSET_DEF]) >>
           gs [SUBSET_DEF]) >>
-      rename1 ‘boundvars (rows_of (explode m) (MAP _ row2) (OPTION_MAP _ eopt')) ⊆ set_of s3’ >>
+      rename1 ‘boundvars (rows_of m (MAP _ row2) (OPTION_MAP _ eopt')) ⊆ set_of s3’ >>
       ‘set_of s2 ⊆ set_of s3’
         by (Cases_on ‘eopt1’ >> gs [] >>
             pairarg_tac >> gs [] >>
@@ -1332,7 +1295,7 @@ Proof
                 gs [SUBSET_DEF]) >>
             simp []) >>
       conj_asm1_tac
-      >- (‘boundvars (rows_of (explode m) (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) row2) NONE)
+      >- (‘boundvars (rows_of m (MAP (λ(c,vs,x). (c,vs,exp_of x)) row2) NONE)
            ⊆ set_of s3’
             by (qpat_x_assum ‘EVERY _ row2’ kall_tac >>
                 qpat_x_assum ‘EVERY _ row2’ mp_tac >>
@@ -1353,11 +1316,11 @@ Proof
               gs [SUBSET_DEF]) >>
           simp []) >>
       conj_asm1_tac
-      >- (‘freevars (rows_of (explode m) (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) row2) NONE)
+      >- (‘freevars (rows_of m (MAP (λ(c,vs,x). (c,vs,exp_of x)) row2) NONE)
            ⊆ set_of s3’
             by (qpat_x_assum ‘EVERY _ row2’ kall_tac >>
                 qpat_x_assum ‘EVERY _ row2’ mp_tac >>
-                ‘explode m ∈ set_of s3’
+                ‘m ∈ set_of s3’
                   by (Cases_on ‘row’ >> gs [] >>
                       rename1 ‘my_function_row _ (h::_)’ >> PairCases_on ‘h’ >>
                       gs [rows_of_def, freevars_def] >>
@@ -1371,14 +1334,14 @@ Proof
                 assume_tac freevars_lets_for >>
                 gs [SET_EQ_SUBSET, SUBSET_DEF, SF DNF_ss] >>
                 rename1 ‘x ∈ freevars _’ >>
-                Cases_on ‘x = explode m’ >> gs [] >>
+                Cases_on ‘x = m’ >> gs [] >>
                 last_x_assum $ drule_then assume_tac >>
                 gs []) >>
           Cases_on ‘eopt1’ >> gs [] >>
           pairarg_tac >> gs [] >>
           pairarg_tac >> gvs [freevars_rows_of_SOME_NONE] >>
           reverse conj_tac
-          >- (qpat_x_assum ‘explode m ∈ _’ mp_tac >>
+          >- (qpat_x_assum ‘m ∈ _’ mp_tac >>
               rpt $ qpat_x_assum ‘set_of _ ⊆ set_of _’ mp_tac >>
               rpt $ pop_assum kall_tac >> rw [] >>
               gs [SUBSET_DEF]) >>
@@ -1391,7 +1354,6 @@ Proof
               assume_tac boundvars_rows_of_SOME_lemma >>
               gs [SUBSET_DEF]) >>
           simp [])
-
       >- (rw [] >> rename1 ‘exp_rel s4 _ _’ >>
           first_x_assum $ qspec_then ‘s4’ mp_tac >>
           impl_tac
@@ -1404,8 +1366,8 @@ Proof
               assume_tac freevars_lets_for >>
               gs [SET_EQ_SUBSET, SUBSET_DEF, SF DNF_ss, DISJOINT_ALT] >>
               rw [] >> rename [‘x ∈ freevars _’, ‘LENGTH p_1'’] >>
-              Cases_on ‘MEM x (MAP explode p_1')’ >> gs [] >>
-              Cases_on ‘x = explode m’ >> gs []) >>
+              Cases_on ‘MEM x p_1'’ >> gs [] >>
+              Cases_on ‘x = m’ >> gs []) >>
           Cases_on ‘eopt1’ >> gs []
           >- (qpat_x_assum ‘MAP (FST o SND) _ = MAP (FST o SND) _’ mp_tac >>
               qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac >>
@@ -1441,13 +1403,13 @@ Proof
               rename1 ‘Disj _ l’ >>
               Induct_on ‘l’ >> simp [FORALL_PROD, Disj_def, exp_rel_def]) >>
           simp [exp_rel_def, exp_rel_lets_for]))
-  >~[‘Delay (exp_of e)’]
+  >~ [‘Delay (exp_of e)’]
   >- (strip_tac >> gs [PULL_FORALL] >>
       last_x_assum $ qspec_then ‘e’ assume_tac >>
       gen_tac >> pairarg_tac >> gs [boundvars_def, freevars_def, exp_rel_def] >>
       gen_tac >> strip_tac >> simp [cexp_wf_def] >>
       last_x_assum $ dxrule_then assume_tac >> gs [])
-  >~[‘Force (exp_of e)’]
+  >~ [‘Force (exp_of e)’]
   >- (strip_tac >> gs [PULL_FORALL] >>
       last_x_assum $ qspec_then ‘e’ assume_tac >>
       gen_tac >> pairarg_tac >> gs [boundvars_def, freevars_def, exp_rel_def] >>

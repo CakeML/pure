@@ -10,7 +10,7 @@
 *)
 Theory thunk_let_force_1Proof
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   thunkLang_primitives arithmetic pure_misc
   thunk_let_force thunk_let_forceProof thunk_cexp finite_map
   pred_set rich_list thunkLang wellorder thunkLangProps
@@ -70,7 +70,7 @@ Theorem let_force_thm:
   ∀m x.
     EVERY (λm. ∀n x. m = SOME (n,x) ⇒ ∃v. n = Var v) m ⇒
     e_rel m (exp_of x)
-            (exp_of (let_force (MAP (λ(x,n). (implode (dest_Var x),implode n))
+            (exp_of (let_force (MAP (λ(x,n). (dest_Var x,n))
                         (MAP THE (FILTER IS_SOME m))) x))
 Proof
   rpt gen_tac \\ qid_spec_tac ‘m’ \\ qid_spec_tac ‘x’
@@ -102,7 +102,7 @@ Proof
     \\ rw [] \\ simp [let_force_def]
     \\ CASE_TAC \\ fs []
     >- (irule e_rel_Let \\ res_tac \\ fs []
-        \\ first_x_assum $ qspec_then ‘MAP (filter_clash (SOME (explode x))) m’ mp_tac
+        \\ first_x_assum $ qspec_then ‘MAP (filter_clash (SOME x)) m’ mp_tac
         \\ impl_tac >-
          (qpat_x_assum ‘EVERY _ _’ mp_tac
           \\ qid_spec_tac ‘m’ \\ Induct
@@ -122,8 +122,8 @@ Proof
     \\ CASE_TAC \\ fs []
     >- (irule e_rel_Let_Force_Var \\ res_tac \\ fs []
         \\ rename [‘let_force ((a,b)::_)’]
-        \\ first_x_assum $ qspec_then ‘SOME (Var (explode a), explode b) ::
-                                       MAP (filter_clash (SOME (explode b))) m’ mp_tac
+        \\ first_x_assum $ qspec_then ‘SOME (Var a, b) ::
+                                       MAP (filter_clash (SOME b)) m’ mp_tac
         \\ impl_tac >-
          (qpat_x_assum ‘EVERY _ _’ mp_tac
           \\ qid_spec_tac ‘m’ \\ Induct
@@ -147,7 +147,7 @@ Proof
       \\ gvs [IS_SOME_EXISTS]
       \\ rename [‘(_,_) = _ aa’] \\ PairCases_on ‘aa’ \\ gvs [EVERY_MEM]
       \\ res_tac \\ gvs [])
-    \\ first_x_assum $ qspec_then ‘MAP (filter_clash (SOME (explode x))) m’ mp_tac
+    \\ first_x_assum $ qspec_then ‘MAP (filter_clash (SOME x)) m’ mp_tac
     \\ impl_tac >-
      (qpat_x_assum ‘EVERY _ _’ mp_tac
       \\ qid_spec_tac ‘m’ \\ Induct
@@ -192,7 +192,7 @@ Proof
    (fs [let_force_def] \\ rw []
     \\ irule e_rel_Lams
     \\ last_x_assum $ qspec_then
-         ‘(MAP (λm. if name_clashes (MAP explode vs) m then NONE else m) m)’ mp_tac
+         ‘(MAP (λm. if name_clashes vs m then NONE else m) m)’ mp_tac
     \\ impl_tac
     >- (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ rw [] \\ res_tac \\ fs [])
     \\ match_mp_tac EQ_IMPLIES
@@ -211,7 +211,7 @@ Proof
       (fs [Abbr‘m1’,EVERY_MEM,MEM_MAP] \\ rw [] \\ gvs [] \\ res_tac \\ fs [])
     \\ first_x_assum drule
     \\ first_x_assum $ drule_at Any
-    \\ qsuff_tac ‘(MAP (λ(x,n). (implode (dest_Var x),implode n))
+    \\ qsuff_tac ‘(MAP (λ(x,n). (dest_Var x,n))
                    (MAP THE (FILTER IS_SOME m1))) = f1’ >-
      (simp [MAP_MAP_o]
       \\ fs [LIST_REL_MAP_MAP,EVERY2_refl_EQ,FORALL_PROD]
@@ -260,14 +260,14 @@ Proof
   \\ qabbrev_tac ‘n = LENGTH h1’ \\ pop_assum kall_tac
   \\ qsuff_tac ‘∀z n.
           e_rel m
-          (lets_for n (explode h0) (explode x)
-             (MAPi (λi v. (i+z,v)) (MAP explode h1)) (exp_of h2))
-          (lets_for n (explode h0) (explode x)
-             (MAPi (λi v. (i+z,v)) (MAP explode h1))
+          (lets_for n h0 x
+             (MAPi (λi v. (i+z,v)) h1) (exp_of h2))
+          (lets_for n h0 x
+             (MAPi (λi v. (i+z,v)) h1)
              (exp_of
                 (let_force
                    (FILTER (can_keep_list h1)
-                      (MAP (λ(x,n). (implode (dest_Var x),implode n))
+                      (MAP (λ(x,n). (dest_Var x,n))
                          (MAP THE (FILTER IS_SOME m)))) h2)))’
   >- (disch_then $ qspecl_then [‘0’,‘n’] mp_tac \\ fs [])
   \\ pop_assum mp_tac \\ qid_spec_tac ‘m’
@@ -283,7 +283,7 @@ Proof
   \\ conj_tac >- (ntac 6 $ simp [Once e_rel_cases])
   \\ fs [PULL_FORALL]
   \\ first_x_assum $ qspec_then
-       ‘(MAP (filter_clash (SOME (explode h))) (MAP (filter_clash NONE) m))’ mp_tac
+       ‘(MAP (filter_clash (SOME h)) (MAP (filter_clash NONE) m))’ mp_tac
   \\ disch_then $ qspecl_then [‘z+1’,‘n’] mp_tac
   \\ impl_tac
   >-

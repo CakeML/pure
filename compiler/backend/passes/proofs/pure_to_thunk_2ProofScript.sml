@@ -3,11 +3,11 @@
  *)
 Theory pure_to_thunk_2Proof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic combin pure_semantics thunk_semantics
   pure_eval thunkLang_primitives pure_exp_lemmas pure_misc
-  thunk_unthunkProof thunk_case_liftProof thunk_case_projProof
-  thunk_let_forceProof pure_obs_sem_equal[qualified]
+  thunk_unthunkProof thunk_undelay_nextProof thunk_case_liftProof
+  thunk_case_projProof thunk_let_forceProof pure_obs_sem_equal[qualified]
   pure_to_thunk_1Proof pure_cexp thunk_exp_of thunkLang
   thunk_cexp pureLang expof_caseProof
 Libs
@@ -49,7 +49,7 @@ Inductive exp_rel:
   (∀xs ys n.
      LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
                       (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ∧
-     explode n ∉ monad_cns ⇒
+     n ∉ monad_cns ⇒
        exp_rel (Prim i (Cons n) xs) (Prim (Cons n) ys))
 [~Ret_Raise:]
   (∀mop xs ys n.
@@ -95,15 +95,15 @@ Inductive exp_rel:
 [~Seq:]
   (∀x1 x2 y1 y2 fresh.
      exp_rel x1 y1 ∧ exp_rel x2 y2 ∧
-     explode fresh ∉ freevars (exp_of' x2) ⇒
+     fresh ∉ freevars (exp_of' x2) ⇒
        exp_rel (Prim i Seq [x1; x2]) (Let (SOME fresh) y1 y2))
 [~Case:]
   (∀i x v xs ys fresh.
      ~MEM v (FLAT (MAP (FST ∘ SND) xs)) ∧ xs ≠ [] ∧
      LIST_REL (λ(x1,x2,x3) (y1,y2,y3).
        x1 = y1 ∧ x2 = y2 ∧ ~MEM fresh x2 ∧
-       exp_rel x3 y3 ∧ explode fresh ∉ freevars (exp_of' x3)) xs ys ∧
-     (∀a x. eopt = SOME (a,x) ⇒ explode fresh ∉ freevars (exp_of' x)) ∧
+       exp_rel x3 y3 ∧ fresh ∉ freevars (exp_of' x3)) xs ys ∧
+     (∀a x. eopt = SOME (a,x) ⇒ fresh ∉ freevars (exp_of' x)) ∧
      (~(∃c z. x = Var c z ∧ a_exp = Var z) ⇒
       (∃x1. exp_rel x x1 ∧ a_exp = Delay x1)) ∧
      fresh ≠ v ∧
@@ -194,17 +194,11 @@ Proof
   \\ rpt $ goal_assum drule
 QED
 
-Theorem MEM_EQ_MEM_MAP_explode[local]:
-  ∀h1 f. MEM f h1 ⇔ MEM (explode f) (MAP explode h1)
-Proof
-  Induct \\ fs []
-QED
-
 val cexp_wf_def = pure_cexpTheory.cexp_wf_def;
 
 Definition Disj'_def:
-  Disj' v [] = Cons "False" [] ∧
-  Disj' v ((cn,l)::xs) = If (IsEq cn l T v) (Cons "True" []) (Disj' v xs)
+  Disj' v [] = Cons «False» [] ∧
+  Disj' v ((cn,l)::xs) = If (IsEq cn l T v) (Cons «True» []) (Disj' v xs)
 End
 
 Theorem to_thunk_Disj:
@@ -333,19 +327,19 @@ Proof
     \\ ntac 3 (simp [proj_cases, PULL_EXISTS])
     \\ fs [rows_of_def]
     \\ drule lets_for_lemma
+    \\ qpat_assum ‘¬MEM fresh h1’ assume_tac
+    \\ disch_then $ dxrule_at (Pat ‘¬MEM fresh vs’)
+    \\ qpat_assum ‘¬MEM v h1’ assume_tac
+    \\ disch_then $ dxrule_at (Pat ‘¬MEM h h1’)
     \\ rpt $ disch_then drule
-    \\ ‘¬MEM (explode fresh) (MAP explode h1)’ by fs [MEM_EQ_MEM_MAP_explode]
-    \\ disch_then drule
-    \\ ‘¬MEM (explode v) (MAP explode h1)’ by fs [MEM_EQ_MEM_MAP_explode]
-    \\ disch_then drule
-    \\ disch_then $ qspecl_then [‘explode h0’,‘0’] strip_assume_tac
-    \\ gvs []
+    \\ disch_then $ qspecl_then [‘h0’,‘0’] strip_assume_tac
+    \\ gvs [SF ETA_ss]
     \\ rpt $ pop_assum $ irule_at Any
     \\ rename [‘LIST_REL _ ys1 ys2’]
     \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ qpat_x_assum ‘EVERY (λa. cexp_wf a) _’ mp_tac
+    \\ qpat_x_assum ‘EVERY cexp_wf _’ mp_tac
     \\ qpat_x_assum ‘¬MEM v (FLAT (MAP (FST ∘ SND) ys1))’ mp_tac
-    \\ `∀cn. MEM cn (MAP FST ys1) ⇒ explode cn ∉ monad_cns` by gvs[]
+    \\ `∀cn. MEM cn (MAP FST ys1) ⇒ cn ∉ monad_cns` by gvs[]
     \\ pop_assum mp_tac
     \\ qid_spec_tac ‘ys2’
     \\ qid_spec_tac ‘ys1’
@@ -403,10 +397,9 @@ Proof
     \\ drule lets_for_lemma
     \\ ntac 5 (disch_then drule)
     \\ disch_then $ drule_at $ Pos last
-    \\ rename [‘lets_for' (LENGTH cs) (explode cn)’]
-    \\ disch_then $ qspecl_then [‘explode v’,
-            ‘explode cn’,‘MAP explode cs’,‘0’] mp_tac
-    \\ impl_tac >- fs [GSYM MEM_EQ_MEM_MAP_explode]
+    \\ rename [‘lets_for' (LENGTH cs) cn’]
+    \\ disch_then $ qspecl_then [‘v’,‘cn’,‘cs’,‘0’] mp_tac
+    \\ impl_tac >- fs []
     \\ fs [] \\ strip_tac
     \\ rpt $ pop_assum $ irule_at Any)
   >~ [‘Seq’] >- (

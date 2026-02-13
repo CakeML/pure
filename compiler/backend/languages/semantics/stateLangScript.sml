@@ -11,7 +11,7 @@
 *)
 Theory stateLang
 Ancestors
-  string option sum pair list alist
+  option sum pair list alist
   pure_exp arithmetic mlstring
   pure_semantics state_cexp
 Libs
@@ -30,10 +30,10 @@ End
 Datatype:
   sop = (* Primitive operations *)
       | AppOp              (* function application                     *)
-      | Cons string        (* datatype constructor                     *)
+      | Cons mlstring      (* datatype constructor                     *)
       | AtomOp atom_op     (* primitive parametric operator over Atoms *)
-      | Proj string num    (* projection                               *)
-      | IsEq string num    (* check whether same data constructor      *)
+      | Proj mlstring num  (* projection                               *)
+      | IsEq mlstring num  (* check whether same data constructor      *)
       | Alloc              (* allocate an array                        *)
       | Length             (* query the length of an array             *)
       | Sub                (* de-reference a value in an array         *)
@@ -41,10 +41,10 @@ Datatype:
       | AllocMutThunk thunk_mode (* allocate a mutable thunk           *)
       | UpdateMutThunk thunk_mode (* update an unevaluated thunk       *)
       | ForceMutThunk      (* force a mutable thunk                    *)
-      | FFI string         (* make an FFI call                         *)
+      | FFI mlstring       (* make an FFI call                         *)
 End
 
-Type vname = “:string”
+Type vname = “:mlstring”
 
 Datatype:
   exp = (* stateLang expressions *)
@@ -65,11 +65,11 @@ Datatype:
 End
 
 Overload Lit = “λl. App (AtomOp (Lit l)) []”
-Overload Unit = “App (Cons "") []”
+Overload Unit = “App (Cons «») []”
 
 Datatype:
   v = (* stateLang values *)
-    | Constructor string (v list)
+    | Constructor mlstring (v list)
     | Closure (vname option) ((vname # v) list) exp
     | Recclosure ((vname # exp) list) ((vname # v) list) vname
     | Thunk (v + (vname # v) list # exp)
@@ -115,13 +115,13 @@ Datatype:
            | Exp env exp
            | Val v
            | Exn v
-           | Action string string
+           | Action mlstring mlstring
            | Error
 End
 
 Datatype:
   snext_res = (* top-level observable results *)
-            | Act (string # string) (cont list) (state option)
+            | Act (mlstring # mlstring) (cont list) (state option)
             | Ret
             | Div
             | Err
@@ -282,8 +282,8 @@ Definition application_def:
     | SOME as =>
       case eval_op aop as of
         SOME $ INL a => value (Atom a) st k
-      | SOME $ INR T => value (Constructor "True" []) st k
-      | SOME $ INR F => value (Constructor "False" []) st k
+      | SOME $ INR T => value (Constructor «True» []) st k
+      | SOME $ INR F => value (Constructor «False» []) st k
       | _            => error st k) ∧
   application Alloc vs st k = (
     case HD vs, st of
@@ -311,7 +311,7 @@ Definition application_def:
     case HD vs of
       Constructor t ys => (
         if t = s ⇒ i = LENGTH ys then
-          value (Constructor (if t = s then "True" else "False") []) st k
+          value (Constructor (if t = s then «True» else «False») []) st k
         else error st k)
     | _ => error st k) ∧
   application Sub vs st k = (
@@ -322,7 +322,7 @@ Definition application_def:
             if 0 ≤ i ∧ i < & LENGTH l then
               value (EL (Num i) l) st k
             else
-              (Exn (Constructor "Subscript" []), st, k)
+              (Exn (Constructor «Subscript» []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
   application Update vs st k = (
@@ -332,11 +332,11 @@ Definition application_def:
           SOME (Array l) =>
             if 0 ≤ i ∧ i < & LENGTH l then
               value
-                (Constructor "" [])
+                (Constructor «» [])
                 (SOME (LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n stores))
                 k
             else
-              (Exn (Constructor "Subscript" []), st, k)
+              (Exn (Constructor «Subscript» []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
   application (AllocMutThunk mode) vs st k = (
@@ -352,7 +352,7 @@ Definition application_def:
         case oEL n stores of
           SOME (ThunkMem NotEvaluated _) =>
           value
-            (Constructor "" [])
+            (Constructor «» [])
             (SOME (LUPDATE (ThunkMem mode (EL 1 vs)) n stores))
             k
         | _ => error st k)
@@ -366,7 +366,7 @@ Definition application_def:
             value
               f
               st
-              (AppK [] AppOp [Constructor "" []] [] :: ForceMutK n :: k)
+              (AppK [] AppOp [Constructor «» []] [] :: ForceMutK n :: k)
         | _ => error st k)
     | _ => error st k) ∧
   application (FFI channel) vs st k = (
@@ -391,8 +391,8 @@ Definition return_def:
   return v st (LetK env NONE e :: k) = continue env e st k ∧
   return v st (LetK env (SOME x) e :: k) = continue ((x,v)::env) e st k ∧
   return v st (IfK env e1 e2 :: k) = (
-    if v = Constructor "True"  [] then continue env e1 st k else
-    if v = Constructor "False" [] then continue env e2 st k else
+    if v = Constructor «True»  [] then continue env e1 st k else
+    if v = Constructor «False» [] then continue env e2 st k else
       error st k) ∧
   return v st (RaiseK :: k) =
     (if st = NONE then error st k else (Exn v, st, k)) ∧
@@ -536,7 +536,7 @@ Definition sinterp_def:
         | Err => Ret' Error
         | Div => Div'
         | Act a k' st' => Vis' a (λy. value (Atom (Str y)) st' k' ))
-      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+      ((λ_ ret. strlen ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
       (sr, st, k)
@@ -562,7 +562,7 @@ Theorem sinterp:
         Vis e (λa. case a of
                    | INL x => Ret $ FinalFFI e x
                    | INR y =>
-                      if LENGTH y ≤ max_FFI_return_size then
+                      if strlen y ≤ max_FFI_return_size then
                         sinterp (Val $ Atom $ Str y) st' k'
                       else Ret $ FinalFFI e FFI_failure)
 Proof
@@ -1365,7 +1365,7 @@ QED
 Theorem ForceMutK_sanity:
   oEL n st = SOME (ThunkMem NotEvaluated f) ⇒
   step_n 1 (application ForceMutThunk [ThunkLoc n] (SOME st) k) =
-    application AppOp [f; Constructor "" []] (SOME st) (ForceMutK n :: k)
+    application AppOp [f; Constructor «» []] (SOME st) (ForceMutK n :: k)
 Proof[exclude_simps = step_n_1]
   strip_tac >>
   simp[Once application_def, value_def] >>
@@ -1800,7 +1800,7 @@ QED
 
 Definition sop_of_def[simp]:
   sop_of (AppOp:csop) = (AppOp:sop) ∧
-  sop_of (Cons n) = Cons (explode n) ∧
+  sop_of (Cons n) = Cons n ∧
   sop_of (AtomOp m) = AtomOp m ∧
   sop_of Alloc = Alloc ∧
   sop_of Length = Length ∧
@@ -1811,23 +1811,23 @@ Definition sop_of_def[simp]:
   sop_of (UpdateMutThunk Evaluated) = (UpdateMutThunk Evaluated) ∧
   sop_of (UpdateMutThunk NotEvaluated) = (UpdateMutThunk NotEvaluated) ∧
   sop_of ForceMutThunk = ForceMutThunk ∧
-  sop_of (FFI s) = FFI (explode s)
+  sop_of (FFI s) = FFI s
 End
 
 Definition exp_of_def:
-  exp_of ((Var n):cexp) = (Var (explode n)):exp ∧
+  exp_of ((Var n):cexp) = (Var n):exp ∧
   exp_of (App op xs) = App (sop_of op) (MAP exp_of xs) ∧
-  exp_of (Lam vn x) = Lam (OPTION_MAP explode vn) (exp_of x) ∧
+  exp_of (Lam vn x) = Lam vn (exp_of x) ∧
   exp_of (Letrec funs x) =
-    Letrec (MAP (λ(f,v,y). (explode f,Lam (SOME (explode v)) (exp_of y))) funs) (exp_of x) ∧
-  exp_of (Let vn x y) = Let (OPTION_MAP explode vn) (exp_of x) (exp_of y) ∧
+    Letrec (MAP (λ(f,v,y). (f,Lam (SOME v) (exp_of y))) funs) (exp_of x) ∧
+  exp_of (Let vn x y) = Let vn (exp_of x) (exp_of y) ∧
   exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
   exp_of (Case v rows d) =
-    Case (explode v)
-         (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows)
-         (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts, exp_of e)) d) ∧
+    Case v
+         (MAP (λ(v,vs,y). (v,vs,exp_of y)) rows)
+         (OPTION_MAP (λ(alts,e). (alts, exp_of e)) d) ∧
   exp_of (Raise x) = Raise (exp_of x) ∧
-  exp_of (Handle x v y) = Handle (exp_of x) (explode v) (exp_of y) ∧
+  exp_of (Handle x v y) = Handle (exp_of x) v (exp_of y) ∧
   exp_of (HandleApp x y) = HandleApp (exp_of x) (exp_of y)
 Termination
   WF_REL_TAC ‘measure cexp_size’

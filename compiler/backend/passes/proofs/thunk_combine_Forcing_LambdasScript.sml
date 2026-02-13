@@ -3,7 +3,7 @@
 *)
 Theory thunk_combine_Forcing_Lambdas
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   thunkLang thunkLang_primitives wellorder arithmetic pure_misc
   thunkLangProps thunk_semantics
 Libs
@@ -6715,7 +6715,7 @@ Proof
       \\ rpt $ irule_at Any EQ_REFL \\ gvs []
       \\ rpt $ irule_at Any EQ_REFL \\ gvs [])
   >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
       \\ gs [OPTREL_def]
@@ -6850,7 +6850,7 @@ Proof
           \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj1_tac
           \\ rename1 ‘MAP FST xs = MAP FST ys’
           \\ qexists_tac ‘xs’ \\ qexists_tac ‘ys’
-          \\ qexists_tac ‘v1’ \\ qexists_tac ‘s’ \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’
+          \\ qexists_tac ‘v1’ \\ qexists_tac ‘m’ \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’
           \\ qexists_tac ‘[hd1]’ \\ qexists_tac ‘vL1’ \\ qexists_tac ‘vL2’
           \\ qexists_tac ‘bL2’ \\ qexists_tac ‘[HD bL3]’ \\ qexists_tac ‘TL bL3’
           \\ qexists_tac ‘i’ \\ qexists_tac ‘[v2]’ \\ qexists_tac ‘[w2]’
@@ -6893,7 +6893,7 @@ Proof
               >- (irule LIST_EQ \\ gvs [subst_def, EL_MAP2, EL_MAP]
                   \\ gen_tac \\ rename1 ‘n < _ ∧ _ < _ ⇒ _’ \\ strip_tac
                   \\ rename1 ‘¬EL _ (b2::bL2)’ \\ Cases_on ‘EL n bL2’
-                  \\ Cases_on ‘MEM s vL1’
+                  \\ Cases_on ‘MEM m vL1’
                   \\ gvs [subst_def, EL_MEM, GSYM FILTER_REVERSE, ALOOKUP_APPEND, REVERSE_APPEND, ALOOKUP_FILTER]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
@@ -6945,7 +6945,7 @@ Proof
                       \\ irule LIST_EQ \\ gvs [EL_MAP, EL_MAP2, subst_def]
                       \\ gen_tac \\ rename1 ‘n < _ ∧ _ < _ ⇒ _’ \\ strip_tac
                       \\ rename1 ‘¬EL _ (b2::bL2)’ \\ Cases_on ‘EL n bL2’
-                      \\ Cases_on ‘MEM s vL1’
+                      \\ Cases_on ‘MEM m vL1’
                       \\ gvs [subst_def, EL_MEM, GSYM FILTER_REVERSE, ALOOKUP_APPEND, REVERSE_APPEND, ALOOKUP_FILTER]
                       \\ IF_CASES_TAC \\ gvs [EL_MEM]
                       \\ IF_CASES_TAC \\ gvs [EL_MEM]
@@ -6955,7 +6955,7 @@ Proof
                   \\ irule LIST_EQ \\ gvs [EL_MAP, EL_MAP2, subst_def]
                   \\ gen_tac \\ rename1 ‘n < _ ∧ _ < _ ⇒ _’ \\ strip_tac
                   \\ rename1 ‘¬EL _ (b2::bL2)’ \\ Cases_on ‘EL n bL2’
-                  \\ Cases_on ‘MEM s vL1’
+                  \\ Cases_on ‘MEM m vL1’
                   \\ gvs [subst_def, EL_MEM, GSYM FILTER_REVERSE, ALOOKUP_APPEND, REVERSE_APPEND, ALOOKUP_FILTER]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
@@ -6972,7 +6972,7 @@ Proof
           >- (qpat_x_assum ‘EVERY _ (MAP SND _)’ mp_tac
               \\ IF_CASES_TAC \\ gvs []))
       \\ rename1 ‘MAP FST xs = MAP FST ys’
-      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
             \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
@@ -7123,7 +7123,7 @@ Proof
           \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac
           \\ rename1 ‘MAP FST xs = MAP FST ys’
           \\ qexists_tac ‘xs’ \\ qexists_tac ‘ys’
-          \\ qexists_tac ‘v1’ \\ qexists_tac ‘s’ \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’
+          \\ qexists_tac ‘v1’ \\ qexists_tac ‘m’ \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’
           \\ qexists_tac ‘[hd1]’ \\ qexists_tac ‘vL1’ \\ qexists_tac ‘vL2’
           \\ qexists_tac ‘bL2’ \\ qexists_tac ‘[HD bL3]’ \\ qexists_tac ‘TL bL3’
           \\ qexists_tac ‘i’ \\ qexists_tac ‘[v2]’ \\ qexists_tac ‘[w2]’
@@ -7166,7 +7166,7 @@ Proof
               >- (irule LIST_EQ \\ gvs [subst_def, EL_MAP2, EL_MAP]
                   \\ gen_tac \\ rename1 ‘n < _ ∧ _ < _ ⇒ _’ \\ strip_tac
                   \\ rename1 ‘¬EL _ (b2::bL2)’ \\ Cases_on ‘EL n bL2’
-                  \\ Cases_on ‘MEM s vL1’
+                  \\ Cases_on ‘MEM m vL1’
                   \\ gvs [subst_def, EL_MEM, GSYM FILTER_REVERSE, ALOOKUP_APPEND, REVERSE_APPEND, ALOOKUP_FILTER]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
@@ -7218,7 +7218,7 @@ Proof
                       \\ irule LIST_EQ \\ gvs [EL_MAP, EL_MAP2, subst_def]
                       \\ gen_tac \\ rename1 ‘n < _ ∧ _ < _ ⇒ _’ \\ strip_tac
                       \\ rename1 ‘¬EL _ (b2::bL2)’ \\ Cases_on ‘EL n bL2’
-                      \\ Cases_on ‘MEM s vL1’
+                      \\ Cases_on ‘MEM m vL1’
                       \\ gvs [subst_def, EL_MEM, GSYM FILTER_REVERSE, ALOOKUP_APPEND, REVERSE_APPEND, ALOOKUP_FILTER]
                       \\ IF_CASES_TAC \\ gvs [EL_MEM]
                       \\ IF_CASES_TAC \\ gvs [EL_MEM]
@@ -7228,7 +7228,7 @@ Proof
                   \\ irule LIST_EQ \\ gvs [EL_MAP, EL_MAP2, subst_def]
                   \\ gen_tac \\ rename1 ‘n < _ ∧ _ < _ ⇒ _’ \\ strip_tac
                   \\ rename1 ‘¬EL _ (b2::bL2)’ \\ Cases_on ‘EL n bL2’
-                  \\ Cases_on ‘MEM s vL1’
+                  \\ Cases_on ‘MEM m vL1’
                   \\ gvs [subst_def, EL_MEM, GSYM FILTER_REVERSE, ALOOKUP_APPEND, REVERSE_APPEND, ALOOKUP_FILTER]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
                   \\ IF_CASES_TAC \\ gvs [EL_MEM]
@@ -7254,7 +7254,7 @@ Proof
           >- (qpat_x_assum ‘EVERY _ (MAP SND _)’ mp_tac
               \\ IF_CASES_TAC \\ gvs []))
       \\ rename1 ‘MAP FST xs = MAP FST ys’
-      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
             \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []

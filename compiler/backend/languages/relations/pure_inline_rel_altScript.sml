@@ -3,7 +3,7 @@
 *)
 Theory pure_inline_rel_alt
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map combin pure_exp
   pure_value pure_eval pure_eval_lemmas pure_exp_lemmas
   pure_limit pure_exp_rel pure_alpha_equiv pure_misc
@@ -341,7 +341,7 @@ End
 
 Definition vars_of_def:
   vars_of [] = {} ∧
-  vars_of ((v,Exp e)::rest) = explode v INSERT boundvars (exp_of e) ∪ vars_of rest
+  vars_of ((v,Exp e)::rest) = v INSERT boundvars (exp_of e) ∪ vars_of rest
 End
 
 Definition freevars_of_def:
@@ -394,7 +394,7 @@ Inductive inline_rel:
   (∀l t u v x y x1 a.
     inline_rel l x y ∧
     (∀e. (Letrec a [(v, x)] e) <--> (Let a v x1 e)) ∧
-    explode v ∉ freevars (exp_of x1) ∧
+    v ∉ freevars (exp_of x1) ∧
     DISJOINT (boundvars (exp_of t)) (boundvars (exp_of x1)) ∧
     DISJOINT (boundvars (exp_of t)) (freevars (exp_of x1)) ∧
     inline_rel (l ++ [(v,Exp x1)]) t u ⇒
@@ -428,13 +428,13 @@ Proof
 QED
 
 Definition bind_ok_def:
-  bind_ok (v,Exp x) ⇔ explode v ∉ freevars (exp_of x)
+  bind_ok (v,Exp x) ⇔ v ∉ freevars (exp_of x)
 End
 
 Definition bind_ok_rec_def:
   (bind_ok_rec [] = T) ∧
   (bind_ok_rec ((v:mlstring,Exp (x:'a cexp))::rest) =
-    (DISJOINT (freevars (exp_of x)) (IMAGE explode (set (MAP FST rest))) ∧
+    (DISJOINT (freevars (exp_of x)) (set (MAP FST rest)) ∧
     bind_ok_rec rest))
 End
 
@@ -467,7 +467,7 @@ QED
 
 Theorem vars_of_DISJOINT_MAP_FST:
   DISJOINT s (vars_of ^xs) ⇒
-  DISJOINT s (IMAGE explode (set (MAP FST xs : mlstring list)))
+  DISJOINT s (set (MAP FST xs : mlstring list))
 Proof
   rw []
   \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
@@ -532,7 +532,7 @@ QED
 
 Theorem bind_ok_EVERY_Exp_append:
   EVERY bind_ok ^xs ∧
-  explode v ∉ vars_of xs
+  v ∉ vars_of xs
   ⇒
   EVERY bind_ok xs
 Proof
@@ -548,7 +548,7 @@ QED
 
 Theorem bind_ok_rec_Exp_append:
   bind_ok_rec ^xs ∧
-  explode v ∉ freevars_of xs
+  v ∉ freevars_of xs
   ⇒
   bind_ok_rec (xs ++ [(v,Exp x)])
 Proof
@@ -571,7 +571,7 @@ Proof
 QED
 
 Theorem Binds_Lam:
-  EVERY (λv. v ∉ set (MAP FST xs) ∧ explode v ∉ freevars_of xs) vs
+  EVERY (λv. v ∉ set (MAP FST xs) ∧ v ∉ freevars_of xs) vs
   ⇒
   ((Binds a xs (Lam b vs x)) <--> (Lam b vs (Binds a xs x)))
 Proof
@@ -918,7 +918,7 @@ QED
 *)
 
 Theorem vars_of_not_in_MAP_FST:
-  v ∉ vars_of xs ⇒ ¬MEM v (MAP (explode o FST) ^xs)
+  v ∉ vars_of xs ⇒ ¬MEM v (MAP FST ^xs)
 Proof
   rw []
   \\ Induct_on `xs`

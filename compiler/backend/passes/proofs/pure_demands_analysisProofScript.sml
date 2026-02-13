@@ -3,7 +3,7 @@
 *)
 Theory pure_demands_analysisProof
 Ancestors
-  arithmetic list string alist option pair ltree llist bag mlmap
+  arithmetic list alist option pair ltree llist bag mlmap
   pred_set relation rich_list finite_map mlstring pure_exp
   pure_value pure_eval pure_eval_lemmas pure_exp_lemmas pure_misc
   pure_exp_rel pure_congruence pure_cexp pure_letrec_seq
@@ -20,20 +20,21 @@ Overload exp_of[local] = “pureLang$exp_of”
 Definition update_ctxt_def:
   (update_ctxt id n c [] = c) ∧
   (update_ctxt id n c ((i,p)::tl) =
-   update_ctxt id n (Bind (explode p) (Proj (explode id) i (Var (explode n))) c) tl)
+   update_ctxt id n (Bind p (Proj id i (Var n)) c) tl)
 End
 
 Definition ctxt_trans_def:
   ctxt_trans (Nil: α da_ctxt) = Nil ∧
-  ctxt_trans (IsFree l ctxt) = FOLDL (λc n. IsFree (explode n) (c:ctxt)) (ctxt_trans ctxt) l ∧
-  ctxt_trans (Bind n e ctxt) = Bind (explode n) (exp_of e) (ctxt_trans ctxt) ∧
+  ctxt_trans (IsFree l ctxt) = FOLDL (λc n. IsFree n (c:ctxt)) (ctxt_trans ctxt) l ∧
+  ctxt_trans (Bind n e ctxt) = Bind n (exp_of e) (ctxt_trans ctxt) ∧
   ctxt_trans ((RecBind (binds: (mlstring # α cexp) list) ctxt): α da_ctxt) =
-             (RecBind (MAP (λ(n,e). (explode n, exp_of e)) binds) (ctxt_trans ctxt) : ctxt) ∧
+             (RecBind (MAP (λ(n,e). (n, exp_of e)) binds) (ctxt_trans ctxt) : ctxt) ∧
   ctxt_trans (Unfold id n names c) = update_ctxt id n (ctxt_trans c) (MAPi (λi v. (i, v)) names)
 End
 
 Definition demands_map_to_set_def:
-  demands_map_to_set m = IMAGE (λx. (([]: (string # num) list), explode x)) (FDOM (to_fmap m))
+  demands_map_to_set m = IMAGE (λx. (([]: (mlstring # num) list), x))
+                               (FDOM (to_fmap m))
 End
 
 Definition fd_to_set_def:
@@ -42,7 +43,8 @@ Definition fd_to_set_def:
 End
 
 Definition fdemands_map_to_set_def:
-  fdemands_map_to_set fds = IMAGE (λx. (explode x, (to_fmap fds) ' x)) (FDOM (to_fmap fds))
+  fdemands_map_to_set fds = IMAGE (λx. (x, (to_fmap fds) ' x))
+                                  (FDOM (to_fmap fds))
 End
 
 Theorem demands_map_union:
@@ -59,7 +61,7 @@ Proof
 QED
 
 Theorem demands_map_insert:
-  map_ok m ⇒ demands_map_to_set (insert m n ()) = demands_map_to_set m ∪ {[], explode n}
+  map_ok m ⇒ demands_map_to_set (insert m n ()) = demands_map_to_set m ∪ {[], n}
 Proof
   rw [insert_thm, demands_map_to_set_def, Once INSERT_SING_UNION, UNION_COMM]
 QED
@@ -100,7 +102,7 @@ Proof
 QED
 
 Theorem demands_map_delete:
-  ∀m v. map_ok m ⇒ ∀ps. (ps, explode v) ∉ demands_map_to_set (delete m v)
+  ∀m v. map_ok m ⇒ ∀ps. (ps, v) ∉ demands_map_to_set (delete m v)
 Proof
   rw [demands_map_to_set_def, delete_thm]
 QED
@@ -132,7 +134,7 @@ QED
 Theorem demands_map_FOLDL_delete:
   ∀m v.
     map_ok m ∧ MEM v vL
-    ⇒ ∀ps. (ps, explode v) ∉ demands_map_to_set (FOLDL (λm2 w. delete m2 w) m vL)
+    ⇒ ∀ps. (ps, v :mlstring) ∉ demands_map_to_set (FOLDL (λm2 w. delete m2 w) m vL)
 Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
@@ -145,11 +147,11 @@ QED
 
 Theorem fdemands_map_to_set_soundness:
   ∀fds n x. map_ok fds ⇒
-            (lookup fds n = SOME x ⇔ (explode n, x) ∈ fdemands_map_to_set fds)
+            (lookup fds n = SOME x ⇔ (n, x) ∈ fdemands_map_to_set fds)
 Proof
   rw [lookup_thm, FLOOKUP_DEF, fdemands_map_to_set_def] >>
-  eq_tac >> rw [] >> gvs [implode_explode] >>
-  pop_assum $ irule_at Any >> gvs [explode_implode]
+  eq_tac >> rw [] >> gvs [] >>
+  pop_assum $ irule_at Any >> gvs []
 QED
 
 Theorem fdemands_map_delete_subset:
@@ -157,7 +159,7 @@ Theorem fdemands_map_delete_subset:
            ⇒ fdemands_map_to_set (delete fds v)
                                  ⊆ fdemands_map_to_set fds
 Proof
-  Induct >> gvs [fdemands_map_to_set_def, SUBSET_DEF, delete_thm] >>
+  gvs [fdemands_map_to_set_def, SUBSET_DEF, delete_thm] >>
   rw [DOMSUB_FAPPLY_NEQ]
 QED
 
@@ -172,14 +174,14 @@ Proof
 QED
 
 Theorem fdemands_map_delete:
-  ∀m v. map_ok m ⇒ ∀ps. (explode v, ps) ∉ fdemands_map_to_set (delete m v)
+  ∀m v. map_ok m ⇒ ∀ps. (v, ps) ∉ fdemands_map_to_set (delete m v)
 Proof
   rw [fdemands_map_to_set_def, delete_thm]
 QED
 
 Theorem fdemands_map_insert:
   ∀m v bL d. d ∈ fdemands_map_to_set (insert m v bL) ∧ map_ok m
-             ⇒ (d = (explode v, bL) ∨ (FST d ≠ explode v ∧ d ∈ fdemands_map_to_set m))
+             ⇒ (d = (v, bL) ∨ (FST d ≠ v ∧ d ∈ fdemands_map_to_set m))
 Proof
   rw [] >> gvs [fdemands_map_to_set_def, insert_thm] >>
   gvs [FAPPLY_FUPDATE_THM, SF CONJ_ss]
@@ -191,15 +193,15 @@ Theorem fdemands_map_delete2:
 Proof
   gvs [FORALL_PROD] >>
   rw [fdemands_map_to_set_def, delete_thm] >>
-  rename1 ‘x ∉ FDOM _ ∨ x = w’ >> pop_assum $ qspecl_then [‘x’] assume_tac >>
+  rename1 ‘x ∉ FDOM _ ∨ x = w’ >>
   Cases_on ‘x = w’ >>
   gvs [DOMSUB_FAPPLY_NEQ]
 QED
 
 Theorem fdemands_map_FOLDL_delete2:
   ∀vL fds v bL bL2. map_ok fds ⇒
-                      ((explode v, bL) ∈ fdemands_map_to_set (FOLDL (λf k. delete f k) fds vL)
-                       ⇔ ((explode v, bL) ∈ fdemands_map_to_set fds ∧ ¬MEM v vL))
+                      ((v, bL) ∈ fdemands_map_to_set (FOLDL (λf k. delete f k) fds vL)
+                       ⇔ ((v, bL) ∈ fdemands_map_to_set fds ∧ ¬MEM v vL))
 Proof
   Induct >> rw [] >> eq_tac >> strip_tac >>
   rename1 ‘delete fds h’ >>
@@ -212,7 +214,7 @@ QED
 Theorem fdemands_map_FOLDL_delete:
   ∀m v.
     map_ok m ∧ MEM v vL
-    ⇒ ∀ps. (explode v, ps) ∉ fdemands_map_to_set (FOLDL (λm2 w. delete m2 w) m vL)
+    ⇒ ∀ps. (v :mlstring, ps) ∉ fdemands_map_to_set (FOLDL (λm2 w. delete m2 w) m vL)
 Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
@@ -226,7 +228,7 @@ QED
 Theorem fdemands_map_delete_soundness:
   ∀v fds n ps. map_ok fds
                ∧ (n, ps) ∈ fdemands_map_to_set (delete fds v)
-               ⇒ n ≠ explode v ∧ (n, ps) ∈ fdemands_map_to_set fds
+               ⇒ n ≠ v ∧ (n, ps) ∈ fdemands_map_to_set fds
 Proof
   rw [fdemands_map_to_set_def] >>
   gvs [delete_thm, DOMSUB_FAPPLY_NEQ]
@@ -235,7 +237,7 @@ QED
 Theorem demands_map_delete_soundness:
   ∀v m n ps. map_ok m
                ∧ (ps, n) ∈ demands_map_to_set (delete m v)
-               ⇒ n ≠ explode v ∧ (ps, n) ∈ demands_map_to_set m
+               ⇒ n ≠ v ∧ (ps, n) ∈ demands_map_to_set m
 Proof
   rw [demands_map_to_set_def] >>
   gvs [delete_thm, DOMSUB_FAPPLY_NEQ]
@@ -243,7 +245,7 @@ QED
 
 Theorem demands_map_FOLDL_delete_soundness:
   ∀vL m n ps. (ps, n) ∈ demands_map_to_set (FOLDL (λm v. delete m v) m vL) ∧ map_ok m
-               ⇒ ¬MEM (implode n) vL ∧ (ps, n) ∈ demands_map_to_set m
+               ⇒ ¬MEM n vL ∧ (ps, n) ∈ demands_map_to_set m
 Proof
   Induct >> rw [] >>
   last_x_assum $ dxrule_then assume_tac >>
@@ -254,7 +256,7 @@ QED
 
 Theorem compute_ALL_DISTINCT_soundness_lemma:
   ∀l m. compute_ALL_DISTINCT l m ∧ map_ok m ⇒
-        ALL_DISTINCT (MAP explode l) ∧ (∀v. MEM v l ⇒ lookup m v = NONE)
+        ALL_DISTINCT l ∧ (∀v. MEM v l ⇒ lookup m v = NONE)
 Proof
   Induct >> rw [compute_ALL_DISTINCT_def] >>
   last_x_assum $ dxrule_then assume_tac >>
@@ -266,7 +268,7 @@ Proof
 QED
 
 Theorem compute_ALL_DISTINCT_soundness:
-  ∀l. compute_ALL_DISTINCT l (empty compare) ⇒ ALL_DISTINCT (MAP explode l)
+  ∀l. compute_ALL_DISTINCT l (empty compare) ⇒ ALL_DISTINCT l
 Proof
   rw [] >> dxrule_then assume_tac compute_ALL_DISTINCT_soundness_lemma >>
   gvs [empty_thm, TotOrd_compare]
@@ -326,8 +328,8 @@ Theorem handle_Letrec_fdemands_soundness:
     LENGTH vL = LENGTH mL ∧ map_ok fds ∧ cmp_of fds = compare
     ⇒ map_ok (handle_Letrec_fdemands fds vL mL)
       ∧ cmp_of (handle_Letrec_fdemands fds vL mL) = compare
-      ∧ ∀v argDs. (explode v, argDs) ∈ fdemands_map_to_set (handle_Letrec_fdemands fds vL mL)
-                  ⇒ (explode v, argDs) ∈ fdemands_map_to_set (FOLDL (λf v. delete f v) fds vL)
+      ∧ ∀v argDs. (v, argDs) ∈ fdemands_map_to_set (handle_Letrec_fdemands fds vL mL)
+                  ⇒ (v, argDs) ∈ fdemands_map_to_set (FOLDL (λf v. delete f v) fds vL)
                     ∨ ∃i fdMap. i < LENGTH vL ∧ EL i vL = v ∧ EL i mL = SOME (argDs, fdMap)
 Proof
   Induct >> gvs [handle_Letrec_fdemands_def] >>
@@ -361,25 +363,25 @@ QED
 Theorem add_all_demands_soundness_lemma:
   ∀m s cmp a e e' fds fd fd2 c.
     TotOrd cmp ∧
-    find (exp_of e) c fds (s ∪ IMAGE (λx. ([], explode x)) (FDOM (to_fmap (Map cmp m)))) (exp_of e') fd
-    ⇒ find (exp_of e) c fds (s ∪ IMAGE (λx. ([], explode x)) (FDOM (to_fmap (Map cmp m))))
+    find (exp_of e) c fds (s ∪ IMAGE (λx. ([], x)) (FDOM (to_fmap (Map cmp m)))) (exp_of e') fd
+    ⇒ find (exp_of e) c fds (s ∪ IMAGE (λx. ([], x)) (FDOM (to_fmap (Map cmp m))))
            (exp_of (add_all_demands a (Map cmp m, e', fd2))) fd
 Proof
   Induct
   \\ fs [add_all_demands_def, foldrWithKey_def, balanced_mapTheory.foldrWithKey_def, to_fmap_def]
   \\ rw [Once INSERT_SING_UNION]
   \\ rw [Once INSERT_SING_UNION]
-  \\ rename1 ‘s ∪ ({([], explode k)} ∪ _)’
-  \\ last_x_assum $ qspecl_then [‘s ∪ {([], explode k)} ∪ (IMAGE (λx. ([],explode x)) (FDOM (to_fmap (Map cmp m'))))’, ‘cmp’] assume_tac
-  \\ qabbrev_tac ‘set1=IMAGE (λx. ([]:(string#num) list,explode x)) (FDOM (to_fmap (Map cmp m)))’
-  \\ qabbrev_tac ‘set2=IMAGE (λx. ([]:(string#num) list,explode x)) (FDOM (to_fmap (Map cmp m')))’
-  \\ ‘s ∪ ({([], explode k)} ∪ (set1 ∪ set2)) = (s ∪ {([], explode k)} ∪ set2) ∪ set1’
+  \\ rename1 ‘s ∪ ({([], k)} ∪ _)’
+  \\ last_x_assum $ qspecl_then [‘s ∪ {([], k)} ∪ (IMAGE (λx. ([],x)) (FDOM (to_fmap (Map cmp m'))))’, ‘cmp’] assume_tac
+  \\ qabbrev_tac ‘set1=IMAGE (λx. ([]:(mlstring#num) list,x)) (FDOM (to_fmap (Map cmp m)))’
+  \\ qabbrev_tac ‘set2=IMAGE (λx. ([]:(mlstring#num) list,x)) (FDOM (to_fmap (Map cmp m')))’
+  \\ ‘s ∪ ({([], k)} ∪ (set1 ∪ set2)) = (s ∪ {([], k)} ∪ set2) ∪ set1’
     by metis_tac [UNION_ASSOC, UNION_COMM]
   \\ rw []
   \\ first_x_assum irule
   \\ fs []
   \\ pop_assum kall_tac
-  \\ ‘(s ∪ {([], explode k)} ∪ set2) ∪ set1 = (s ∪ {([], explode k)} ∪ set1) ∪ set2’
+  \\ ‘(s ∪ {([], k)} ∪ set2) ∪ set1 = (s ∪ {([], k)} ∪ set1) ∪ set2’
     by metis_tac [UNION_ASSOC, UNION_COMM]
   \\ rw [exp_of_def, op_of_def]
   \\ irule find_Seq
@@ -407,7 +409,7 @@ QED
 (* ------------------------------ *)
 
 Theorem ALL_DISTINCT_IMP:
-  ∀l. ALL_DISTINCT (MAP FST l) ⇒ ALL_DISTINCT (MAP (λ(p1, p2). explode p1) l)
+  ∀l. ALL_DISTINCT (MAP FST l) ⇒ ALL_DISTINCT (MAP FST l)
 Proof
   Induct >> gvs [] >> rw [] >>
   strip_tac >> first_x_assum irule >>
@@ -417,7 +419,7 @@ Proof
 QED
 
 Theorem ALL_DISTINCT_IMP2:
-  ∀l. ALL_DISTINCT (MAP (λ(p1, p2). explode p1) l) ⇒ ALL_DISTINCT (MAP FST l)
+  ∀l. ALL_DISTINCT (MAP FST l) ⇒ ALL_DISTINCT (MAP FST l)
 Proof
   Induct >> gvs [] >> rw [] >>
   strip_tac >> first_x_assum irule >>
@@ -429,7 +431,7 @@ QED
 Theorem split_body_soundness:
   ∀e l bL body label. LENGTH l = LENGTH bL ⇒
                   split_body e = (l, body, label) ⇒
-                  (∀v. (v, (exp_of e)) = mk_lams (v, ZIP(MAP explode l, bL), (exp_of body))) ∧
+                  (∀v. (v, (exp_of e)) = mk_lams (v, ZIP(l, bL), (exp_of body))) ∧
                   (NestedCase_free e ⇒ NestedCase_free body) ∧
                   (cexp_wf e ⇒ cexp_wf body)
 Proof
@@ -442,13 +444,13 @@ Theorem compute_freevars_soundness_lemma:
        ∀(e : α cexp). cexp_size (K 0) e = v ⇒ NestedCase_free e ⇒
                       map_ok (compute_freevars e) ∧
                       cmp_of (compute_freevars e) = compare ∧
-                      (FDOM (to_fmap (compute_freevars e))) = IMAGE implode (freevars (exp_of e)))
+                      (FDOM (to_fmap (compute_freevars e))) = freevars (exp_of e))
                       ⇒ ∀m1 m2. FOLDR (λe m. union m (compute_freevars e)) m1 l = m2 ∧
                                 EVERY (λa. NestedCase_free a) l ∧
                                 map_ok m1 ∧ cmp_of m1 = compare ⇒
                                 map_ok m2 ∧ cmp_of m2 = compare ∧
                                 (FDOM (to_fmap m2))
-                                = IMAGE implode (freevars (Apps Fail (MAP exp_of l))) ∪ (FDOM (to_fmap m1))
+                                = freevars (Apps Fail (MAP exp_of l)) ∪ (FDOM (to_fmap m1))
 Proof
   Induct \\ gs []
   \\ gen_tac \\ strip_tac
@@ -491,15 +493,15 @@ Theorem compute_freevars_soundness_lemma3:
            cexp_size (K 0) e = v ⇒ NestedCase_free e ⇒
            map_ok (compute_freevars e) ∧
            cmp_of (compute_freevars e) = compare ∧
-           FDOM (to_fmap (compute_freevars e)) = IMAGE implode (freevars (exp_of e)))
+           FDOM (to_fmap (compute_freevars e)) = freevars (exp_of e))
     ⇒ ∀m1 m2. FOLDR (λ(_, vL, e') m. union (FOLDR (λv m. delete m v) (compute_freevars e') vL)
                                            m) m1 rows = m2 ∧
               EVERY (λa. NestedCase_free a) (MAP (SND o SND) rows) ∧
               map_ok m1 ∧ cmp_of m1 = compare ⇒
               map_ok m2 ∧ cmp_of m2 = compare ∧
               (FDOM (to_fmap m2))
-              = IMAGE implode (BIGUNION (set (MAP (λ(_, vL, e). freevars (exp_of e)
-                                                                         DIFF (set (MAP explode vL))) rows)))
+              = BIGUNION (set (MAP (λ(_, vL, e). freevars (exp_of e)
+                                                 DIFF (set vL)) rows))
                          ∪ (FDOM (to_fmap m1))
 Proof
   Induct \\ gs []
@@ -523,13 +525,6 @@ Proof
   \\ rpt $ pop_assum kall_tac
   \\ simp [SET_EQ_SUBSET]
   \\ gvs [SUBSET_DEF, PULL_EXISTS]
-  \\ rw []
-  >- (disj1_tac \\ disj1_tac
-      \\  irule_at Any EQ_REFL \\ simp []
-      \\ strip_tac \\ gs [MEM_MAP])
-  >- (disj1_tac
-      \\  irule_at Any EQ_REFL \\ simp []
-      \\ strip_tac \\ gs [MEM_MAP])
 QED
 
 Theorem compute_freevars_soundness_lemma4:
@@ -538,13 +533,13 @@ Theorem compute_freevars_soundness_lemma4:
        ∀(e : α cexp). cexp_size (K 0) e = v ⇒ NestedCase_free e ⇒
                       map_ok (compute_freevars e) ∧
                       cmp_of (compute_freevars e) = compare ∧
-                      (FDOM (to_fmap (compute_freevars e))) = IMAGE implode (freevars (exp_of e)))
+                      (FDOM (to_fmap (compute_freevars e))) = freevars (exp_of e))
                       ⇒ ∀m1 m2. FOLDR (λ(v, e) m. union m (compute_freevars e)) m1 l = m2 ∧
                                 EVERY (λ(fn, a). NestedCase_free a) l ∧
                                 map_ok m1 ∧ cmp_of m1 = compare ⇒
                                 map_ok m2 ∧ cmp_of m2 = compare ∧
                                 (FDOM (to_fmap m2))
-                                = IMAGE implode (BIGUNION (set (MAP (λ(fn, e'). freevars (exp_of e')) l)))
+                                = BIGUNION (set (MAP (λ(fn, e'). freevars (exp_of e')) l))
                                         ∪ (FDOM (to_fmap m1))
 Proof
   Induct \\ gs []
@@ -568,36 +563,6 @@ Proof
   \\ simp [SET_EQ_SUBSET, SUBSET_DEF]
 QED
 
-Theorem IMAGE_implode_DIFF:
-  ∀(s1 : string -> bool) s2. IMAGE implode (s1 DIFF s2) = (IMAGE implode s1) DIFF (IMAGE implode s2)
-Proof
-  rw [SET_EQ_SUBSET] \\ gs [SUBSET_DEF, PULL_EXISTS]
-  \\ rw []
-  \\ irule_at Any EQ_REFL \\ gs []
-  \\ assume_tac implode_BIJ
-  \\ gs [BIJ_DEF, INJ_DEF]
-  \\ rw [] \\ gvs []
-  \\ first_x_assum $ dxrule_then assume_tac
-  \\ gs []
-QED
-
-Theorem IMAGE_implode_DELETE:
-  ∀(s1 : string -> bool) var. IMAGE implode (s1 DELETE var) = (IMAGE implode s1) DELETE (implode var)
-Proof
-  rw [SET_EQ_SUBSET] \\ gs [SUBSET_DEF, PULL_EXISTS]
-  \\ rw []
-  \\ irule_at Any EQ_REFL \\ gs []
-  \\ assume_tac implode_BIJ
-  \\ gs [BIJ_DEF, INJ_DEF]
-  \\ strip_tac \\ gs []
-QED
-
-Theorem IMAGE_implode_MAP_explode:
-  ∀(l : mlstring list). IMAGE implode (set (MAP explode l)) = set l
-Proof
-  Induct \\ gs [implode_explode]
-QED
-
 Theorem freevars_lets_for:
   ∀l e m1 m2. freevars (lets_for m1 m2 l e) DELETE m2 = freevars e DIFF set (MAP SND l) DELETE m2
 Proof
@@ -609,10 +574,10 @@ QED
 
 Theorem freevars_rows_of:
   ∀rows m expr.
-    (freevars (rows_of (explode m) expr (MAP (λ(c, vs, e). (explode c, MAP explode vs, exp_of e)) rows)))
-    DELETE (explode m)
-    = (BIGUNION (set (MAP (λ(_, vL, x'). freevars (exp_of x') DIFF set (MAP explode vL)) rows))
-       ∪ freevars expr) DELETE (explode m)
+    (freevars (rows_of m expr (MAP (λ(c, vs, e). (c, vs, exp_of e)) rows)))
+    DELETE m
+    = (BIGUNION (set (MAP (λ(_, vL, x'). freevars (exp_of x') DIFF set vL) rows))
+       ∪ freevars expr) DELETE m
 Proof
   Induct
   \\ gs [rows_of_def, FORALL_PROD, freevars_def, UNION_DELETE, freevars_lets_for]
@@ -638,7 +603,7 @@ QED
 Theorem compute_freevars_soundness:
   ∀m. compute_freevars e = m ∧ NestedCase_free e ⇒
         map_ok m ∧ cmp_of m = compare ∧
-        (FDOM (to_fmap m)) = IMAGE implode (freevars (exp_of e))
+        (FDOM (to_fmap m)) = freevars (exp_of e)
 Proof
   completeInduct_on ‘cexp_size (K 0) e’
   \\ Cases \\ gs [compute_freevars_def]
@@ -676,7 +641,7 @@ Proof
       \\ strip_tac
       \\ gs []
       \\ dxrule_then (qspec_then ‘l’ assume_tac) compute_freevars_soundness_lemma2
-      \\ gs [exp_of_def, freevars_def, IMAGE_implode_DIFF, IMAGE_implode_MAP_explode])
+      \\ gs [exp_of_def, freevars_def])
   >~[‘Let _ w e1 e2’]
   >- (strip_tac \\ strip_tac \\ gs []
       \\ last_assum $ qspec_then ‘cexp_size (K 0) e1’ assume_tac
@@ -685,7 +650,7 @@ Proof
       \\ last_x_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
       \\ last_x_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
       \\ gs [union_thm, delete_thm]
-      \\ gs [exp_of_def, freevars_def, IMAGE_implode_DELETE]
+      \\ gs [exp_of_def, freevars_def]
       \\ simp [UNION_COMM])
   >~[‘Letrec _ l e’]
   >- (strip_tac \\ strip_tac \\ gs []
@@ -706,7 +671,7 @@ Proof
       \\ gvs [FOLDR_MAP, LAMBDA_PROD, EVERY_MAP]
       \\ gs [freevars_def, exp_of_def, IMAGE_UNION]
       \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-               GSYM FST_THM, IMAGE_implode_DIFF, GSYM LIST_TO_SET_MAP]
+               GSYM FST_THM, GSYM LIST_TO_SET_MAP]
       \\ simp [UNION_COMM])
   >~[‘Case _ exp m rows fall’]
   >- (strip_tac \\ strip_tac \\ gs []
@@ -731,7 +696,6 @@ Proof
           \\ gs [] \\ pop_assum kall_tac
           \\ gs [Abbr ‘expr’]
           \\ simp [freevars_rows_of]
-          \\ simp [IMAGE_implode_DELETE, implode_explode]
           \\ gs [UNION_COMM])
       \\ CASE_TAC \\ gs []
       \\ rename1 ‘SOME (disjs, fall)’
@@ -751,7 +715,6 @@ Proof
       \\ simp [freevars_rows_of]
       \\ simp [IMAGE_UNION, UNION_DELETE]
       \\ simp [IfDisj_def, freevars_Disj, freevars_def, UNION_DELETE]
-      \\ simp [IMAGE_implode_DELETE, implode_explode]
       \\ simp [GSYM UNION_ASSOC, UNION_COMM]
       \\ rpt $ pop_assum kall_tac
       \\ gvs [SET_EQ_SUBSET, SUBSET_DEF])
@@ -858,7 +821,7 @@ Theorem are_valid_soundness:
   ∀m args body.
     are_valid m args body ∧ map_ok m ∧ cmp_of m = compare ∧ NestedCase_free body ⇒
     DISJOINT (set args) (FDOM $ to_fmap m) ∧
-    freevars (exp_of body) ⊆ (IMAGE explode (set args)) ∪ IMAGE explode (FDOM $ to_fmap m)
+    freevars (exp_of body) ⊆ (set args) ∪ (FDOM $ to_fmap m)
 Proof
   gs [are_valid_def]
   \\ rpt $ gen_tac \\ strip_tac
@@ -873,10 +836,6 @@ Proof
   \\ rw []
   \\ last_x_assum $ drule_then assume_tac
   \\ gs []
-  >- (disj2_tac \\ first_x_assum $ irule_at Any
-      \\ gs [explode_implode])
-  >- (disj1_tac \\ first_x_assum $ irule_at Any
-      \\ gs [explode_implode])
 QED
 
 Theorem can_compute_fixpoint_lemma:
@@ -895,8 +854,8 @@ Theorem can_compute_fixpoint_soundness:
     ALL_DISTINCT (MAP FST binds1) ⇒
     ∀binds1b binds2b bLfull.
       LIST_REL (λbL (_, args, _). LENGTH bL = LENGTH args) bLfull binds2 ∧
-      binds1b = MAP (λ(v, e). (explode v, exp_of e)) binds1 ∧
-      binds2b = MAP2 (λbL (v, args, e, label). (explode v, ZIP (MAP explode args, bL), exp_of e)) bLfull binds2
+      binds1b = MAP (λ(v, e). (v, exp_of e)) binds1 ∧
+      binds2b = MAP2 (λbL (v, args, e, label). (v, ZIP (args, bL), exp_of e)) bLfull binds2
       ⇒ binds1b = MAP mk_lams binds2b ∧
         ∀v args body.
           MEM (v, args, body) binds2b ⇒
@@ -928,7 +887,7 @@ Proof
   \\ dxrule_then assume_tac are_valid_soundness
   \\ dxrule_then assume_tac compute_ALL_DISTINCT_soundness
   \\ gvs [MAP_ZIP, MAP2_ZIP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-  \\ ‘(λ(p1 : bool list, p1', p1'' : mlstring list, p2 : α cexp). explode p1') = explode o FST o SND’
+  \\ ‘(λ(p1 : bool list, p1', p1'' : mlstring list, p2 : α cexp). p1') = FST o SND’
     by (gvs [combinTheory.o_DEF, LAMBDA_PROD])
   \\ gs [GSYM MAP_MAP_o, MAP_ZIP]
   \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
@@ -982,28 +941,28 @@ Theorem fixpoint1_App_lemma2:
                (∀v. v ∈ FDOM (to_fmap fds) ⇒
                     ∃args body.
                       LENGTH args = LENGTH (to_fmap fds ' v) ∧
-                      MEM (explode v,ZIP (args,to_fmap fds ' v),body) binds) ⇒
+                      MEM (v,ZIP (args,to_fmap fds ' v),body) binds) ⇒
                map_ok ds ∧ cmp_of ds = compare ∧
                ∀l dwas. (case fd of
                            NONE => l = [] ∧ dwas = empty compare
                          | SOME (l',dwas') =>
                              l = l' ∧ dwas = dwas') ⇒
                         find_fixpoint binds (exp_of e) (ctxt_trans c)
-                                      (IMAGE explode (FDOM (to_fmap ds)))
-                                      (IMAGE explode (FDOM (to_fmap dwas))) l ∧
+                                      (FDOM (to_fmap ds))
+                                      (FDOM (to_fmap dwas)) l ∧
                         map_ok dwas ∧ cmp_of dwas = compare) ⇒
     ∀bL c fds bL2 ds2 binds.
       fixpoint_demands_App bL (MAP (λe. fixpoint1 c e fds) l) = (bL2, ds2) ∧
       EVERY (λa. cexp_wf a) l ∧
       (∀v. v ∈ FDOM (to_fmap fds) ⇒
            ∃args body. LENGTH args = LENGTH (to_fmap fds ' v) ∧
-                       MEM (explode v, ZIP (args, to_fmap fds ' v), body) binds) ∧
+                       MEM (v, ZIP (args, to_fmap fds ' v), body) binds) ∧
       map_ok fds ∧ cmp_of fds = compare ⇒
       map_ok ds2 ∧ cmp_of ds2 = compare ∧
       ∀e ds1 ads ds3 ads2.
         find_fixpoint binds e (ctxt_trans c) ds1 ads bL ∧
-        (if bL2 = [] then (ads ∪ IMAGE explode (FDOM (to_fmap ds2)), {})
-         else ({}, ads ∪ IMAGE explode (FDOM (to_fmap ds2)))) = (ds3, ads2) ⇒
+        (if bL2 = [] then (ads ∪ (FDOM (to_fmap ds2)), {})
+         else ({}, ads ∪ (FDOM (to_fmap ds2)))) = (ds3, ads2) ⇒
         find_fixpoint binds (Apps e (MAP exp_of l)) (ctxt_trans c)
                       (ds1 ∪ ds3) ads2 bL2
 Proof
@@ -1084,28 +1043,28 @@ Theorem fixpoint1_AtomOp_lemma:
                 (∀v. v ∈ FDOM (to_fmap fds) ⇒
                      ∃args body.
                        LENGTH args = LENGTH (to_fmap fds ' v) ∧
-                       MEM (explode v,ZIP (args,to_fmap fds ' v),body) binds) ⇒
+                       MEM (v,ZIP (args,to_fmap fds ' v),body) binds) ⇒
                 map_ok ds ∧ cmp_of ds = compare ∧
                 ∀l dwas.
                   (case fd of
                      NONE => l = [] ∧ dwas = empty compare
                    | SOME (l',dwas') => l = l' ∧ dwas = dwas') ⇒
                   find_fixpoint binds (exp_of e) (ctxt_trans c)
-                                (IMAGE explode (FDOM (to_fmap ds)))
-                                (IMAGE explode (FDOM (to_fmap dwas))) l ∧
+                                (FDOM (to_fmap ds))
+                                (FDOM (to_fmap dwas)) l ∧
                   map_ok dwas ∧ cmp_of dwas = compare) ⇒
     ∀c fds binds l m.
       (∀v. v ∈ FDOM (to_fmap fds) ⇒
            ∃args body.
              LENGTH args = LENGTH (to_fmap fds ' v) ∧
-             MEM (explode v,ZIP (args,to_fmap fds ' v),body) binds) ∧
+             MEM (v,ZIP (args,to_fmap fds ' v),body) binds) ∧
       EVERY (λa. cexp_wf a) eL ∧
       map_ok fds ∧ cmp_of fds = compare ∧
       l = MAP (λe. fixpoint1 c e fds) eL ∧
       m = FOLDR (λ(ds, _) m. union ds m) (empty compare) l ⇒
       EVERY (λ(ds, _). map_ok ds ∧ cmp_of ds = compare) l ∧
       LIST_REL (λe ds. find_fixpoint binds e (ctxt_trans c) ds {} [])
-               (MAP exp_of eL) (MAP (λ(ds, _). IMAGE explode (FDOM $ to_fmap ds)) l) ∧
+               (MAP exp_of eL) (MAP (λ(ds, _). FDOM $ to_fmap ds) l) ∧
       map_ok m ∧ cmp_of m = compare ∧
       FDOM (to_fmap m) = BIGUNION (set (MAP (λ(ds, _). FDOM $ to_fmap ds) l))
 Proof
@@ -1149,7 +1108,7 @@ Proof
 QED
 
 Theorem find_fixpoint_lets_for:
-  ∀(vs : (num # string) list) binds e cn v c ds.
+  ∀(vs : (num # mlstring) list) binds e cn v c ds.
     find_fixpoint binds e (FOLDL (λc (_, n). (IsFree n (c : ctxt) : ctxt)) c vs) ds {} [] ∧
     (∀v. MEM v (MAP SND vs) ⇒ ¬MEM v (MAP FST binds)) ⇒
     find_fixpoint binds (lets_for cn v vs e) c (ds ∩ COMPL (set (MAP SND vs))) {} []
@@ -1173,16 +1132,10 @@ Proof
 QED
 
 Theorem FOLDL_IsFree_MAPi:
-  ∀vs c. FOLDL (λc (_, n). (IsFree n c : ctxt)) c (MAPi (λi v. (i, explode v)) vs)
-         = FOLDL (λc n. IsFree (explode n) c) c vs
+  ∀vs c. FOLDL (λc (_, n). (IsFree n c : ctxt)) c (MAPi (λi v. (i, v)) vs)
+         = FOLDL (λc n. IsFree n c) c vs
 Proof
   Induct using SNOC_INDUCT \\ gs [FOLDL_APPEND, SNOC_APPEND, indexedListsTheory.MAPi_APPEND]
-QED
-
-Theorem IMAGE_explode_DIFF:
-  ∀s1 s2. IMAGE explode (s1 DIFF s2) = (IMAGE explode s1) DIFF (IMAGE explode s2)
-Proof
-  gs [SET_EQ_SUBSET, SUBSET_DEF, PULL_EXISTS]
 QED
 
 Theorem fixpoint1_Case_lemma:
@@ -1194,21 +1147,21 @@ Theorem fixpoint1_Case_lemma:
                 (∀v. v ∈ FDOM (to_fmap fds) ⇒
                      ∃args body.
                        LENGTH args = LENGTH (to_fmap fds ' v) ∧
-                       MEM (explode v,ZIP (args,to_fmap fds ' v),body) binds) ⇒
+                       MEM (v,ZIP (args,to_fmap fds ' v),body) binds) ⇒
                 map_ok ds ∧ cmp_of ds = compare ∧
                 ∀l dwas.
                   (case fd of
                      NONE => l = [] ∧ dwas = empty compare
                    | SOME (l',dwas') => l = l' ∧ dwas = dwas') ⇒
                   find_fixpoint binds (exp_of e) (ctxt_trans c)
-                                (IMAGE explode (FDOM (to_fmap ds)))
-                                (IMAGE explode (FDOM (to_fmap dwas))) l ∧
+                                (FDOM (to_fmap ds))
+                                (FDOM (to_fmap dwas)) l ∧
                   map_ok dwas ∧ cmp_of dwas = compare) ⇒
     ∀binds fds c l v.
       (∀v. v ∈ FDOM (to_fmap fds) ⇒
            ∃args body.
              LENGTH args = LENGTH (to_fmap fds ' v) ∧
-             MEM (explode v,ZIP (args,to_fmap fds ' v),body) binds) ∧
+             MEM (v,ZIP (args,to_fmap fds ' v),body) binds) ∧
       map_ok fds ∧ cmp_of fds = compare ∧
       EVERY (λa. cexp_wf a) (MAP (SND o SND) rows) ∧
       l = MAP (λ(cons, vL, (e : α cexp)).
@@ -1217,15 +1170,15 @@ Theorem fixpoint1_Case_lemma:
                              (FOLDR (λv m. delete m v) fds vL))) vL) rows ⇒
       LIST_REL (λ(cn, vs, e) ds.
                   map_ok ds ∧ cmp_of ds = compare ∧
-                  find_fixpoint binds (lets_for (explode cn) (explode v)
-                                       (MAPi (λi v. (i, explode v)) vs) (exp_of e))
+                  find_fixpoint binds (lets_for cn v
+                                       (MAPi (λi v. (i, v)) vs) (exp_of e))
                                 (ctxt_trans c)
-                                (IMAGE explode (FDOM $ to_fmap ds)) {} []) rows l
+                                (FDOM $ to_fmap ds) {} []) rows l
 Proof
   Induct \\ gs []
   \\ rw []
   >- (pairarg_tac \\ gs []
-      \\ rename1 ‘lets_for (explode cn) (explode v) (MAPi _ vs) (exp_of e)’
+      \\ rename1 ‘lets_for cn v (MAPi _ vs) (exp_of e)’
       \\ first_x_assum $ qspecl_then [‘cn’, ‘vs’, ‘e’] assume_tac
       \\ gs []
       \\ qmatch_goalsub_abbrev_tac ‘map_ok (FOLDR _ (FST m1) _)’
@@ -1234,7 +1187,7 @@ Proof
       \\ gs [delete_thm, FOLDR_delete]
       \\ rename1 ‘fixpoint1 _ _ _ = (_, opt)’
       \\ Cases_on ‘opt’ \\ gs []
-      >- (pop_assum $ qspec_then ‘FILTER (λ(v, _). ¬MEM v (MAP explode vs)) binds’
+      >- (pop_assum $ qspec_then ‘FILTER (λ(v, _). ¬MEM v vs) binds’
           mp_tac
           \\ impl_tac
           >- (rw []
@@ -1244,11 +1197,11 @@ Proof
               \\ simp [])
           \\ strip_tac
           \\ gs [FOLDR_delete, ctxt_trans_def]
-          \\ rename1 ‘find_fixpoint binds (lets_for (explode cn) (explode v) (MAPi _ vs) (exp_of e))
+          \\ rename1 ‘find_fixpoint binds (lets_for cn v (MAPi _ vs) (exp_of e))
                       (ctxt_trans c)’
-          \\ qspecl_then [‘MAPi (λi v. (i, explode v)) vs’,
-                          ‘FILTER (λ(v, _). ¬MEM v (MAP explode vs)) binds’,
-                          ‘exp_of e’, ‘explode cn’, ‘explode v’,
+          \\ qspecl_then [‘MAPi (λi v. (i, v)) vs’,
+                          ‘FILTER (λ(v, _). ¬MEM v vs) binds’,
+                          ‘exp_of e’, ‘cn’, ‘v’,
                           ‘ctxt_trans c’] assume_tac find_fixpoint_lets_for
           \\ gs [FOLDL_IsFree_MAPi, empty_thm, TotOrd_compare]
           \\ first_x_assum $ dxrule_then mp_tac
@@ -1260,17 +1213,16 @@ Proof
               \\ gs [MEM_MAP, MEM_FILTER]
               \\ pairarg_tac \\ gs []
               \\ rw []
-              \\ first_x_assum $ resolve_then Any assume_tac EQ_REFL
               \\ gvs [EL_MEM])
           \\ gs [combinTheory.o_DEF, LAMBDA_PROD]
           \\ strip_tac \\ gs []
           \\ irule find_fixpoint_smaller_binds
-          \\ qexists_tac ‘λv. ¬MEM v (MAP explode vs)’
-          \\ gs [LIST_TO_SET_MAP, IMAGE_explode_DIFF, GSYM DIFF_INTER_COMPL]
+          \\ qexists_tac ‘λv. ¬MEM v vs’
+          \\ gs [LIST_TO_SET_MAP, GSYM DIFF_INTER_COMPL]
           \\ simp [LAMBDA_PROD])
       \\ pop_assum mp_tac
       \\ CASE_TAC \\ gs []
-      \\ disch_then $ qspec_then ‘FILTER (λ(v, _). ¬MEM v (MAP explode vs)) binds’
+      \\ disch_then $ qspec_then ‘FILTER (λ(v, _). ¬MEM v vs) binds’
                     mp_tac
       \\ impl_tac
       >- (rw []
@@ -1280,17 +1232,17 @@ Proof
           \\ simp [])
       \\ strip_tac
       \\ gs [FOLDR_delete, ctxt_trans_def]
-      \\ rename1 ‘find_fixpoint binds (lets_for (explode cn) (explode v) (MAPi _ vs) (exp_of e))
+      \\ rename1 ‘find_fixpoint binds (lets_for cn v (MAPi _ vs) (exp_of e))
                   (ctxt_trans c)’
-      \\ qspecl_then [‘MAPi (λi v. (i, explode v)) vs’,
-                      ‘FILTER (λ(v, _).  ¬MEM v (MAP explode vs)) binds’,
-                      ‘exp_of e’, ‘explode cn’, ‘explode v’,
+      \\ qspecl_then [‘MAPi (λi v. (i, v)) vs’,
+                      ‘FILTER (λ(v, _).  ¬MEM v vs) binds’,
+                      ‘exp_of e’, ‘cn’, ‘v’,
                       ‘ctxt_trans c’] assume_tac find_fixpoint_lets_for
       \\ gs [FOLDL_IsFree_MAPi, empty_thm, TotOrd_compare]
       \\ gs [combinTheory.o_DEF, LAMBDA_PROD]
       \\ irule find_fixpoint_smaller_binds
-      \\ qexists_tac ‘λv. ¬MEM v (MAP explode vs)’
-      \\ gs [LIST_TO_SET_MAP, IMAGE_explode_DIFF, GSYM DIFF_INTER_COMPL]
+      \\ qexists_tac ‘λv. ¬MEM v vs’
+      \\ gs [LIST_TO_SET_MAP, GSYM DIFF_INTER_COMPL]
       \\ simp [LAMBDA_PROD]
       \\ first_x_assum irule
       \\ rw []
@@ -1434,26 +1386,20 @@ Proof
   \\ gs []
 QED
 
-Theorem MAPi_MAP_explode:
-  MAPi (λi v. (i, v)) (MAP mlstring$explode l) = MAPi (λi v. (i, explode v)) l
-Proof
-  irule LIST_EQ \\ rw [indexedListsTheory.EL_MAPi, EL_MAP]
-QED
-
 Theorem fixpoint1_soundness:
   ∀fds c ds fd binds.
     fixpoint1 c e fds = (ds, fd) ∧
     map_ok fds ∧ cmp_of fds = compare ∧ cexp_wf e ∧
     (∀v. v ∈ FDOM (to_fmap fds) ⇒
          ∃args body. LENGTH args = LENGTH (to_fmap fds ' v) ∧
-                     MEM (explode v, ZIP (args, to_fmap fds ' v), body) binds) ⇒
+                     MEM (v, ZIP (args, to_fmap fds ' v), body) binds) ⇒
     map_ok ds ∧ cmp_of ds = compare ∧
     ∀l dwas. (case fd of
               | NONE => (l = [] ∧ dwas = empty compare)
               | SOME (l', dwas') => (l = l' ∧ dwas = dwas')) ⇒
              find_fixpoint binds (exp_of e) (ctxt_trans c)
-                           (IMAGE explode (FDOM $ to_fmap ds))
-                           (IMAGE explode (FDOM $ to_fmap dwas)) l ∧
+                           (FDOM $ to_fmap ds)
+                           (FDOM $ to_fmap dwas) l ∧
              map_ok dwas ∧ cmp_of dwas = compare
 Proof
   completeInduct_on ‘cexp_size (K 0) e’ \\ gs []
@@ -1624,7 +1570,7 @@ Proof
           \\ gs [])
       \\ simp []
       \\ rename1 ‘find_fixpoint binds _ (ctxt_trans c)’
-      \\ disch_then $ qspecl_then [‘FILTER (λ(v, _). v ≠ explode m) binds’, ‘delete fds m’,
+      \\ disch_then $ qspecl_then [‘FILTER (λ(v, _). v ≠ m) binds’, ‘delete fds m’,
                                    ‘IsFree [m] c’, ‘m’] mp_tac
       \\ impl_tac
       >- simp [delete_thm, DOMSUB_FAPPLY_THM, MEM_FILTER]
@@ -1666,25 +1612,25 @@ Proof
           \\ irule_at Any fixpoint1_Case_rows_of_Fail
           \\ gs [LIST_REL_MAP1, combinTheory.o_DEF, LAMBDA_PROD, ctxt_trans_def]
           \\ ‘find_fixpoint binds (exp_of expr) (ctxt_trans c)
-              (IMAGE explode (FDOM (to_fmap $ demands_e))) {} []’
+              (FDOM (to_fmap $ demands_e)) {} []’
             by (rename1 ‘option_CASE opt _ _ ⇒ find_fixpoint _ (exp_of expr) _ _ _ _ ∧ _ ∧ _’
                 \\ Cases_on ‘opt’ \\ gs [empty_thm, TotOrd_compare]
                 \\ irule find_fixpoint_drop_fd
                 \\ pairarg_tac \\ gs []
                 \\ first_x_assum $ irule_at Any)
           \\ pop_assum $ irule_at Any
-          \\ qexists_tac ‘MAP (λm. IMAGE explode (FDOM (to_fmap m))) mL’
-          \\ qexists_tac ‘IMAGE explode (FDOM $ to_fmap map1)’
+          \\ qexists_tac ‘MAP (λm. FDOM (to_fmap m)) mL’
+          \\ qexists_tac ‘FDOM $ to_fmap map1’
           \\ simp []
           \\ conj_tac
           >- (pairarg_tac \\ gs []
               \\ pairarg_tac \\ gs []
-              \\ rw [MAPi_MAP_explode])
+              \\ rw [])
           \\ conj_tac
           >- (gs [LIST_REL_EL_EQN, EL_MAP]
               \\ gen_tac \\ strip_tac
               \\ last_x_assum $ drule_then assume_tac
-              \\ pairarg_tac \\ gs [MAPi_MAP_explode])
+              \\ pairarg_tac \\ gs [])
           \\ simp [empty_thm, TotOrd_compare]
           \\ simp [SUBSET_DEF, PULL_EXISTS, MEM_MAP])
       \\ pairarg_tac
@@ -1701,7 +1647,7 @@ Proof
       \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
       \\ gvs []
       \\ first_x_assum $ drule_then assume_tac
-      \\ first_x_assum $ qspec_then ‘FILTER (λ(v, _). v ≠ explode m) binds’ mp_tac
+      \\ first_x_assum $ qspec_then ‘FILTER (λ(v, _). v ≠ m) binds’ mp_tac
       \\ impl_tac
       >- simp [delete_thm, DOMSUB_FAPPLY_THM, MEM_FILTER]
       \\ strip_tac
@@ -1729,7 +1675,7 @@ Proof
       \\ irule_at (Pos hd) find_fixpoint_refl
       \\ gs [LIST_REL_MAP1, combinTheory.o_DEF, LAMBDA_PROD, ctxt_trans_def]
       \\ ‘find_fixpoint binds (exp_of expr) (ctxt_trans c)
-          (IMAGE explode (FDOM (to_fmap $ demands_e))) {} []’
+          (FDOM (to_fmap $ demands_e)) {} []’
         by (rename1 ‘option_CASE opt _ _ ⇒ find_fixpoint _ (exp_of expr) _ _ _ _ ∧ _ ∧ _’
             \\ Cases_on ‘opt’ \\ gs [empty_thm, TotOrd_compare]
             \\ irule find_fixpoint_drop_fd
@@ -1738,20 +1684,20 @@ Proof
       \\ pop_assum $ irule_at Any
       \\ qpat_x_assum ‘∀l dwas. option_CASE opt _ _ ⇒
                                 find_fixpoint _ (exp_of expr) _ _ _ _ ∧ _ ∧ _’ kall_tac
-      \\ ‘find_fixpoint (FILTER (λ(v, p1, p2). v ≠ explode m) binds)
-          (exp_of fall) (IsFree (explode m) (ctxt_trans c))
-          (IMAGE explode (FDOM (to_fmap $ map1))) {} []’
+      \\ ‘find_fixpoint (FILTER (λ(v, p1, p2). v ≠ m) binds)
+          (exp_of fall) (IsFree m (ctxt_trans c))
+          (FDOM (to_fmap $ map1)) {} []’
         by (rename1 ‘option_CASE opt _ _’
             \\ Cases_on ‘opt’ \\ gs [empty_thm, TotOrd_compare]
             \\ irule find_fixpoint_drop_fd
             \\ pairarg_tac \\ gs []
             \\ first_x_assum $ irule_at Any)
       \\ pop_assum $ irule_at Any
-      \\ qexists_tac ‘MAP (λm. IMAGE explode (FDOM (to_fmap m))) mL’
+      \\ qexists_tac ‘MAP (λm. FDOM (to_fmap m)) mL’
       \\ conj_tac
       >- (gs [LIST_REL_EL_EQN, EL_MAP]
           \\ rw [] \\ last_x_assum $ drule_then assume_tac
-          \\ pairarg_tac \\ gs [MAPi_MAP_explode])
+          \\ pairarg_tac \\ gs [])
       \\ gvs []
       \\ gs [SUBSET_DEF, PULL_EXISTS, MEM_MAP])
   >~[‘NestedCase _ _ _ _ _ _’]
@@ -1810,12 +1756,12 @@ Theorem handle_fixpoint1_soundness:
     cexp_wf (FST (SND (SND arg))) ∧
     (∀v. v ∈ FDOM (to_fmap fds) ⇒
          ∃args body. LENGTH args = LENGTH (to_fmap fds ' v) ∧
-                     MEM (explode v, ZIP (args, to_fmap fds ' v), body) binds)
+                     MEM (v, ZIP (args, to_fmap fds ' v), body) binds)
     ⇒
     SND (SND arg) = SND (SND out) ∧
     ∃ds ads fs.
         find_fixpoint binds (exp_of (FST (SND (SND arg)))) Nil ds ads fs ∧
-        ∀v. MEM (v, T) (FST (SND out)) ⇒ explode v ∈ ds
+        ∀v. MEM (v, T) (FST (SND out)) ⇒ v ∈ ds
 Proof
   gs [FORALL_PROD, handle_fixpoint1_def]
   \\ rw []
@@ -1845,18 +1791,18 @@ Theorem compute_fixpoint_rec_lemma:
     EVERY (cexp_wf o FST) (MAP (SND o SND) binds) ∧
     m = FOLDR (λ(v, args, e) m. insert m v (MAP SND args))
                 (mlmap$empty mlstring$compare) binds ∧
-    binds2 = MAP (λ(v, args, e, label). (explode v, (MAP (explode ## I) args), exp_of e)) binds ⇒
+    binds2 = MAP (λ(v, args, e, label). (v, args, exp_of e)) binds ⇒
     map_ok m ∧ cmp_of m = compare ∧
     FDOM $ to_fmap m = set (MAP FST binds) ∧
     (∀v. v ∈ FDOM $ to_fmap m ⇒
          ∃args body. LENGTH args = LENGTH (to_fmap m ' v) ∧
-                     MEM (explode v, ZIP (args, to_fmap m ' v), body) binds2)
+                     MEM (v, ZIP (args, to_fmap m ' v), body) binds2)
 Proof
   Induct \\ gs [empty_thm, insert_thm, TotOrd_compare]
   \\ rw [] \\ pairarg_tac
   \\ gs [insert_thm]
   >- (rename1 ‘_ = (_, args, e)’
-      \\ qexists_tac ‘MAP (explode o FST) args’
+      \\ qexists_tac ‘MAP FST args’
       \\ qexists_tac ‘exp_of (FST e)’
       \\ gs []
       \\ pairarg_tac \\ gs []
@@ -1890,7 +1836,7 @@ Theorem compute_fixpoint_rec_soundness:
     compute_fixpoint_rec i binds = binds2 ∧
     EVERY (cexp_wf o FST) (MAP (SND o SND) binds) ∧
     ALL_DISTINCT (MAP FST binds) ∧
-    binds2b = MAP (λ(v, args, e, label). (explode v, (MAP (explode ## I) args), exp_of e)) binds2
+    binds2b = MAP (λ(v, args, e, label). (v, args, exp_of e)) binds2
     ⇒ (∀v args body.
         MEM (v, args, body) binds2b
         ⇒ ∃ds ads fs.
@@ -2020,7 +1966,7 @@ QED
 Theorem rev_split_body_inner_soundness:
   ∀args label e.
     exp_of (rev_split_body_inner label args e)
-    = mk_seqs (MAP (λ(v, b). (explode v, b)) args) (exp_of e)
+    = mk_seqs args (exp_of e)
 Proof
   Induct \\ gs [rev_split_body_inner_def, mk_seqs_def, FORALL_PROD]
   \\ gen_tac \\ Cases \\ gs [rev_split_body_inner_def, mk_seqs_def, exp_of_def, op_of_def]
@@ -2030,8 +1976,7 @@ Theorem rev_split_body_soundness:
   ∀args label e.
     exp_of (rev_split_body label args e)
     =
-    Lams (MAP (λ(v, b). explode v) args)
-         (mk_seqs (MAP (λ(v, b). (explode v, b)) args) (exp_of e))
+    Lams (MAP FST args) (mk_seqs args (exp_of e))
 Proof
   Cases
   \\ gs [rev_split_body_def, exp_of_def, rev_split_body_inner_soundness, Lams_def, mk_seqs_def]
@@ -2040,9 +1985,9 @@ Proof
 QED
 
 Theorem MAP_mk_seq_lams:
-  ∀l. MAP (λ(n, x). (explode n, exp_of x)) (MAP (λ(v, args, body, label). (v, rev_split_body label args body)) l)
+  ∀l. MAP (λ(n, x). (n, exp_of x)) (MAP (λ(v, args, body, label). (v, rev_split_body label args body)) l)
       = MAP mk_seq_lams
-            (MAP (λ(n, args, body, label). (explode n, MAP (λ(v,b). (explode v, b)) args, exp_of body)) l)
+            (MAP (λ(n, args, body, label). (n, args, exp_of body)) l)
 Proof
   Induct \\ gs [FORALL_PROD]
   \\ pop_assum kall_tac
@@ -2055,10 +2000,10 @@ Theorem fixpoint_analysis_lemma:
     LIST_REL (λ(v1,a1,b1,l1) (v2,a2,b2,l2). v1 = v2 ∧ MAP FST a1 = MAP FST a2 ∧ b1 = b2 ∧ l1 = l2)
              (MAP (λ(p1,p2). (λ(args,body,label). (p1,MAP (λv. (v,T)) args,body,label)) (split_body p2)) binds)
              binds2 ⇒
-    MAP2 (λbL (v, args, e, label). (explode v, ZIP (MAP explode args, bL), exp_of e))
+    MAP2 (λbL (v, args, e, label). (v, ZIP (args, bL), exp_of e))
          (MAP (λ(_, args, _, _). MAP SND args) binds2)
          (MAP (λ(v, body). (v, split_body body)) binds)
-    = MAP (λ(n,args,body,label). (explode n,MAP (λ(v,b). (explode v,b)) args, exp_of body)) binds2
+    = MAP (λ(n,args,body,label). (n,args, exp_of body)) binds2
 Proof
   Induct \\ gs [PULL_EXISTS]
   \\ pop_assum kall_tac
@@ -2087,12 +2032,6 @@ Proof
   \\ pairarg_tac \\ gs []
   \\ pairarg_tac \\ gs []
   \\ pairarg_tac \\ gs []
-QED
-
-Theorem ALL_DISTINCT_MAP_explode:
-  ∀l. ALL_DISTINCT l ⇒ ALL_DISTINCT (MAP explode l)
-Proof
-  Induct \\ gs [MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem letrecs_distinct_add_all_demands_lemma:
@@ -2207,17 +2146,15 @@ Proof
       \\ conj_tac
       >- (gs [EVERY_EL, letrecs_distinct_def, LIST_REL_EL_EQN]
           \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-          \\ ‘∀l1 : string list l2. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+          \\ ‘∀l1 : mlstring list l2. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
           \\ pop_assum $ dxrule_then $ irule_at Any
           \\ conj_tac
           >- (irule LIST_EQ
               \\ rw [EL_MAP]
               \\ pairarg_tac \\ gs []
-              \\ pairarg_tac \\ gs []
               \\ first_x_assum $ drule_then assume_tac
               \\ gs [EL_MAP]
-              \\ pairarg_tac \\ gs []
-              \\ pairarg_tac \\ gs [])
+              \\ rpt (pairarg_tac \\ gs []))
           \\ gen_tac \\ strip_tac
           \\ first_x_assum $ drule_then assume_tac
           \\ last_x_assum $ drule_then assume_tac
@@ -2267,18 +2204,12 @@ Proof
       >- (rpt $ gen_tac \\ strip_tac
           \\ first_x_assum $ drule_then assume_tac
           \\ gs []
-          \\ ‘∀l. MAP (λ(v, b : bool). (explode v, b)) l = MAP (explode ## I) l’
-            by (gen_tac
-                \\ irule LIST_EQ
-                \\ rw [EL_MAP]
-                \\ pairarg_tac \\ gs [])
           \\ gvs []
           \\ first_x_assum $ irule_at Any
           \\ first_x_assum $ irule_at Any)
       \\ dxrule_then assume_tac fixpoint_analysis_lemma2
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
       \\ gs [GSYM LAMBDA_PROD, GSYM FST_THM]
-      \\ dxrule_then mp_tac ALL_DISTINCT_MAP_explode
       \\ rpt $ pop_assum kall_tac
       \\ Induct_on ‘binds2’ \\ gvs [FORALL_PROD, MEM_MAP])
   \\ drule_then assume_tac can_compute_fixpoint_soundness2
@@ -2322,11 +2253,11 @@ QED
 
 Theorem update_ctxt_soundness:
   ∀l e e' n1 n2 c fds fd.
-    find e (update_ctxt n1 n2 c (MAP (λ(i, v). (i, implode v)) l))
+    find e (update_ctxt n1 n2 c l)
            (BIGUNION (IMAGE (λ(v, bL). if MEM v (MAP SND l) then {} else {(v, bL)}) fds))
            {} e' fd
-    ⇒ find (lets_for (explode n1) (explode n2) l e) c fds
-           {} (lets_for (explode n1) (explode n2) l e') NONE
+    ⇒ find (lets_for n1 n2 l e) c fds
+           {} (lets_for n1 n2 l e') NONE
 Proof
   Induct
   \\ gvs [lets_for_def, update_ctxt_def]
@@ -2351,29 +2282,22 @@ Proof
   \\ gs []
 QED
 
-Theorem MAPi_implode_MAP_explode:
-  ∀l. MAPi (λi v. (i, implode v)) (MAP explode l) = MAPi (λi v. (i,v)) l
-Proof
-  Induct using SNOC_INDUCT
-  \\ gvs [MAP_SNOC, SNOC_APPEND, indexedListsTheory.MAPi_APPEND]
-QED
-
 Theorem find_rows_of_inner:
   ∀l l' ke ke' c s fds fd.
     LIST_REL (λ(a1, b1, e1) (a2, b2, e2).
                 a1 = a2 ∧ b1 = b2 ∧
                 find (exp_of e1)
                      (update_ctxt a1 s c (MAPi (λi v. (i, v)) b1))
-                     (BIGUNION (IMAGE (λ(v, bL). if MEM v (MAP explode b1) then {} else {(v, bL)}) fds))
+                     (BIGUNION (IMAGE (λ(v, bL). if MEM v b1 then {} else {(v, bL)}) fds))
                      {} (exp_of e2) fd)
              l l' ∧
     find ke c {} {} ke' NONE
     ⇒
-    find (rows_of (explode s) ke
-          (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) l))
+    find (rows_of s ke
+          (MAP (λ(c,vs,x'). (c,vs,exp_of x')) l))
          c fds {}
-         (rows_of (explode s) ke'
-          (MAP (λ(c,vs,x'). (explode c,MAP explode vs, exp_of x')) l'))
+         (rows_of s ke'
+          (MAP (λ(c,vs,x'). (c,vs, exp_of x')) l'))
          NONE
 Proof
   Induct
@@ -2388,12 +2312,12 @@ Proof
       \\ irule_at Any find_Var \\ gvs []
       \\ irule_at Any find_Subset
       \\ irule_at Any update_ctxt_soundness
-      \\ gvs [combinTheory.o_DEF, LAMBDA_PROD, MAPi_implode_MAP_explode]
+      \\ gvs [combinTheory.o_DEF, LAMBDA_PROD]
       \\ pop_assum $ irule_at Any
       \\ qexists_tac ‘{}’ \\ fs []
       \\ simp [EVERY_MEM, MEM_MAP, PULL_EXISTS, SUBSET_DEF, FORALL_PROD]
       \\ rw []
-      \\ rename1 ‘(explode y, d) ∉ s’ \\ Cases_on ‘(explode y, d) ∈ s’ \\ simp []
+      \\ rename1 ‘(y, d) ∉ s’ \\ Cases_on ‘(y, d) ∈ s’ \\ simp []
       \\ rpt $ gen_tac \\ IF_CASES_TAC \\ rw [] \\ gs []) >>
   simp[] >> first_assum $ irule_at Any >> simp[]
 QED
@@ -2405,16 +2329,16 @@ Theorem find_rows_of:
                 a1 = a2 ∧ b1 = b2 ∧
                 find (exp_of e1)
                      (update_ctxt a1 s c (MAPi (λi v. (i, v)) b1))
-                     (BIGUNION (IMAGE (λ(v, bL). if MEM v (MAP explode b1) then {} else {(v, bL)}) fds))
+                     (BIGUNION (IMAGE (λ(v, bL). if MEM v b1 then {} else {(v, bL)}) fds))
                      {} (exp_of e2) fd)
              l l' ∧
     find ke c {} {} ke' NONE
     ⇒
-    find (rows_of (explode s) ke
-          (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) l))
-         c fds {([], (explode s))}
-         (rows_of (explode s) ke'
-          (MAP (λ(c,vs,x'). (explode c,MAP explode vs, exp_of x')) l'))
+    find (rows_of s ke
+          (MAP (λ(c,vs,x'). (c,vs,exp_of x')) l))
+         c fds {([], s)}
+         (rows_of s ke'
+          (MAP (λ(c,vs,x'). (c,vs, exp_of x')) l'))
          NONE
 Proof
   Cases >> rw [] >>
@@ -2429,12 +2353,12 @@ Proof
   irule_at Any find_Var >>
   irule_at Any find_Subset >>
   irule_at Any update_ctxt_soundness >>
-  gvs [combinTheory.o_DEF, LAMBDA_PROD, MAPi_implode_MAP_explode] >>
+  gvs [combinTheory.o_DEF, LAMBDA_PROD] >>
   pop_assum $ irule_at Any >>
   simp [] >>
   simp [EVERY_MEM, MEM_MAP, PULL_EXISTS, SUBSET_DEF, FORALL_PROD] >>
   rw [] >>
-  rename1 ‘(explode y, d) ∉ s’ >> Cases_on ‘(explode y, d) ∈ s’ >> simp [] >>
+  rename1 ‘(y, d) ∉ s’ >> Cases_on ‘(y, d) ∈ s’ >> simp [] >>
   rpt $ gen_tac >> IF_CASES_TAC >> rw [] >> gs []
 QED
 
@@ -2540,47 +2464,46 @@ Theorem handle_multi_in:
     ∧ EVERY (λm2. map_ok m2 ∧ cmp_of m2 = compare) mL
     ⇒ d ∈ demands_map_to_set m
       ∨ ∃ps i. i < LENGTH mL ∧
-               (ps, explode (EL i vL)) ∈ demands_map_to_set m ∧
+               (ps, EL i vL) ∈ demands_map_to_set m ∧
                d ∈ demands_map_to_set (EL i mL)
 Proof
   Induct >> gvs [handle_multi_bind_def] >>
   gen_tac >> Cases >> gvs [handle_multi_bind_def] >> rw []
   >- (last_x_assum $ drule_then assume_tac >> gvs [] >>
-      disj2_tac >> rename1 ‘(ps, explode (EL i _)) ∈ _’ >>
+      disj2_tac >> rename1 ‘(ps, EL i _) ∈ _’ >>
       qexists_tac ‘ps’ >> qexists_tac ‘SUC i’ >> gvs []) >>
   drule_then assume_tac map_handle_multi_ok >> gvs [demands_map_union]
   >- (disj2_tac >>
       rename1 ‘d ∈ demands_map_to_set _’ >> PairCases_on ‘d’ >>
       rename1 ‘(ps, _) ∈ demands_map_to_set _’ >>
       qexists_tac ‘ps’ >> qexists_tac ‘0’ >>
-      gvs [demands_map_to_set_def, lookup_thm, FLOOKUP_DEF] >>
-      irule_at Any $ GSYM explode_implode >> gvs []) >>
+      gvs [demands_map_to_set_def, lookup_thm, FLOOKUP_DEF]) >>
   last_x_assum $ drule_then assume_tac >> gvs [] >>
-  disj2_tac >> rename1 ‘(ps, explode (EL i _)) ∈ _’ >>
+  disj2_tac >> rename1 ‘(ps, EL i _) ∈ _’ >>
   qexists_tac ‘ps’ >> qexists_tac ‘SUC i’ >> gvs []
 QED
 
 Theorem demands_map_in_FDOM:
-  ∀vname m. vname ∈ FDOM (to_fmap m) ⇒ ([], explode vname) ∈ demands_map_to_set m
+  ∀vname m. vname ∈ FDOM (to_fmap m) ⇒ ([], vname) ∈ demands_map_to_set m
 Proof
   rw [demands_map_to_set_def] >>
-  pop_assum $ irule_at Any >> gvs [explode_implode]
+  pop_assum $ irule_at Any >> gvs []
 QED
 
 Theorem boolList_of_fdemands_soundness:
   ∀vL m d. map_ok m ⇒
            FST (boolList_of_fdemands m vL)
-           = FST (demands_boolList (demands_map_to_set m) (MAP explode vL))
+           = FST (demands_boolList (demands_map_to_set m) vL)
            ∧ map_ok (SND (boolList_of_fdemands m vL))
-           ∧ SND (demands_boolList (demands_map_to_set m) (MAP explode vL))
-             = IMAGE explode (FDOM (to_fmap (SND (boolList_of_fdemands m vL))))
+           ∧ SND (demands_boolList (demands_map_to_set m) vL)
+             = FDOM (to_fmap (SND (boolList_of_fdemands m vL)))
 Proof
   Induct >> gvs [boolList_of_fdemands_def, demands_boolList_def, empty_thm, TotOrd_compare] >>
   rw [] >>
   rename1 ‘boolList_of_fdemands m vL’ >>
   qabbrev_tac ‘fd = boolList_of_fdemands m vL’ >> PairCases_on ‘fd’ >>
   rename1 ‘demands_boolList (_ m) _’ >>
-  qabbrev_tac ‘dsBL = demands_boolList (demands_map_to_set m) (MAP explode vL)’ >>
+  qabbrev_tac ‘dsBL = demands_boolList (demands_map_to_set m) vL’ >>
   PairCases_on ‘dsBL’ >>
   fs [] >> last_x_assum $ drule_then assume_tac >> gvs [insert_thm] >>
   once_rewrite_tac [INSERT_SING_UNION, UNION_COMM] >> gvs [lookup_thm, FLOOKUP_DEF] >>
@@ -2677,7 +2600,7 @@ QED
 Theorem find_exp_of_rev_split_body_inner:
   ∀args a e c.
     find (exp_of (rev_split_body_inner a args e)) c {}
-         (set (MAP (λ(v, _). ([], explode v)) (FILTER SND args))) (exp_of (rev_split_body_inner a args e)) NONE
+         (set (MAP (λ(v, _). ([], v)) (FILTER SND args))) (exp_of (rev_split_body_inner a args e)) NONE
 Proof
   Induct \\ gs [FORALL_PROD, rev_split_body_inner_def, find_Bottom]
   \\ gen_tac \\ Cases \\ gs [rev_split_body_inner_def, exp_of_def, op_of_def]
@@ -2689,10 +2612,10 @@ Proof
 QED
 
 Theorem demands_boolList_lemma:
-  ∀args (s : ((string # num) list # string) -> bool).
+  ∀args (s : ((mlstring # num) list # mlstring) -> bool).
     ALL_DISTINCT (MAP FST args) ∧
-    (∀v. MEM v (MAP (explode o FST) args) ⇒ ((∃ps. (ps, v) ∈ s) ⇔ MEM (v, T) (MAP (λ(v, b). (explode v, b)) args))) ⇒
-    demands_boolList s (MAP (explode o FST) args) = (MAP SND args, set (MAP (explode o FST) args))
+    (∀v. MEM v (MAP FST args) ⇒ ((∃ps. (ps, v) ∈ s) ⇔ MEM (v, T) args)) ⇒
+    demands_boolList s (MAP FST args) = (MAP SND args, set (MAP FST args))
 Proof
   Induct \\ gs [demands_boolList_def, FORALL_PROD]
   \\ rw [] \\ pairarg_tac \\ gs []
@@ -2704,8 +2627,8 @@ Proof
       \\ gs [MEM_MAP])
   \\ strip_tac \\ gs []
   \\ conj_tac
-  >- (rename1 ‘explode p_1’
-      \\ first_x_assum $ qspec_then ‘explode p_1’ assume_tac
+  >- (rename1 ‘p_1’
+      \\ first_x_assum $ qspec_then ‘p_1’ assume_tac
       \\ gs []
       \\ qpat_x_assum ‘set _ = _’ assume_tac
       \\ dxrule_then assume_tac EQ_SYM
@@ -2718,11 +2641,11 @@ Theorem find_exp_of_rev_split_body:
     find (exp_of (rev_split_body a args e)) c {} {} (exp_of (rev_split_body a args e)) (SOME (MAP SND args, {}))
 Proof
   strip_tac
-  \\ qspecl_then [‘args’, ‘a’, ‘e’, ‘FOLDL (λc n. IsFree n c) c (MAP (explode o FST) args)’]
+  \\ qspecl_then [‘args’, ‘a’, ‘e’, ‘FOLDL (λc n. IsFree n c) c (MAP FST args)’]
                  assume_tac find_exp_of_rev_split_body_inner
   \\ dxrule_then assume_tac find_Lams_fd
   \\ gs []
-  \\ qspecl_then [‘args’, ‘set (MAP (λ(v, _). ([], explode v)) (FILTER SND args))’] mp_tac demands_boolList_lemma
+  \\ qspecl_then [‘args’, ‘set (MAP (λ(v, _). ([], v)) (FILTER SND args))’] mp_tac demands_boolList_lemma
   \\ impl_tac
   >- (simp [MEM_MAP, PULL_EXISTS]
       \\ rw [EXISTS_PROD, MEM_FILTER])
@@ -2766,7 +2689,7 @@ Theorem in_FOLDL_insert_binds:
   ∀binds v bL fds.
     (v, bL) ∈ fdemands_map_to_set (FOLDL (λf (v, args, body, label). insert f v (MAP SND args)) fds binds) ∧
     map_ok fds ∧ cmp_of fds = mlstring$compare ∧
-    ¬MEM v (MAP (explode o FST) binds) ⇒
+    ¬MEM v (MAP FST binds) ⇒
     (v, bL) ∈ fdemands_map_to_set fds
 Proof
   Induct \\ gs [FORALL_PROD]
@@ -2822,7 +2745,7 @@ Proof
   \\ simp [demands_analysis_fun_def, exp_of_def]
   \\ gvs [demands_map_empty, demands_map_insert, demands_map_union,
          TotOrd_compare, insert_thm, empty_thm, cexp_wf_def, letrecs_distinct_def] >~
-  [‘find (Var (_ n))’]
+  [‘find (Var n)’]
   >- (rw [] \\ rename1 ‘lookup fds n’
       \\ Cases_on ‘lookup fds n’
       \\ gvs [find_Var, fd_to_set_def, demands_map_empty,
@@ -2978,7 +2901,7 @@ Proof
       \\ PairCases_on ‘p’ \\ fs []
       \\ gvs[SF DNF_ss] >> goal_assum drule
       )
-  >~ [‘find (Lams (_ namel) (_ e))’]
+  >~ [‘find (Lams  namel (_ e))’]
   >- (rw []
       \\ first_assum $ qspecl_then [‘cexp_size f e’] assume_tac
       \\ fs [cexp_size_def, letrecs_distinct_Lams]
@@ -3003,7 +2926,7 @@ Proof
           \\ gs [add_all_demands_def, cmp_of_def, EVERY_EL, EL_MAP]
           \\ irule letrecs_distinct_add_all_demands_lemma
           \\ simp []))
-  >~ [‘find (Let (_ vname) (_ e2) (_ e1))’]
+  >~ [‘find (Let vname (_ e2) (_ e1))’]
   >- (rpt gen_tac \\ strip_tac
       \\ rename1 ‘find _ (ctxt_trans c) (fdemands_map_to_set fds)’
       \\ first_assum $ qspecl_then [‘cexp_size f e1’] assume_tac
@@ -3030,14 +2953,14 @@ Proof
       >- (irule_at Any find_Let \\ first_x_assum $ irule_at Any
           \\ first_x_assum $ irule_at Any
           \\ gvs [demands_map_delete, FLOOKUP_DEF, dest_fd_SND_def, demands_map_to_set_def]
-          \\ rw [] \\ gvs [implode_explode, delete_thm]
+          \\ rw [] \\ gvs [delete_thm]
           \\ last_x_assum $ assume_tac
           \\ dxrule_then (dxrule_then assume_tac) fdemands_map_delete_soundness
           \\ fs [])
       >- (irule_at Any find_Let \\ first_x_assum $ irule_at (Pos hd)
           \\ irule_at Any find_smaller_fd \\ first_x_assum $ irule_at Any
           \\ gvs [demands_map_delete, dest_fd_SND_def, demands_map_to_set_def, FLOOKUP_DEF]
-          \\ rw [] \\ gvs [implode_explode, delete_thm]
+          \\ rw [] \\ gvs [delete_thm]
           \\ last_x_assum $ assume_tac
           \\ dxrule_then (dxrule_then assume_tac) fdemands_map_delete_soundness
           \\ fs [])
@@ -3047,7 +2970,7 @@ Proof
           \\ first_x_assum $ irule_at Any
           \\ gvs [lookup_thm, demands_map_delete, FLOOKUP_DEF, dest_fd_SND_def,
                   demands_map_to_set_def]
-          \\ rw [] \\ gvs [implode_explode, delete_thm]
+          \\ rw [] \\ gvs [delete_thm]
           \\ dxrule_then assume_tac fdemands_map_insert \\ gvs [])
       >- (FULL_CASE_TAC \\ gvs [insert_thm, fd_to_set_def, delete_thm]
           \\ irule_at Any find_Let
@@ -3055,7 +2978,7 @@ Proof
           \\ irule_at Any find_smaller_fd \\ first_x_assum $ irule_at Any
           \\ gvs [lookup_thm, demands_map_delete_subset, dest_fd_SND_def,
                   demands_map_to_set_def, FLOOKUP_DEF]
-          \\ rw [] \\ gvs [implode_explode, delete_thm]
+          \\ rw [] \\ gvs [delete_thm]
           \\ dxrule_then assume_tac fdemands_map_insert \\ gvs [])
       \\ irule_at Any find_Let2 \\ irule_at Any find_Seq
       >- (first_x_assum $ irule_at Any \\ first_x_assum $ irule_at Any
@@ -3111,7 +3034,7 @@ Proof
       \\ IF_CASES_TAC
       >- (pairarg_tac \\ gs []
           \\ dxrule_then assume_tac fixpoint_analysis_soundness
-          \\ strip_tac \\ gs [exp_of_def, cexp_wf_def]
+          \\ strip_tac \\ gs [exp_of_def, cexp_wf_def, SF ETA_ss]
           \\ first_x_assum $ drule_then assume_tac \\ gs []
           \\ irule_at Any find_trans
           \\ irule_at Any find_Subset
@@ -3119,7 +3042,7 @@ Proof
           \\ pop_assum mp_tac
           \\ impl_tac
           >- (irule ALL_DISTINCT_IMP2
-              \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
+              \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM])
           \\ strip_tac
           \\ first_x_assum $ irule_at Any
           \\ simp []
@@ -3149,7 +3072,7 @@ Proof
           \\ qmatch_goalsub_abbrev_tac ‘find _ _ fds_abbrev _ _ _’
           \\ strip_tac
           \\ qexists_tac ‘fds_abbrev’
-          \\ qexists_tac ‘BIGUNION $ IMAGE (λ(v, bL). if MEM v (MAP (explode o FST) binds2)
+          \\ qexists_tac ‘BIGUNION $ IMAGE (λ(v, bL). if MEM v (MAP FST binds2)
                                                       then {}
                                                       else {(v, bL)}) fds_abbrev’
           \\ qexists_tac ‘MAP (λ(v, args, body, label). SOME (MAP SND args, {})) binds2’
@@ -3163,7 +3086,7 @@ Proof
               \\ CASE_TAC \\ gs [fd_to_set_def]
               \\ irule find_smaller_fd
               \\ first_x_assum $ irule_at Any
-              \\ simp [demands_map_FOLDL_delete_subset])
+              \\ drule demands_map_FOLDL_delete_subset \\ gvs [SF ETA_ss])
           >- (pairarg_tac \\ gs []
               \\ rename1 ‘rev_split_body _ args’
               \\ Cases_on ‘args = []’
@@ -3178,19 +3101,19 @@ Proof
           >- (gs [FORALL_PROD]
               \\ rw [EVERY_EL, EL_MAP]
               >- (pairarg_tac \\ gs []
-                  \\ rename1 ‘(explode p1, argDs) ∉ s ∨ _’
-                  \\ Cases_on ‘(explode p1, argDs) ∈ s’ \\ gs []
+                  \\ Cases_on ‘(p1, argDs) ∈ s’ \\ gs []
                   \\ rw [] \\ gs [MEM_MAP, MEM_EL])
               \\ pairarg_tac \\ gs []
               \\ CASE_TAC \\ gs [dest_fd_SND_def, fd_to_set_def]
               \\ CASE_TAC \\ gs [dest_fd_SND_def, fd_to_set_def]
-              \\ irule demands_map_FOLDL_delete
+              \\ drule demands_map_FOLDL_delete \\ gvs [SF ETA_ss]
+              \\ disch_then irule
               \\ gs [MEM_MAP, MEM_EL, PULL_EXISTS]
               \\ first_x_assum $ irule_at Any
               \\ simp [])
           >- (simp [PULL_EXISTS]
               \\ rename1 ‘(v, _) ∈ _’
-              \\ reverse $ Cases_on ‘MEM v (MAP (explode o FST) binds2)’
+              \\ reverse $ Cases_on ‘MEM v (MAP FST binds2)’
               >- (disj1_tac
                   \\ first_x_assum $ irule_at Any
                   \\ simp [])
@@ -3204,34 +3127,45 @@ Proof
               \\ gs [MEM_EL, PULL_EXISTS]
               \\ first_assum $ irule_at Any
               \\ simp []
-              \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-              \\ gs [GSYM LAMBDA_PROD]
-              \\ dxrule_then irule ALL_DISTINCT_IMP2)
+              \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM])
           >- (gs [demands_map_to_set_def, FOLDL_delete_soundness, MEM_MAP]
               \\ gs [FORALL_PROD])
           >- (gs [demands_map_to_set_def, FOLDL_delete_soundness, MEM_MAP]
               \\ gs [FORALL_PROD])
-          >- (qexists_tac ‘[]’ \\ simp [])
+          >- (qexists_tac ‘[]’ \\ simp [SF ETA_ss])
           >- (gs [Abbr ‘fds_abbrev’, SUBSET_DEF]
               \\ rw []
               \\ pairarg_tac \\ gs []
-              \\ Cases_on ‘MEM v (MAP (explode o FST) binds2)’
+              \\ Cases_on ‘MEM v (MAP FST binds2)’
               \\ gs []
               \\ dxrule_then assume_tac in_FOLDL_insert_binds
               \\ gs [])
-          >- (gs [letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          >- (rename1 ‘SOME (_, _) = fd'’
+              \\ Cases_on ‘fd'’ \\ gs []
+              \\ drule FOLDL_delete_ok \\ simp [SF ETA_ss])
+          >- (rename1 ‘SOME (_, _) = fd'’
+              \\ Cases_on ‘fd'’ \\ gs []
+              \\ drule FOLDL_delete_ok \\ simp [SF ETA_ss])
+          >- (gs [letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF,
+                  LAMBDA_PROD, SF ETA_ss]
+              \\ irule letrecs_distinct_adds_demands
+              \\ simp [])
+          >- (gs [letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF,
+                  LAMBDA_PROD, SF ETA_ss]
               \\ irule letrecs_distinct_adds_demands
               \\ simp [])
           >- (rename1 ‘SOME (_, _) = fd'’
               \\ Cases_on ‘fd'’ \\ gs []
               \\ rename1 ‘(_, _) = x’
-              \\ Cases_on ‘x’
-              \\ gs [FOLDL_delete_ok])
+              \\ Cases_on ‘x’ \\ gvs []
+              \\ drule FOLDL_delete_ok \\ gvs []
+              \\ simp [SF ETA_ss])
           >- (rename1 ‘SOME (_, _) = fd'’
               \\ Cases_on ‘fd'’ \\ gs []
               \\ rename1 ‘(_, _) = x’
-              \\ Cases_on ‘x’
-              \\ gs [FOLDL_delete_ok]))
+              \\ Cases_on ‘x’ \\ gvs []
+              \\ drule FOLDL_delete_ok \\ gvs []
+              \\ simp [SF ETA_ss]))
       \\ gvs [UNZIP3_MAP]
       \\ rename1 ‘demands_analysis_fun (RecBind binds c) _ (FOLDL _ fds _)’
       \\ qabbrev_tac ‘outL = MAP (λ(v, e).
@@ -3300,7 +3234,7 @@ Proof
       >-  (pairarg_tac \\ gs [] \\ irule fdemands_map_FOLDL_delete \\ gvs [MEM_EL]
            \\ first_assum $ irule_at Any \\ gvs [EL_MAP]
            \\ rename1 ‘_ = FST p’ \\ PairCases_on ‘p’ \\ gvs [])
-      >>~[‘FST _ = _ (FST _)’]
+      >>~[‘FST _ = FST _’]
       >- (pairarg_tac \\ gvs [])
       >- (pairarg_tac \\ gvs [])
       >~[‘_ ∉ demands_map_to_set _’]
@@ -3329,12 +3263,12 @@ Proof
           \\ disj2_tac \\ first_assum $ irule_at $ Pos hd
           \\ pairarg_tac \\ gs []
           \\ first_x_assum $ irule_at Any)
-         >>~[‘(v, argDs) ∈ fdemands_map_to_set (handle_Letrec_fdemands fds (MAP FST binds) _)’]
-      >- (first_x_assum $ qspec_then ‘implode v’ assume_tac >> gvs [explode_implode] >>
+      >>~[‘(v, argDs) ∈ fdemands_map_to_set (handle_Letrec_fdemands fds (MAP FST binds) _)’]
+      >- (first_x_assum $ qspec_then ‘v’ assume_tac >> gvs [] >>
           last_x_assum $ dxrule_then assume_tac >> gvs [] >>
           disj2_tac >> gvs [EL_MAP, SF CONJ_ss] >>
           first_assum $ irule_at Any >> pairarg_tac >> gs [fd_to_set_def])
-      >- (first_x_assum $ qspec_then ‘implode v’ assume_tac >> gvs [explode_implode] >>
+      >- (first_x_assum $ qspec_then ‘v’ assume_tac >> gvs [] >>
           last_x_assum $ dxrule_then assume_tac >> gvs [] >>
           disj2_tac >> gvs [EL_MAP, SF CONJ_ss] >>
           first_assum $ irule_at Any >> pairarg_tac >> gs [fd_to_set_def])
@@ -3373,7 +3307,8 @@ Proof
           \\ qabbrev_tac ‘pair = EL i binds’ \\ PairCases_on ‘pair’ \\ gvs []
           \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok]
           \\ rpt $ last_x_assum $ drule_then assume_tac \\ gs [])
-      >- (rw [letrecs_distinct_def]
+      >- (gvs [GSYM FST_THM, ALL_DISTINCT_IMP]
+          \\ rw [letrecs_distinct_def]
           \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
           \\ irule ALL_DISTINCT_IMP
           \\ gs [MAP_ZIP, ALL_DISTINCT_IMP2])
@@ -3429,7 +3364,7 @@ Proof
           \\ qabbrev_tac ‘pair = EL i binds’ \\ PairCases_on ‘pair’ \\ gvs []
           \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok]
           \\ rpt $ last_x_assum $ drule_then assume_tac \\ gs [])
-      >- (gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+      >- (gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
           \\ irule ALL_DISTINCT_IMP
           \\ gs [MAP_ZIP, ALL_DISTINCT_IMP2])
       >- (gs [EVERY_EL, EL_MAP, EL_ZIP] \\ rw [FST_THM, SND_THM]
@@ -3450,7 +3385,7 @@ Proof
           \\ last_x_assum $ drule_then assume_tac
           \\ gs [])
       >- gs [letrecs_distinct_adds_demands])
-  >~ [‘find (Let (_ s) (_ case_exp) (rows_of _ (_ opt _ _) (_ l)))’]
+  >~ [‘find (Let s (_ case_exp) (rows_of _ (_ opt _ _) (_ l)))’]
   >- (gen_tac \\ gen_tac
       \\ rename1 ‘Bind _ _ c’
       \\ rpt $ gen_tac
@@ -3512,7 +3447,7 @@ Proof
       \\ rw [empty_thm, TotOrd_compare, demands_map_empty, find_Bottom,
              exp_of_def, MAP_MAP_o, fd_to_set_def]
       \\ gvs [exp_of_def, find_Bottom, combinTheory.o_DEF, LAMBDA_PROD, MAP_MAP_o]
-      \\ rename1 ‘Let (explode s) _ _’
+      \\ rename1 ‘Let s _ _’
       \\ irule find_Let2
       \\ first_x_assum $ irule_at Any
       \\ rename1 ‘rows_of _ _ (MAP _ l)’
@@ -3586,7 +3521,7 @@ Proof
           \\ gvs[ctxt_trans_def, fdemands_map_to_set_def, empty_thm, TotOrd_compare]
           \\ irule_at Any find_Drop_fd
           \\ first_assum $ irule_at Any)
-      >- (rename1 ‘n ≠ explode s’ \\ Cases_on ‘n = explode s’
+      >- (rename1 ‘n ≠ s’ \\ Cases_on ‘n = s’
           \\ gs [fdemands_map_delete]
           \\ qspecl_then [‘s’, ‘fds’] assume_tac fdemands_map_delete_subset
           \\ gs [SUBSET_DEF]))

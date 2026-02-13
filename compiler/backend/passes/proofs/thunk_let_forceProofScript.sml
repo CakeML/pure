@@ -10,7 +10,7 @@
 *)
 Theory thunk_let_forceProof
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   thunkLang_primitives arithmetic pure_misc
   finite_map pred_set rich_list thunkLang wellorder
   thunkLangProps
@@ -27,7 +27,7 @@ Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Datatype:
-  lhs = Var string | Val thunkLang$v
+  lhs = Var mlstring | Val thunkLang$v
 End
 
 Definition name_clash_def:
@@ -538,7 +538,7 @@ Proof
       \\ rename [‘SOME a’] \\ PairCases_on ‘a’ \\ fs []
       \\ Cases_on ‘a0’ \\ fs [subst_acc_def,name_clashes_def]
       \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
-      \\ Cases_on ‘ALOOKUP (REVERSE vs) s’ \\ fs []
+      \\ Cases_on ‘ALOOKUP (REVERSE vs) m’ \\ fs []
       \\ fs [name_clashes_def]
       )
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
@@ -570,7 +570,7 @@ Proof
     \\ rename [‘SOME a’] \\ PairCases_on ‘a’ \\ fs []
     \\ Cases_on ‘a0’ \\ fs [subst_acc_def,name_clashes_def]
     \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
-    \\ Cases_on ‘ALOOKUP (REVERSE vs) s’ \\ fs []
+    \\ Cases_on ‘ALOOKUP (REVERSE vs) m’ \\ fs []
     \\ fs [name_clashes_def]
     )
   >~ [‘Let bv’] >-
@@ -1075,8 +1075,8 @@ Proof
       qexists_tac ‘j’ \\ gs []
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
       \\ rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) s)
-                                (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) m)
+                                (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL \\ gs []
             \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
             \\ fs [FORALL_PROD])
@@ -1086,8 +1086,8 @@ Proof
     \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
     >- (
       rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) s)
-                                (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) m)
+                                (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL \\ gs []
             \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
             \\ fs [FORALL_PROD])
@@ -1327,7 +1327,7 @@ Proof
       \\ gs []
       \\ Cases_on ‘v2’ \\ Cases_on ‘v1’ \\ gvs [dest_anyClosure_def]
       \\ rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL \\ gs []
             \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
             \\ fs [FORALL_PROD])
@@ -1342,8 +1342,8 @@ Proof
                  LIST_REL (λ(f,v) (g,w). f = g ∧ v_rel v w) ws1 ws2’
       by (Cases_on ‘v2’ \\ Cases_on ‘v1’ \\ gvs [dest_anyClosure_def]
           \\ rename1 ‘LIST_REL _ xs ys’
-          \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) s)
-                                    (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL (exp_rel NONE) (ALOOKUP (REVERSE xs) m)
+                                    (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL \\ gs []
                 \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
                 \\ fs [FORALL_PROD])
@@ -1775,11 +1775,11 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
     >- (
      rename1 ‘_ = INL err’
-     \\ Cases_on ‘err’ \\ Cases_on ‘eval_to (k + m - 1) x’ \\ gs []
-     \\ qexists_tac ‘m’ \\ simp [])
-    \\ Cases_on ‘eval_to (k + m - 1) x’ \\ gs []
+     \\ Cases_on ‘err’ \\ Cases_on ‘eval_to (k + m' - 1) x’ \\ gs []
+     \\ qexists_tac ‘m'’ \\ simp [])
+    \\ Cases_on ‘eval_to (k + m' - 1) x’ \\ gs []
     \\ rename1 ‘v_rel v w’
-    \\ qexists_tac ‘m’ \\ simp []
+    \\ qexists_tac ‘m'’ \\ simp []
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN]
     \\ IF_CASES_TAC \\ gs [])
   >- (* Proj *)
@@ -1794,11 +1794,11 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
     >- (
      rename1 ‘_ = INL err’
-     \\ Cases_on ‘err’ \\ Cases_on ‘eval_to (k + m - 1) x’ \\ gs []
-     \\ qexists_tac ‘m’ \\ simp [])
-    \\ Cases_on ‘eval_to (k + m - 1) x’ \\ gs []
+     \\ Cases_on ‘err’ \\ Cases_on ‘eval_to (k + m' - 1) x’ \\ gs []
+     \\ qexists_tac ‘m'’ \\ simp [])
+    \\ Cases_on ‘eval_to (k + m' - 1) x’ \\ gs []
     \\ rename1 ‘v_rel v w’
-    \\ qexists_tac ‘m’ \\ simp []
+    \\ qexists_tac ‘m'’ \\ simp []
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN]
     \\ IF_CASES_TAC \\ gs [])
   (* AtomOp *)
@@ -2001,7 +2001,7 @@ Proof
     \\ strip_tac \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. exp_rel NONE x y ∧ freevars x ⊆ set (MAP FST xs))
-        (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+        (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]

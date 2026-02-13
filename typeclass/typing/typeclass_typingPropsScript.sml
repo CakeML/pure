@@ -1,6 +1,6 @@
 Theory typeclass_typingProps
 Ancestors
-  pair arithmetic integer string option list rich_list alist
+  pair arithmetic integer option list rich_list alist
   pred_set finite_map pure_misc pure_config mlstring pure_cexp
   pure_tcexp typeclass_types typeclass_typesProps typeclass_texp
   typeclass_kindCheck typeclass_typing
@@ -326,13 +326,13 @@ Proof
 QED
 
 Theorem monad_cns_SUBSET_reserved_cns:
-  monad_cns ⊆ reserved_cns ∧ "Subscript" ∉ monad_cns
+  monad_cns ⊆ reserved_cns ∧ «Subscript» ∉ monad_cns
 Proof
   simp[SUBSET_DEF, monad_cns_def, reserved_cns_def, DISJ_IMP_THM]
 QED
 
 Theorem monad_cns_SUBSET_reserved_cns_DELETE:
-  monad_cns ⊆ (reserved_cns DELETE "Subscript")
+  monad_cns ⊆ (reserved_cns DELETE «Subscript»)
 Proof
   simp[SUBSET_DEF, monad_cns_def, reserved_cns_def, DISJ_IMP_THM]
 QED
@@ -530,13 +530,6 @@ Proof
   )
 QED
 
-Theorem implodeEQ:
-  (implode x = y ⇔ (x = explode y)) ∧
-  (y = implode x ⇔ (explode y = x))
-Proof
-  rw[EQ_IMP_THM] >> simp[]
-QED
-
 Theorem monad_args_ok_SOME:
   num_monad_args s = SOME x ⇒ s ∈ monad_cns
 Proof
@@ -575,8 +568,7 @@ Proof
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     qpat_x_assum `!e. _ ⇒ ∀y. _ ⇒ ¬MEM y (FLAT (MAP _ _))` $
-      qspec_then `cname` mp_tac >>
-    fs[implodeEQ] >>
+      qspec_then `cname` mp_tac >> fs [] >>
     drule ALOOKUP_SOME_EL >>
     rw[MEM_FLAT,MEM_MAP,MEM_EL,LAMBDA_PROD,
       GSYM PFORALL_THM,GSYM PEXISTS_THM] >>

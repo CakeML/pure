@@ -116,16 +116,16 @@ Definition from_ok_def[simp]:
 End
 
 fun debug_eval tm =
-  let val cmp = pure_parse_infer_compset ()
-      val _ = computeLib.extend_compset
-                [computeLib.Defs [
-                  fetch "-" "solve_def",
-                  fetch "-" "subst_solution_def",
-                  fetch "-" "solve_k_compute",
-                  fetch "-" "parse_and_get_constraints_def",
-                  fetch "-" "parse_and_solve_k_def",
-                  fetch "-" "from_ok_def"
-                  ]] cmp
+  let val cmp = pure_parse_infer_compset
+      val cmp = computeLib.extend_compset
+                  [computeLib.Defs [
+                    fetch "-" "solve_def",
+                    fetch "-" "subst_solution_def",
+                    fetch "-" "solve_k_compute",
+                    fetch "-" "parse_and_get_constraints_def",
+                    fetch "-" "parse_and_solve_k_def",
+                    fetch "-" "from_ok_def"
+                    ]] cmp
   in (SIMP_CONV (srw_ss()) [parse_and_infer_def]
         THENC computeLib.CBV_CONV cmp) tm end;
 

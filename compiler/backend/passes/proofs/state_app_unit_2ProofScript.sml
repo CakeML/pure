@@ -4,7 +4,7 @@
  *)
 Theory state_app_unit_2Proof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic pure_exp_lemmas pure_misc pure_config
   pure_semantics[qualified]
   stateLang
@@ -14,7 +14,7 @@ Libs
 
 Overload "app" = “λe1 e2. App AppOp [e1;(e2:exp)]”;
 Overload "wrap" = “λe. app (Lam NONE e) (Unit:exp)”;
-Overload "cont" = “λe. Let (SOME "a") (e:exp) (Var "a")”;
+Overload "cont" = “λe. Let (SOME «a») (e:exp) (Var «a»)”;
 
 Inductive compile_rel:
 
@@ -120,7 +120,7 @@ Inductive v_rel:
 [env_rel:]
   (∀tenv senv.
      (∀n. ALOOKUP tenv n = NONE ⇔ ALOOKUP senv n = NONE) ∧
-     (∀(n:string) tv.
+     (∀(n :mlstring) tv.
        ALOOKUP tenv n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv) ⇒
      env_rel tenv senv)
@@ -145,12 +145,12 @@ Inductive cont_rel:
   (cont_rel [] []) ∧
   (∀tk sk e1 e2 x_opt.
     compile_rel e1 e2 ∧ cont_rel tk sk ∧ env_rel env1 env2 ⇒
-    cont_rel (LetK env1 x_opt e1::AppK env1 AppOp [Constructor "" []] []::tk)
-             (LetK env2 (SOME "a") (Var "a")::LetK env2 x_opt (app e2 Unit)::sk)) ∧
+    cont_rel (LetK env1 x_opt e1::AppK env1 AppOp [Constructor «» []] []::tk)
+             (LetK env2 (SOME «a») (Var «a»)::LetK env2 x_opt (app e2 Unit)::sk)) ∧
   (∀tk sk e1 e2 e1' e2'.
     compile_rel e1 e2 ∧ compile_rel e1' e2' ∧ cont_rel tk sk ∧ env_rel env1 env2 ⇒
-    cont_rel (IfK env1 e1 e1'::AppK env1 AppOp [Constructor "" []] []::tk)
-             (LetK env2 (SOME "a") (Var "a")::
+    cont_rel (IfK env1 e1 e1'::AppK env1 AppOp [Constructor «» []] []::tk)
+             (LetK env2 (SOME «a») (Var «a»)::
                IfK env2 (app e2 Unit) (app e2' Unit)::sk)) ∧
   (∀tk sk.
     cont_rel tk sk ∧ env_rel tenv senv ∧
@@ -583,7 +583,7 @@ Proof
     \\ disch_then $ drule_at Any
     \\ disch_then $ drule_at Any
     \\ disch_then $ qspec_then
-         ‘LetK env2 (SOME "a") (Var "a")::LetK env2 x_opt (app e2' Unit)::sk’ mp_tac
+         ‘LetK env2 (SOME «a») (Var «a»)::LetK env2 x_opt (app e2' Unit)::sk’ mp_tac
     \\ impl_tac
     >-
      (fs [ADD1] \\ imp_res_tac step_1_ind_hyp_add \\ fs []
@@ -610,7 +610,7 @@ Proof
     \\ disch_then $ drule_at Any
     \\ disch_then $ drule_at Any
     \\ disch_then $ qspec_then
-         ‘LetK env2 (SOME "a") (Var "a")::
+         ‘LetK env2 (SOME «a») (Var «a»)::
                IfK env2 (app e2' Unit) (app e2'' Unit)::sk’ mp_tac
     \\ impl_tac
     >-
@@ -915,7 +915,7 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   >~ [‘IfK’] >-
    (gvs [step,step_n_SUC]
-    \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
+    \\ Cases_on ‘v1 = Constructor «True» [] ∨ v1 = Constructor «False» []’ \\ gvs []
     \\ gvs [step]
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []

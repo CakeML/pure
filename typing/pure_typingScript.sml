@@ -1,6 +1,6 @@
 Theory pure_typing
 Ancestors
-  pair arithmetic integer string option list alist pure_tcexp
+  pair arithmetic integer mlstring option list alist pure_tcexp
   pure_config
 Libs
   BasicProvers
@@ -210,7 +210,7 @@ Definition namespace_ok_def:
       EVERY (λ(ar,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
       ALL_DISTINCT
-        (MAP implode (SET_TO_LIST (reserved_cns DELETE "Subscript")) ++
+        (SET_TO_LIST (reserved_cns DELETE «Subscript») ++
          MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
     (* Every constructor type is closed wrt type arity and uses only defined
        types: *)
@@ -237,7 +237,7 @@ End
 Inductive type_lit:
   type_lit (Int i) Integer ∧
   type_lit (Str s) String ∧
-  (s1 ≠ ""⇒ type_lit (Msg s1 s2) Message)
+  (s1 ≠ «» ⇒ type_lit (Msg s1 s2) Message)
 End
 
 Inductive type_atom_op:
@@ -277,7 +277,7 @@ Inductive type_atom_op:
     type_atom_op op [String;String] Bool)
 
 [~Message:]
-  (s ≠ "" ⇒ type_atom_op (Message s) [String] Message)
+  (s ≠ «» ⇒ type_atom_op (Message s) [String] Message)
 End
 
 (* Typing judgments for type constructors *)

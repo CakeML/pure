@@ -3,7 +3,7 @@
 *)
 Theory pure_print
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map pure_cexp printing
   parsing source_values
 Libs
@@ -17,9 +17,9 @@ Definition sexp_of_op_def:
   sexp_of_op (AtomOp (Lit (Int i))) =
     (if i < 0 then [Name "int-"; Num (integer$Num (0-i))] else
                    [Name "int"; Num (integer$Num i)]) ∧
-  sexp_of_op (AtomOp (Lit (Str s))) = [Name "str"; Name s] ∧
+  sexp_of_op (AtomOp (Lit (Str s))) = [Name "str"; Name' s] ∧
   sexp_of_op (AtomOp (Lit (Loc l))) = [Name "loc"; Num l] ∧
-  sexp_of_op (AtomOp (Lit (Msg t u))) = [Name "msg"; Name t; Name u] ∧
+  sexp_of_op (AtomOp (Lit (Msg t u))) = [Name "msg"; Name' t; Name' u] ∧
   sexp_of_op (AtomOp Eq) = [Name "="] ∧
   sexp_of_op (AtomOp Add) = [Name "+"] ∧
   sexp_of_op (AtomOp Sub) = [Name "-"] ∧
@@ -39,7 +39,7 @@ Definition sexp_of_op_def:
   sexp_of_op (AtomOp StrLeq) = [Name "str-<="] ∧
   sexp_of_op (AtomOp StrGt) = [Name "str->"] ∧
   sexp_of_op (AtomOp StrGeq) = [Name "str->="] ∧
-  sexp_of_op (AtomOp (Message s)) = [Name "message"; Name s]
+  sexp_of_op (AtomOp (Message s)) = [Name "message"; Name' s]
 End
 
 Definition sexp_of_def:
@@ -144,14 +144,14 @@ Definition cop_of_def:
     if h = Name "seq" then Prim () Seq xs else
     if h = Name "cons" then Prim () (Cons (name_of h')) (TL xs) else
     if h = Name "message" then
-      Prim () (AtomOp (Message (explode $ name_of h'))) (TL xs) else
+      Prim () (AtomOp (Message (name_of h'))) (TL xs) else
     if h = Name "msg" then
       Prim ()
-           (AtomOp (Lit (Msg (explode $ name_of h') (explode $ name_of h''))))
+           (AtomOp (Lit (Msg (name_of h') (name_of h''))))
            (TL (TL xs)) else
     if h = Name "loc" then Prim () (AtomOp (Lit (Loc (num_of h')))) (TL xs) else
     if h = Name "str" then
-      Prim () (AtomOp (Lit (Str (explode $ name_of h')))) (TL xs) else
+      Prim () (AtomOp (Lit (Str (name_of h')))) (TL xs) else
     if h = Name "int" then
       Prim () (AtomOp (Lit (Int (& num_of h')))) (TL xs)
     else

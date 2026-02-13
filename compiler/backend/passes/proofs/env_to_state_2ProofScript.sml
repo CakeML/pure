@@ -3,7 +3,7 @@
  *)
 Theory env_to_state_2Proof
 Ancestors
-  string option sum pair list alist finite_map
+  mlstring option sum pair list alist finite_map
   pred_set rich_list arithmetic pure_exp_lemmas pure_misc
   pure_config envLang thunkLang_primitives stateLang
   env_semantics state_caseProof state_app_unitProof
@@ -47,12 +47,6 @@ Proof
   \\ rpt $ first_x_assum $ irule_at Any
   \\ last_x_assum dxrule \\ rw []
   \\ rpt $ first_x_assum $ irule_at Any
-QED
-
-Theorem MEM_explode[local,simp]:
-  ∀xs x. MEM (explode x) (MAP explode xs) = MEM x xs
-Proof
-  Induct \\ fs []
 QED
 
 Theorem unthunk_lets_for:
@@ -219,7 +213,7 @@ QED
 
 Theorem case_rel_Lets:
   ∀xs ys x y.
-    MAP (OPTION_MAP explode o FST) xs = MAP FST ys ∧
+    MAP FST xs = MAP FST ys ∧
     LIST_REL case_rel (MAP exp_of (MAP SND xs)) (MAP SND ys) ∧
     case_rel (exp_of x) y ⇒
     case_rel (exp_of (Lets xs x)) (Lets ys y)
@@ -281,14 +275,14 @@ QED
 Theorem Letrec_split_names:
   ∀xs delays delays' funs funs' xs0 ys.
     Letrec_split ts1 xs = (delays,funs) ∧
-    Letrec_split (MAP explode ts1) (ZIP (MAP (λx. explode (FST x)) xs,MAP inv_thunk ys)) =
+    Letrec_split ts1 (ZIP (MAP FST xs,MAP inv_thunk ys)) =
     (delays',funs') ∧
     LIST_REL unthunk xs0 ys ∧
     LIST_REL to_state (MAP (λx. exp_of (SND x)) xs) xs0 ∧
     (∀p_1 p_2. MEM (p_1,p_2) xs ⇒ ∃n m. p_2 = Lam n m ∨ p_2 = Delay m) ⇒
-    MAP (explode ∘ FST) delays = MAP FST delays' ∧
+    MAP FST delays = MAP FST delays' ∧
     MAP (FST ∘ SND) delays = MAP (FST ∘ SND) delays' ∧
-    MAP (explode ∘ FST) funs = MAP FST funs'
+    MAP FST funs = MAP FST funs'
 Proof
   Induct
   \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
@@ -355,7 +349,7 @@ QED
 Theorem Letrec_split_case_clean:
   ∀xs delays delays' funs funs' xs0 ys xs1.
     Letrec_split ts1 xs = (delays,funs) ∧
-    Letrec_split (MAP explode ts1) (ZIP (MAP (λx. explode (FST x)) xs,MAP inv_thunk ys)) =
+    Letrec_split ts1 (ZIP (MAP FST xs,MAP inv_thunk ys)) =
     (delays',funs') ∧
     LIST_REL unthunk xs0 ys ∧
     LIST_REL case_rel (MAP exp_of xs1) ys ∧
@@ -669,7 +663,7 @@ Proof
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ irule_at Any state_caseProofTheory.compile_rel_Case \\ fs [PULL_EXISTS]
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
     \\ fs [state_caseProofTheory.expand_Case_def]
     \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,SF SFY_ss]
     \\ qspec_then ‘MAP (SND o SND) rs’ mp_tac MEM_combined
@@ -681,16 +675,16 @@ Proof
     \\ simp [Once SWAP_EXISTS_THM]
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
     \\ irule_at Any to_state_rows_of
-    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
-    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,xs0))’
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (m,n,r)) (ZIP (rs,xs0))’
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ ‘∃d2 te sd.
           OPTREL (λ(a,x) (b,y). a = b ∧ unthunk x y) d2 sd ∧
           OPTREL
             (λ(a,x) (b,y). a = b ∧ DISJOINT (set (MAP FST a)) monad_cns ∧ to_state x y)
-            (OPTION_MAP (λ(a,e). (MAP (explode ## I) a,exp_of e)) d) d2 ∧
+            (OPTION_MAP (λ(a,e). (a,exp_of e)) d) d2 ∧
           OPTREL (λ(a,x) (b,y). a = b ∧ case_rel x y)
-            (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) te) sd ∧
+            (OPTION_MAP (λ(alts,e). (alts,exp_of e)) te) sd ∧
           OPTREL (λ(a,x) (b,y). a = b ∧ clean x y) te
             (case d of NONE => NONE | SOME (d',e) => SOME (d',to_state e))’ by
      (Cases_on ‘d’ \\ fs []
@@ -701,11 +695,11 @@ Proof
     \\ pop_assum $ irule_at Any
     \\ pop_assum $ irule_at Any
     \\ pop_assum $ irule_at Any
-    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,ys))’
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (m,n,r)) (ZIP (rs,ys))’
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
-    \\ ‘ALL_DISTINCT (MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1)))’ by
-     (qsuff_tac ‘(MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1))) =
-                 MAP explode (MAP FST rs)’ >- fs [ALL_DISTINCT_APPEND]
+    \\ ‘ALL_DISTINCT (MAP (FST o FST) (ZIP (rs,xs1)))’ by
+     (qsuff_tac ‘(MAP (FST o FST) (ZIP (rs,xs1))) =
+                 (MAP FST rs)’ >- fs [ALL_DISTINCT_APPEND]
       \\ drule LIST_REL_LENGTH \\ fs []
       \\ qid_spec_tac ‘rs’
       \\ qid_spec_tac ‘xs1’
@@ -785,16 +779,16 @@ Proof
     \\ dxrule MEM_combined
     \\ strip_tac
     \\ simp_tac std_ss [Once SWAP_EXISTS_THM]
-    \\ qexists_tac ‘ZIP (MAP (λx. explode (FST x)) xs,xs0)’
+    \\ qexists_tac ‘ZIP (MAP FST xs,xs0)’
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ gvs [MAP_ZIP] \\ fs [MAP_MAP_o,combinTheory.o_DEF]
     \\ drule_all imp_letrec_rel
     \\ strip_tac
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ simp_tac std_ss [Once SWAP_EXISTS_THM]
-    \\ qexists_tac ‘ZIP (MAP (λx. explode (FST x)) xs,MAP inv_thunk ys)’
+    \\ qexists_tac ‘ZIP (MAP FST xs,MAP inv_thunk ys)’
     \\ simp [comp_Letrec_def]
-    \\ gvs [MAP_ZIP]
+    \\ gvs [MAP_ZIP, SF ETA_ss]
     \\ pairarg_tac \\ fs []
     \\ ‘∃ds fs.
           EVERY (λf. ∃tt uu. f = Lam (SOME tt) uu) fs ∧
@@ -839,9 +833,9 @@ Proof
       \\ rpt strip_tac \\ gvs []
       \\ imp_res_tac clean_Lam \\ gvs [])
     \\ irule_at Any case_rel_Lets \\ fs []
-    \\ ‘MAP (explode o FST) delays = MAP FST delays' ∧
+    \\ ‘MAP FST delays = MAP FST delays' ∧
         MAP (FST o SND) delays = MAP (FST o SND) delays' ∧
-        MAP (explode o FST) funs = MAP FST funs'’ by
+        MAP FST funs = MAP FST funs'’ by
      (irule Letrec_split_names \\ fs []
       \\ rpt $ first_x_assum $ irule_at Any
       \\ fs [SF SFY_ss, MAP_MAP_o,combinTheory.o_DEF])
@@ -1031,7 +1025,7 @@ QED
 Theorem to_state_cns_arities_lemma:
   ∀x.
     cexp_wf x ⇒
-    cns_arities (to_state x) ⊆ cns_arities x ∪ {{("", 0)}; {("True", 0)}; {("False", 0)}}
+    cns_arities (to_state x) ⊆ cns_arities x ∪ {{(«», 0)}; {(«True», 0)}; {(«False», 0)}}
 Proof
   ho_match_mp_tac to_state_ind \\ rpt strip_tac
   \\ fs [to_state_def, state_cexpTheory.cns_arities_def,
@@ -1163,7 +1157,7 @@ QED
 
 Theorem Letrec_split_3:
   ∀l lname delays funs. env_to_state$Letrec_split lname l = (delays, funs) ∧
-                        ALL_DISTINCT (MAP (λx. explode (FST x)) l)
+                        ALL_DISTINCT (MAP FST l)
                         ⇒ ALL_DISTINCT (MAP FST funs)
 Proof
   Induct \\ simp [env_to_stateTheory.Letrec_split_def, FORALL_PROD]
@@ -1229,7 +1223,7 @@ Proof
           \\ Cases_on ‘op’
           \\ fs [dest_Message_def]
           \\ Cases_on ‘xs’ \\ fs [cexp_wwf_def, op_args_ok_def]
-          \\ strip_tac \\ fs [mlstringTheory.implode_def])
+          \\ strip_tac \\ fs [])
       \\ fs [cexp_wwf_def, op_args_ok_def]
       \\ conj_tac
       >- fs [MEM_EL, PULL_EXISTS, EVERY_EL, EL_MAP]
@@ -1244,7 +1238,7 @@ QED
 Theorem to_state_cexp_wf:
   envLang$cexp_wf x ⇒
   cexp_wwf (compile x) ∧
-  cns_arities (compile x) ⊆ cns_arities x ∪ {{("", 0)}; {("True", 0)}; {("False", 0)}}
+  cns_arities (compile x) ⊆ cns_arities x ∪ {{(«», 0)}; {(«True», 0)}; {(«False», 0)}}
 Proof
   rw [compile_def, cexp_wwf_def, state_cexpTheory.cns_arities_def, op_args_ok_def]
   >- drule_then irule to_state_cexp_wf_lemma

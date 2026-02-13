@@ -3,7 +3,7 @@
 *)
 Theory thunk_Let_Lam_Forced
 Ancestors
-  string option sum pair list alist finite_map pred_set rich_list
+  mlstring option sum pair list alist finite_map pred_set rich_list
   thunkLang thunkLang_primitives wellorder arithmetic pure_misc
   thunkLangProps thunk_semantics
 Libs
@@ -803,7 +803,7 @@ Proof
             gvs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM]) >>
       gvs [] >> gvs [force_arg_rel_def] >> disj2_tac >> disj2_tac >>
       irule_at (Pos hd) EQ_REFL >>
-      ‘∀i1 i2 e1 e2 l1 l2. i1 = i2 ∧ e1 = e2 ∧ l1 = l2 ⇒ LUPDATE (e1: string # exp) i1 l1 = LUPDATE e2 i2 l2’
+      ‘∀i1 i2 e1 e2 l1 l2. i1 = i2 ∧ e1 = e2 ∧ l1 = l2 ⇒ LUPDATE (e1: mlstring # exp) i1 l1 = LUPDATE e2 i2 l2’
         by gvs [] >>
       pop_assum $ irule_at Any >> gvs [EL_MAP, freevars_subst, subst_Lams, subst_def] >>
       ‘∀l e1 e2. e1 = e2 ⇒ Lams l e1 = Lams l e2’ by gvs [] >> pop_assum $ irule_at Any >>
@@ -1458,7 +1458,7 @@ Proof
       \\ qexists_tac ‘j + j1’ \\ gs []
       \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ gs [dest_anyClosure_def, v_rel_def]
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-          \\ ‘OPTREL force_arg_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL force_arg_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
           \\ gvs [OPTREL_def]
@@ -1467,7 +1467,7 @@ Proof
           \\ Cases_on ‘x0’ \\ gvs [])
       >- (gvs [REVERSE_APPEND, ALOOKUP_APPEND] >>
           rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’ >>
-          Cases_on ‘v2 = s’ >> gvs [] >>
+          Cases_on ‘v2 = m’ >> gvs [] >>
           gvs [MEM_EL, EL_MAP] >>
           rename1 ‘ALOOKUP (REVERSE (LUPDATE (v1', Lams (vL1++[s]++vL2)
                                         (Apps (Var v2) _)) i ys)) (FST (EL n _))’ >>
@@ -1490,7 +1490,7 @@ Proof
           Cases_on ‘SND (EL n xs)’ >> gvs [force_arg_rel_def])
       >- (gvs [REVERSE_APPEND, ALOOKUP_APPEND] >>
           rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’ >>
-          Cases_on ‘v2 = s’ >> gvs [] >>
+          Cases_on ‘v2 = m’ >> gvs [] >>
           gvs [MEM_EL, EL_MAP] >>
           rename1 ‘ALOOKUP (REVERSE (LUPDATE (v1', Lams (vL1++[s]++vL2)
                                         (Apps (App (Var v2) _) _)) i ys)) (FST (EL n _))’ >>
@@ -1688,6 +1688,7 @@ Proof
             \\ gvs [] \\ conj_tac
             >- (irule LIST_EQ \\ rw [EL_MAP]
                 \\ strip_tac \\ gvs [EL_MEM])
+            \\ pure_rewrite_tac [Once CONS_APPEND] \\ gvs []
             \\ irule EQ_TRANS \\ irule_at Any subst_commutes
             \\ gvs [subst1_def, subst1_notin_frees, MAP_ZIP]
             \\ strip_tac \\ first_x_assum $ drule_then assume_tac \\ gvs [])
@@ -1719,6 +1720,7 @@ Proof
             \\ rename1 ‘n < _’
             \\ first_x_assum $ qspecl_then [‘EL (n - (LENGTH vL2 + 1)) vL3’] assume_tac
             \\ gvs [EL_MEM])
+        >- gvs [APPEND_ASSOC_CONS]
         \\ irule EQ_TRANS \\ irule_at Any subst_commutes
         \\ gvs [MAP_ZIP]
         \\ conj_tac >- (strip_tac \\ last_x_assum $ dxrule_then assume_tac \\ gvs [])
@@ -2091,6 +2093,7 @@ Proof
         \\ rw [] \\ gs []
         >- (irule LIST_EQ \\ rw [EL_MAP]
             \\ strip_tac \\ gs [EL_MEM])
+        >- gvs [APPEND_ASSOC_CONS]
         >- (irule EQ_TRANS \\ irule_at Any subst_commutes
             \\ gs [MAP_ZIP]
             \\ conj_tac
@@ -2455,7 +2458,7 @@ Proof
                         \\ gvs [ALL_DISTINCT_APPEND]
                         \\ gvs [MEM_EL]
                         \\ first_assum $ irule_at $ Pos hd \\ gvs [EL_MAP])
-                    \\ ‘∀(l : (string # thunkLang$v) list).
+                    \\ ‘∀(l : (mlstring # thunkLang$v) list).
                           FILTER (λ(p1, p2). p1 ≠ s2 ∧ ¬MEM p1 vL1 ∧ p1 ≠ s) l =
                             FILTER (λ(p1, p2). p1 ≠ s ∧ ¬MEM p1 vL1 ∧ p1 ≠ s2) l’
                       by (gen_tac \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [] \\ metis_tac [CONJ_COMM])
@@ -3571,8 +3574,8 @@ Proof
             \\ rename1 ‘force_arg_rel body body'’
             \\ qpat_x_assum ‘∀i. _ = INR (Recclosure (SNOC _ _) _)’ mp_tac
             \\ qmatch_goalsub_abbrev_tac ‘_ = INR (Recclosure list _)’ \\ strip_tac
-            \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g,Recclosure xs g)) xs’, ‘s’, ‘v1’, ‘body’,
-                     ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list ++ [(s,w1)]) body'’] mp_tac
+            \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g,Recclosure xs g)) xs’, ‘m’, ‘v1’, ‘body’,
+                     ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list ++ [(m,w1)]) body'’] mp_tac
             \\ impl_tac
             >- (unabbrev_all_tac \\ gvs [SNOC_APPEND, MAP_APPEND, subst_APPEND]
                 \\ irule force_arg_rel_subst
@@ -3599,7 +3602,7 @@ Proof
                 >- (first_assum $ irule_at Any \\ gvs [EL_MAP])
                 >- (irule_at Any EQ_REFL \\ gvs []))
             \\ disch_then $ qx_choose_then ‘j2’ assume_tac
-            \\ Cases_on ‘eval_to (k - 1) (subst (MAP (λ(g,x).(g,Recclosure xs g)) xs++[(s,v1)]) body) = INL Diverge’
+            \\ Cases_on ‘eval_to (k - 1) (subst (MAP (λ(g,x).(g,Recclosure xs g)) xs++[(m,v1)]) body) = INL Diverge’
             >- (qexists_tac ‘0’
                 \\ Cases_on ‘eval_to k y = INL Diverge’ \\ gvs []
                 \\ dxrule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono
@@ -3628,7 +3631,7 @@ Proof
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ expr)’
             \\ ‘eval_to (j2 + k - 1) expr ≠ INL Diverge’
               by (strip_tac
-                  \\ Cases_on ‘eval_to (k − 1) (subst (MAP (λ(g,x). (g,Recclosure xs g)) xs ++ [(s,v1)]) body)’
+                  \\ Cases_on ‘eval_to (k − 1) (subst (MAP (λ(g,x). (g,Recclosure xs g)) xs ++ [(m,v1)]) body)’
                   \\ gvs [])
             \\ dxrule_then (qspec_then ‘j + j1 + j2 + k - 1’ assume_tac) eval_to_mono \\ gvs [])
         \\ IF_CASES_TAC \\ gvs []
@@ -3938,8 +3941,8 @@ Proof
             \\ rename1 ‘force_arg_rel body body'’
             \\ qpat_x_assum ‘∀i. _ = INR (Recclosure (SNOC _ _) _)’ mp_tac
             \\ qmatch_goalsub_abbrev_tac ‘_ = INR (Recclosure list _)’ \\ strip_tac
-            \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g,Recclosure xs g)) xs’, ‘s’, ‘v1’, ‘body’,
-                     ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list ++ [(s,w1)]) body'’] mp_tac
+            \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g,Recclosure xs g)) xs’, ‘m’, ‘v1’, ‘body’,
+                     ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list ++ [(m,w1)]) body'’] mp_tac
             \\ impl_tac
             >- (unabbrev_all_tac \\ gvs [SNOC_APPEND, MAP_APPEND, subst_APPEND]
                 \\ irule force_arg_rel_subst
@@ -3969,7 +3972,7 @@ Proof
                 \\ gvs [MEM_EL] \\ rw []
                 \\ first_assum $ irule_at Any \\ gvs [EL_MAP])
             \\ disch_then $ qx_choose_then ‘j2’ assume_tac
-            \\ Cases_on ‘eval_to (k - 1) (subst (MAP (λ(g,x).(g,Recclosure xs g)) xs++[(s,v1)]) body) = INL Diverge’
+            \\ Cases_on ‘eval_to (k - 1) (subst (MAP (λ(g,x).(g,Recclosure xs g)) xs++[(m,v1)]) body) = INL Diverge’
             >- (qexists_tac ‘0’
                 \\ Cases_on ‘eval_to k y = INL Diverge’ \\ gvs []
                 \\ dxrule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono
@@ -3999,7 +4002,7 @@ Proof
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ expr)’
             \\ ‘eval_to (j2 + k - 1) expr ≠ INL Diverge’
               by (strip_tac
-                  \\ Cases_on ‘eval_to (k − 1) (subst (MAP (λ(g,x). (g,Recclosure xs g)) xs ++ [(s,v1)]) body)’
+                  \\ Cases_on ‘eval_to (k − 1) (subst (MAP (λ(g,x). (g,Recclosure xs g)) xs ++ [(m,v1)]) body)’
                   \\ gvs [])
             \\ dxrule_then (qspec_then ‘j + j1 + j2 + k - 1’ assume_tac) eval_to_mono \\ gvs [])
         \\ IF_CASES_TAC \\ gvs []
@@ -5267,7 +5270,7 @@ Proof
       \\ rpt $ irule_at (Pos hd) EQ_REFL
       \\ gvs [])
   >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL force_arg_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL force_arg_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
       \\ gs [OPTREL_def]
@@ -5332,7 +5335,7 @@ Proof
               \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj1_tac
               \\ ‘HD (vL1 ++ [s3] ++ vL2) = HD (vL1 ++ [s3])’ by (Cases_on ‘vL1’ \\ gvs [])
               \\ gvs []
-              \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
+              \\ once_rewrite_tac [SNOC_APPEND] \\ gvs []
               \\ irule_at (Pos hd) EQ_REFL
               \\ gvs [subst_Lams]
               \\ ‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs []
@@ -5475,7 +5478,7 @@ Proof
               \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj1_tac
               \\ ‘HD (vL1 ++ [s3] ++ vL2) = HD (vL1 ++ [s3])’ by (Cases_on ‘vL1’ \\ gvs [])
               \\ gvs []
-              \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
+              \\ once_rewrite_tac [SNOC_APPEND] \\ gvs []
               \\ irule_at (Pos hd) EQ_REFL
               \\ gvs [subst_Lams]
               \\ ‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs []

@@ -14,7 +14,7 @@ Definition build_tyinfo_def:
   build_tyinfo A (d :: ds) =
   case d of
     declData opnm args cons =>
-      build_tyinfo (insert A (implode opnm) (args, MAP (implode ## I) cons)) ds
+      build_tyinfo (insert A opnm (args, cons)) ds
         (* datatype name |-> [type construtor, the types of their arguments] *)
   | _ => build_tyinfo A ds
 End
@@ -31,31 +31,31 @@ End
  *)
 Definition translate_type_def:
   translate_type nm_map arg_map (tyOp (INR s) tys) =
-  (if s = "Fun" then
+  (if s = «Fun» then
      do
        args <- OPT_MMAP (translate_type nm_map arg_map) tys;
        return $ compose_types (Atom $ CompPrimTy Function) args
      od
-   else if s = "Bool" then do assert (tys = []); return $ Atom $ PrimTy Bool; od
-   else if s = "Integer" then do assert (tys = []); return $ Atom $ PrimTy Integer od
-   else if s = "String" then do assert (tys = []); return $ Atom $ PrimTy String od
-   else if s = "IO" then do
+   else if s = «Bool» then do assert (tys = []); return $ Atom $ PrimTy Bool; od
+   else if s = «Integer» then do assert (tys = []); return $ Atom $ PrimTy Integer od
+   else if s = «String» then do assert (tys = []); return $ Atom $ PrimTy String od
+   else if s = «IO» then do
                             t <- OPT_MMAP (translate_type nm_map arg_map) tys;
                             return $ compose_types (Atom $ CompPrimTy M) t;
                          od
-   else if s = "Array" then do
+   else if s = «Array» then do
                                t <- OPT_MMAP (translate_type nm_map arg_map) tys;
                                return $ compose_types (Atom $ CompPrimTy Array) t;
                             od
   else
      do
-       opidx <- lookup nm_map (implode s);
+       opidx <- lookup nm_map s;
        args <- OPT_MMAP (translate_type nm_map arg_map) tys;
        return $ compose_types (UserType opidx) args
      od) ∧
   translate_type nm_map arg_map (tyVarOp s tys) =
   do
-    varidx <- lookup arg_map (implode s);
+    varidx <- lookup arg_map s;
     args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
     return $ compose_types (Atom $ VarTypeCons varidx) args
   od ∧
@@ -94,7 +94,7 @@ Definition translate_predtype_def:
      t <- (translate_type nm_map arg_map ty);
      preds' <- OPT_MMAP (λ(cl,t). do
           t' <- translate_type nm_map arg_map t;
-          return (implode cl,t');
+          return (cl,t');
         od) preds;
      return $ PredType preds' t;
    od
@@ -104,7 +104,7 @@ Definition build_arg_map_def:
   (build_arg_map m (n:num) (tyOp _ ts) =
     FOLDL (λ(m',n') t. build_arg_map m' n' t) (m,n) ts) ∧
   (build_arg_map m n (tyVarOp v ts) =
-    FOLDL (λ(m',n') t. build_arg_map m' n' t) (insert m (implode v) n,n + 1) ts)
+    FOLDL (λ(m',n') t. build_arg_map m' n' t) (insert m v n,n + 1) ts)
 Termination
   WF_REL_TAC ‘measure (λ(_,_,ty). tyAST_size ty)’
 End
@@ -137,7 +137,7 @@ Definition build_tysig1_def:
   build_tysig1 nm_map (opname, (vs, cons)) sig =
   do
     (arg_map, numvs) <<-
-      FOLDL (λ(m,i) v. (mlmap$insert m (implode v) i, i + 1))
+      FOLDL (λ(m,i) v. (mlmap$insert m v i, i + 1))
             (empty str_compare, 0n)
             vs;
     coninfo <-
@@ -167,12 +167,12 @@ Definition translate_patNest_def:
   translate_patNest (patApp s pvs) =
   do
     vs <- OPT_MMAP translate_patNest pvs ;
-    return $ cepatCons (implode s) vs
+    return $ cepatCons s vs
   od ∧
   (* TODO: what should be done for int and string lit *)
   translate_patNest (patLit l) = SOME ARB ∧
   translate_patNest patUScore = SOME cepatUScore ∧
-  translate_patNest (patVar s) = SOME $ cepatVar (implode s)
+  translate_patNest (patVar s) = SOME $ cepatVar s
 Termination
   WF_REL_TAC `measure patAST_size`
 End
@@ -220,7 +220,7 @@ Overload If = “λg t e. typeclass_texp$NestedCase g «»
   [((cepatCons «False» []), e)]”
 
 Definition dest_pvar_def[simp]:
-  dest_pvar (patVar s) = SOME (implode s) ∧
+  dest_pvar (patVar s) = SOME s ∧
   dest_pvar _ = NONE
 End
 
@@ -250,7 +250,7 @@ Definition translate_headop_def:
 End
 
 Definition dest_patVar_def:
-  dest_patVar (patVar s) = SOME (implode s) ∧
+  dest_patVar (patVar s) = SOME s ∧
   dest_patVar _ = NONE
 End
 
@@ -263,7 +263,7 @@ Definition translate_pat_def:
   translate_pat (patApp s pvs) =
   do
     vs <- OPT_MMAP dest_patVar pvs ;
-    SOME (implode s, vs)
+    SOME (s, vs)
   od ∧
   translate_pat _ = NONE
 End
@@ -296,7 +296,7 @@ End
 
 Definition translate_exp_def: (* translate_exp: translate exp to texp *)
   translate_exp nm_map tyinfo (expVar s) =
-    SOME (typeclass_texp$Var [] $ implode s) ∧
+    SOME (typeclass_texp$Var [] s) ∧
   translate_exp nm_map tyinfo (expUserAnnot ty e) =
   do
     t <- translate_type nm_map empty ty;
@@ -306,7 +306,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
   translate_exp nm_map tyinfo (expCon s es) =
   do
     rs <- OPT_MMAP (translate_exp nm_map tyinfo) es;
-    SOME (Prim (Cons $ implode s) rs)
+    SOME (Prim (Cons s) rs)
   od ∧
   translate_exp nm_map tyinfo (expOp op es) =
   do
@@ -334,7 +334,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
                   body <- translate_exp nm_map tyinfo e ;
          (* TODO: currently, we cannot annotate the types of
           * the variables in lambda *)
-                  SOME (Lam [(implode n,NONE)] body)
+                  SOME (Lam [(n,NONE)] body)
                 od
    | _ => do
            ce <- translate_patcase tyinfo «» p e;
@@ -398,7 +398,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
              do
                e <- translate_exp nm_map tyinfo ee ;
                rest <- translate_exp nm_map tyinfo (expDo reste finalexp) ;
-               return (Bind e $ Lam [implode n,NONE] rest)
+               return (Bind e $ Lam [n,NONE] rest)
              od
          | patUScore =>
              do
@@ -443,25 +443,25 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
    case d of
      expdecTysig name t =>
        do
-         assert (lookup sigs (implode name) = NONE);
+         assert (lookup sigs name = NONE);
          t' <- translate_predtype_scheme nm_map empty 0 t;
-         sigs' <<- insert sigs (implode name) t';
+         sigs' <<- insert sigs name t';
          translate_edecs nm_map tyinfo sigs' funcs ds;
        od
    | expdecPatbind (patVar s) e =>
        do
-         assert (lookup funcs (implode s) = NONE);
+         assert (lookup funcs s = NONE);
          ce <- translate_exp nm_map tyinfo e ;
-         funcs' <<- insert funcs (implode s) ce;
+         funcs' <<- insert funcs s ce;
          translate_edecs nm_map tyinfo sigs funcs' ds;
        od
    | expdecPatbind _ _ => NONE
    | expdecFunbind s args body =>
        do
-         assert (lookup funcs (implode s) = NONE);
+         assert (lookup funcs s = NONE);
          vs <- OPT_MMAP dest_pvar args;
          bce <- translate_exp nm_map tyinfo body ;
-         funcs' <<- insert funcs (implode s) (mkLam vs bce) ;
+         funcs' <<- insert funcs s (mkLam vs bce) ;
          translate_edecs nm_map tyinfo sigs funcs' ds;
        od)
 Termination
@@ -643,7 +643,6 @@ Definition extract_class_expdec_def:
     SOME (sig_map,meths,impls)) ∧
   (extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls (expdecTysig s predty::decs) = do
       (* first check no other functions has used the same function name *)
-      s <<- implode s;
       assert (mlmap$lookup sig_map s = NONE);
       (* 0 is reserved for the class variable *)
       (n,pred') <- translate_predtype_scheme nm_map arg_map 1 predty;
@@ -655,7 +654,6 @@ Definition extract_class_expdec_def:
       extract_class_expdec nm_map arg_map tyinfo clname sig_map meths' impls decs;
     od) ∧
   (extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls (expdecFunbind s args exps::decs) = do
-      s <<- implode s;
       assert (lookup sig_map s ≠ NONE);
       assert (mlmap$lookup impls s = NONE);
       vs <-  OPT_MMAP dest_pvar args;
@@ -672,7 +670,6 @@ Definition extract_inst_expdec_def:
   (extract_inst_expdec nm_map arg_map tyinfo impls [] = SOME impls) ∧
   (extract_inst_expdec nm_map arg_map tyinfo impls
     (expdecFunbind s args exps::ds) = do
-      s <<- implode s;
       assert (mlmap$lookup impls s = NONE);
       vs <- OPT_MMAP dest_pvar args;
       bce <- translate_exp nm_map tyinfo exps;
@@ -698,14 +695,14 @@ End
 Definition translate_tycons_def:
   translate_tycons nm_map (INL n) = SOME $ INR $ CompPrimT (Tuple n) ∧
   translate_tycons nm_map (INR s) =
-  if s = "Fun" then SOME $ INR $ CompPrimT Function
-  else if s = "Bool" then SOME $ INR $ PrimT Bool
-  else if s = "Integer" then SOME $ INR $ PrimT Integer
-  else if s = "String" then SOME $ INR $ PrimT String
-  else if s = "IO" then SOME $ INR $ CompPrimT M
-  else if s = "Array" then SOME $ INR $ CompPrimT Array
+  if s = «Fun» then SOME $ INR $ CompPrimT Function
+  else if s = «Bool» then SOME $ INR $ PrimT Bool
+  else if s = «Integer» then SOME $ INR $ PrimT Integer
+  else if s = «String» then SOME $ INR $ PrimT String
+  else if s = «IO» then SOME $ INR $ CompPrimT M
+  else if s = «Array» then SOME $ INR $ CompPrimT Array
   else do
-    opidx <- lookup nm_map (implode s);
+    opidx <- lookup nm_map s;
     return $ INL opidx;
   od
 End
@@ -726,7 +723,7 @@ Definition translate_decs_def:
     (declTysig name t :: ds) =
   do
     t' <- translate_predtype_scheme nm_map empty 0 t;
-    sig_map <<- insert sig_map (implode name) t';
+    sig_map <<- insert sig_map name t';
     translate_decs nm_map tyinfo sig_map cl_map inst_map func_map ds
   od ∧
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
@@ -735,15 +732,13 @@ Definition translate_decs_def:
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
     (declClass spcls cl v minimpl exps :: ds) =
   do
-    minimpl <<- MAP (MAP implode) minimpl;
     assert $ EVERY ALL_DISTINCT minimpl;
-    clname <<- implode cl;
-    assert (lookup cl_map clname = NONE);
+    assert (lookup cl_map cl = NONE);
     (sig_map',msigs,defimpl) <- extract_class_expdec nm_map
-      (insert empty (implode v) 0) tyinfo clname sig_map empty empty exps;
+      (insert empty v 0) tyinfo cl sig_map empty empty exps;
     assert $ EVERY (EVERY (λs. lookup msigs s ≠ NONE)) minimpl;
-    cl_map' <<- insert cl_map clname (* mlstring *)
-      <| supers := MAP implode spcls
+    cl_map' <<- insert cl_map cl
+      <| supers := spcls
        ; kind := NONE
        (* do kind inference after collection all the classinfos *)
        ; methodsig := msigs
@@ -756,11 +751,11 @@ Definition translate_decs_def:
     assert $ ALL_DISTINCT vs;
     t <- translate_tycons nm_map tc ;
     arg_map <<- fromList str_compare
-      (GENLIST (λn. (implode $ EL n vs,n)) $ LENGTH vs);
+      (GENLIST (λn. (EL n vs,n)) $ LENGTH vs);
     impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps;
     cstr' <- OPT_MMAP (λ(c,v). do
-        v' <- lookup arg_map (implode v) ;
-        return (implode c,v')
+        v' <- lookup arg_map v ;
+        return (c,v')
       od) constraints ;
     (* class <- FLOOKUP classinfo cl;
     (* check if every function inside are in the typeclass *)
@@ -773,7 +768,7 @@ Definition translate_decs_def:
     assert $ set (map FST constraints) SUBSET (FDOM classinfos)
     (* check if all variables in the constraints are bound in the insttype *)
     assert $ set (map snd constraints) SUBSET (collect_type_vars t); *)
-    inst_map' <- add_instance inst_map (implode cl) t (LENGTH vs)
+    inst_map' <- add_instance inst_map cl t (LENGTH vs)
       (<|cstr := cstr'; impls := impls|>);
     translate_decs nm_map tyinfo sig_map cl_map inst_map' func_map ds
   od ∧
@@ -782,7 +777,7 @@ Definition translate_decs_def:
   do
     vs <- OPT_MMAP dest_pvar args;
     bce <- translate_exp nm_map tyinfo body ;
-    func_map' <<- insert func_map (implode s) (mkLam vs bce);
+    func_map' <<- insert func_map s (mkLam vs bce);
     translate_decs nm_map tyinfo sig_map cl_map inst_map func_map' ds
   od ∧
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
@@ -796,8 +791,8 @@ Definition translate_decs_def:
 End
 
 Definition listinfo_def:
-  listinfo = (["a"], [(«[]», []);
-    («::», [tyVarOp "a" []; tyOp (INR "[]") [tyVarOp "a" []]])])
+  listinfo = ([«a»], [(«[]», []);
+    («::», [tyVarOp «a» []; tyOp (INR «[]») [tyVarOp «a» []]])])
 End
 
 Definition decls_to_tcdecl_def:
@@ -1057,24 +1052,6 @@ Proof
   )
 QED
 
-Definition monad_cn_mlstrings_def:
-  monad_cn_mlstrings =
-    [«Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
-End
-
-Theorem implodeEQ[local]:
-  y = implode x ⇔ (explode y = x)
-Proof
-  rw[EQ_IMP_THM] >> simp[]
-QED
-
-Theorem MEM_monad_cn_mlstrings[local]:
-  MEM x monad_cn_mlstrings ⇔ explode x ∈ monad_cns
-Proof
-  rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def] >>
-  simp[SRULE [mlstringTheory.implode_def] implodeEQ]
-QED
-
 Theorem texp_wf_strong_alt_def[compute]:
   (∀v0 v. texp_wf_strong (Var v0 v : 'a texp) ⇔ T) ∧
   (∀op es.
@@ -1085,7 +1062,7 @@ Theorem texp_wf_strong_alt_def[compute]:
      | AtomOp (Lit (Int i)) => T
      | AtomOp (Lit (Str s)) => T
      | AtomOp (Lit _) => F
-     | AtomOp (Message m) => m ≠ ""
+     | AtomOp (Message m) => m ≠ «»
      | _ => T)) ∧
   (∀es e.
     texp_wf_strong (App e es : 'a texp) ⇔

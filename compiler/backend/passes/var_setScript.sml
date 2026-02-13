@@ -4,8 +4,7 @@
 *)
 Theory var_set
 Ancestors
-  list string alist option pair pred_set finite_map mlint mlmap
-  mlstring
+  list mlstring alist option pair pred_set finite_map mlint mlmap
 Libs
   BasicProvers dep_rewrite
 
@@ -46,7 +45,7 @@ Definition invent_var_def:
     case invent_var_aux base 0 1000 (vs,n) of
     | SOME res => res
     | NONE =>
-        let new_var = concat (REPLICATE (n+1) (strlit "t")) in
+        let new_var = concat (REPLICATE (n+1) «t») in
           (new_var, insert_var (vs,n) new_var)
 End
 
@@ -80,7 +79,7 @@ Definition vars_ok_def:
 End
 
 Definition set_of_def:
-  set_of ((vs,n):vars) = IMAGE explode (FDOM (to_fmap vs))
+  set_of ((vs,n):vars) = FDOM (to_fmap vs)
 End
 
 (* --- lemmas --- *)
@@ -142,7 +141,7 @@ QED
 
 Theorem set_of_insert_var[simp]:
   vars_ok vs ⇒
-  set_of (insert_var vs n) = explode n INSERT set_of vs
+  set_of (insert_var vs n) = n INSERT set_of vs
 Proof
   PairCases_on ‘vs’
   \\ fs [insert_var_def,vars_ok_def,insert_thm,lookup_insert,set_of_def]
@@ -150,7 +149,7 @@ QED
 
 Theorem set_of_insert_vars[simp]:
   vars_ok vs ⇒
-  set_of (insert_vars vs ns) = set (MAP explode ns) ∪ set_of vs
+  set_of (insert_vars vs ns) = set ns ∪ set_of vs
 Proof
   qid_spec_tac ‘vs’ \\ Induct_on ‘ns’ \\ fs [insert_vars_def]
   \\ fs [EXTENSION] \\ metis_tac []
@@ -158,24 +157,15 @@ QED
 
 Theorem set_of_delete_var[simp]:
   vars_ok vs ⇒
-  set_of (delete_var vs n) = set_of vs DELETE explode n
+  set_of (delete_var vs n) = set_of vs DELETE n
 Proof
   PairCases_on ‘vs’
   \\ fs [delete_var_def,vars_ok_def,delete_thm,lookup_delete,set_of_def]
-  \\ rw [EXTENSION] \\ eq_tac
-  \\ rw []
-  >- metis_tac []
-  >- (strip_tac \\ first_x_assum irule
-      \\ irule EQ_TRANS
-      \\ irule_at (Pos hd) $ GSYM implode_explode
-      \\ asm_rewrite_tac [] \\ simp [])
-  >- (irule_at (Pos hd) EQ_REFL \\ simp []
-      \\ strip_tac \\ gs [])
 QED
 
 Theorem set_of_delete_vars[simp]:
   vars_ok vs ⇒
-  set_of (delete_vars vs ns) = set_of vs DIFF set (MAP explode ns)
+  set_of (delete_vars vs ns) = set_of vs DIFF set ns
 Proof
   qid_spec_tac ‘vs’ \\ Induct_on ‘ns’ \\ fs [delete_vars_def]
   \\ fs [EXTENSION] \\ metis_tac []
@@ -190,7 +180,7 @@ Proof
 QED
 
 Theorem contains_var_in_set_of:
-  vars_ok vs ⇒ (contains_var v vs ⇔ explode v ∈ set_of vs)
+  vars_ok vs ⇒ (contains_var v vs ⇔ v ∈ set_of vs)
 Proof
   PairCases_on ‘vs’
   \\ fs [contains_var_def,vars_ok_def,set_of_def, lookup_thm]
@@ -200,8 +190,8 @@ QED
 Theorem invent_var_thm:
   invent_var base vs = (n,vs1) ∧
   vars_ok vs ⇒
-  vars_ok vs1 ∧ explode n ∉ set_of vs ∧
-  set_of vs1 = explode n INSERT set_of vs
+  vars_ok vs1 ∧ n ∉ set_of vs ∧
+  set_of vs1 = n INSERT set_of vs
 Proof
   PairCases_on ‘vs’
   \\ fs [invent_var_def,AllCaseEqs()] \\ strip_tac \\ gvs []
@@ -218,11 +208,7 @@ Proof
   \\ Induct \\ simp [Once invent_var_aux_def]
   \\ gvs [AllCaseEqs()]
   \\ gen_tac \\ strip_tac \\ gvs [set_of_def]
-  >-
-   (Cases \\ fs [] \\ rw [] \\ gvs [lookup_thm,vars_ok_def,FLOOKUP_DEF]
-    \\ fs [strcat_def,concat_def]
-    \\ Cases_on ‘base’ \\ fs []
-    \\ Cases_on ‘toString n1’ \\ fs [])
+  >- gvs [lookup_thm,vars_ok_def,FLOOKUP_DEF]
   \\ res_tac \\ fs []
 QED
 

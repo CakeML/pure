@@ -2,7 +2,7 @@
 * instance map and type class map *)
 Theory typeclass_env_map_impl
 Ancestors
-  relation set_relation pair option list pred_set finite_map
+  relation set_relation pair option list rich_list pred_set finite_map
   mlmap mlstring balanced_map alist topological_sort misc
   typeclass_types typeclass_kindCheck typeclass_typesProps
   typeclass_texp typeclass_typing typeclass_typingProps
@@ -1700,17 +1700,18 @@ Definition entail_aux_def:
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λx.
     (case x of
-     | INR (_,_,qs) => list_max $ MAP (type_size o SND) qs
+     | INR (_,_,qs) => MAX_LIST $ MAP (type_size o SND) qs
      | INL (_,_,_,t) => type_size t),
     (case x of
      | INR (_,_,qs) => LENGTH qs
      | INL _ => 0))` >>
-  rw[]
+  strip_tac
   >- (
+    rw [] >>
     gvs[by_inst_def,lookup_inst_map_def] >>
     pairarg_tac >> gvs[] >>
     PURE_REWRITE_TAC[Once $ GSYM arithmeticTheory.GREATER_DEF] >>
-    irule list_max_intro >>
+    irule MAX_LIST_intro >>
     simp[EVERY_MAP,arithmeticTheory.GREATER_DEF,type_size_GT_0] >>
     drule_then (assume_tac o GSYM) tcons_to_type_split_ty_cons >>
     gvs[EVERY_EL] >>
@@ -1724,7 +1725,8 @@ Termination
     first_x_assum $ qspecl_then [`a`,`b`] mp_tac >>
     metis_tac[MEM_EL]
   ) >>
-  simp[GSYM arithmeticTheory.LE_LT,list_max_def]
+  pure_rewrite_tac [LEFT_OR_OVER_AND, GSYM arithmeticTheory.LE_LT] >>
+  simp [MAX_LIST_def]
 End
 
 Definition entail_impl_def:

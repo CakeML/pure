@@ -9,7 +9,7 @@
  *)
 Theory thunk_case_inlProof
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   thunkLang_primitives pure_misc
   finite_map pred_set rich_list thunkLang wellorder
   thunk_semantics[qualified] thunkLangProps
@@ -536,7 +536,6 @@ Theorem exp_rel_eval_to:
         (eval_to k x)
         (eval_to k y)
 Proof
-
   ho_match_mp_tac eval_to_ind \\ simp []
   \\ rpt conj_tac \\ rpt gen_tac
   >~ [‘Value v’] >- (
@@ -564,8 +563,8 @@ Proof
       \\ first_assum (irule_at Any) \\ gs [])
         (* Recclosure *)
     \\ rename1 ‘LIST_REL _ xs ys’
-    \\ ‘OPTREL (exp_rel EMPTY) (ALOOKUP (REVERSE xs) s)
-                                   (ALOOKUP (REVERSE ys) s)’
+    \\ ‘OPTREL (exp_rel EMPTY) (ALOOKUP (REVERSE xs) m')
+                                   (ALOOKUP (REVERSE ys) m')’
       by (irule LIST_REL_OPTREL \\ gs []
           \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
     \\ gs [OPTREL_def]
@@ -685,8 +684,8 @@ Proof
         rename1 ‘LIST_REL _ xs ys’
         \\ ‘OPTREL (λx0 y0. ok_binder x0 ∧
                             exp_rel EMPTY x0 y0)
-                   (ALOOKUP (REVERSE xs) s)
-                   (ALOOKUP (REVERSE ys) s)’
+                   (ALOOKUP (REVERSE xs) m')
+                   (ALOOKUP (REVERSE ys) m')’
           by (irule LIST_REL_OPTREL \\ gs []
               \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
@@ -918,12 +917,12 @@ Proof
   \\ ‘OPTREL (λx y. freevars x ⊆ set (MAP FST xs) ∧
                     ok_binder x ∧
                     exp_rel EMPTY x y)
-             (ALOOKUP (REVERSE xs) s)
-             (ALOOKUP (REVERSE ys) s)’
+             (ALOOKUP (REVERSE xs) m)
+             (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, closed_def])
   \\ gs [OPTREL_def]
-  \\ qpat_x_assum ‘exp_rel m x0 y0’ mp_tac
+  \\ qpat_x_assum ‘exp_rel _ x0 y0’ mp_tac
   \\ rw [Once exp_rel_cases] \\ gs []
   \\ first_x_assum irule \\ gs []
   \\ irule exp_rel_eval

@@ -3,7 +3,7 @@
  *)
 Theory state_caseProof
 Ancestors
-  string option sum pair list alist finite_map pred_set
+  mlstring option sum pair list alist finite_map pred_set
   rich_list arithmetic pure_exp_lemmas pure_misc pure_config
   pure_semantics[qualified]
   stateLang
@@ -11,8 +11,8 @@ Libs
   BasicProvers dep_rewrite
 
 
-Overload True[local] = “App (Cons "True") [] :stateLang$exp”
-Overload False[local] = “App (Cons "False") [] :stateLang$exp”
+Overload True[local] = “App (Cons «True») [] :stateLang$exp”
+Overload False[local] = “App (Cons «False») [] :stateLang$exp”
 Overload Fail = “App (AtomOp Add) [] :stateLang$exp”
 Overload Proj = “λn i x. App (Proj n i) [x:stateLang$exp]”
 Overload IsEq = “λn i x. App (IsEq n i) [x:stateLang$exp]”
@@ -134,7 +134,7 @@ Inductive v_rel:
 [env_rel:]
   (∀tenv senv.
      (∀n. ALOOKUP tenv n = NONE ⇔ ALOOKUP senv n = NONE) ∧
-     (∀(n:string) tv.
+     (∀(n :mlstring) tv.
        ALOOKUP tenv n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv) ⇒
      env_rel tenv senv)
@@ -719,7 +719,7 @@ Proof
    (Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [step,step_res_rel_cases])
   >~ [‘IfK’] >-
    (gvs [step]
-    \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
+    \\ Cases_on ‘v1 = Constructor «True» [] ∨ v1 = Constructor «False» []’ \\ gvs []
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
     \\ fs [step_res_rel_cases]

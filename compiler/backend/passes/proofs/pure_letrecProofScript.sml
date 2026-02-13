@@ -468,7 +468,7 @@ Proof
      (fs [AllCaseEqs()] \\ qexists_tac ‘ck’ \\ fs []
       \\ Cases_on ‘eval_wh_to k x1’ \\ fs [])
     \\ Cases_on ‘eval_wh_to k x1’ \\ gvs []
-    \\ rename [‘eval_wh_to (ck + k) g = wh_Closure _ e1’]
+    \\ rename [‘eval_wh_to (ck + k) g = wh_Closure s e1’]
     \\ ‘letrec_rel c (bind1 s x2 e) (bind1 s y e1)’ by (
       rw[bind1_def] >> unabbrev_all_tac >>
       irule letrec_rel_split_subst >> simp[] >>
@@ -661,7 +661,7 @@ Proof
           gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
         gvs[GSYM ALOOKUP_NONE] >>
         qmatch_asmsub_abbrev_tac `MAP (λ(f,e).(f, g e)) xs2` >>
-        drule (MEM_MAP_f |> INST_TYPE [beta |-> ``:string # exp``]) >>
+        drule (MEM_MAP_f |> INST_TYPE [beta |-> ``:mlstring # exp``]) >>
         disch_then (qspec_then `λ(f,e). (f, g e)` assume_tac) >> gvs[] >>
         `ALL_DISTINCT (MAP FST new_xs)` by gvs[] >>
         drule_all ALOOKUP_ALL_DISTINCT_MEM >> rw[] >>

@@ -157,8 +157,8 @@ Proof
 QED
 
 Theorem boundvars_FOLDR_Let_SUBSET[local]:
-  boundvars (FOLDR (λ(u,e) A. Let (explode u) e A) acc binds) ⊆
-    boundvars acc ∪ IMAGE explode (set (MAP FST binds)) ∪
+  boundvars (FOLDR (λ(u,e) A. Let u e A) acc binds) ⊆
+    boundvars acc ∪ (set (MAP FST binds)) ∪
     BIGUNION (set $ MAP (boundvars o SND) binds)
 Proof
   qid_spec_tac `acc` >> Induct_on `binds` >> rw[] >>
@@ -168,7 +168,7 @@ QED
 Theorem boundvars_nested_rows_SUBSET:
   boundvars (nested_rows e pes) ⊆
       boundvars e ∪ BIGUNION (set $ MAP
-        (λ(p,e). boundvars e ∪ (IMAGE explode $ cepat_vars p)) pes)
+        (λ(p,e). boundvars e ∪ (cepat_vars p)) pes)
 Proof
   Induct_on `pes` >> rw[boundvars_def] >>
   rpt (pairarg_tac >> gvs[]) >> rw[]
@@ -859,7 +859,7 @@ Proof
 QED
 
 Theorem freshen_global_IfDisj:
-  FLOOKUP m (explode x) = SOME (explode y) ∧ freshen_global avoid m e1 e2 ⇒
+  FLOOKUP m x = SOME y ∧ freshen_global avoid m e1 e2 ⇒
   freshen_global avoid m (IfDisj x cnars e1) (IfDisj y cnars e2)
 Proof
   rw[IfDisj_def] >>
@@ -1030,8 +1030,8 @@ QED
 Theorem fresh_boundvar_vars:
   fresh_boundvar x varmap avoid = ((y,varmap'), avoid') ∧
   vars_ok avoid
-  ⇒ vars_ok avoid' ∧ set_of avoid' = explode y INSERT set_of avoid ∧
-    explode y ∉ set_of avoid
+  ⇒ vars_ok avoid' ∧ set_of avoid' = y INSERT set_of avoid ∧
+    y ∉ set_of avoid
 Proof
   strip_tac >> gvs[fresh_boundvar_def] >> rpt (pairarg_tac >> gvs[]) >>
   drule_all invent_var_thm >> strip_tac >> gvs[]
@@ -1042,8 +1042,8 @@ Theorem fresh_boundvars_vars:
     fresh_boundvars xs varmap avoid = ((ys,varmap'), avoid') ∧
     vars_ok avoid
   ⇒ vars_ok avoid' ∧
-    set_of avoid' = set (MAP explode ys) ∪ set_of avoid ∧
-    DISJOINT (set (MAP explode ys)) (set_of avoid) ∧
+    set_of avoid' = set ys ∪ set_of avoid ∧
+    DISJOINT (set ys) (set_of avoid) ∧
     ALL_DISTINCT ys
 Proof
   Induct >> rpt gen_tac >> strip_tac >> gvs[fresh_boundvars_def] >>
@@ -1141,18 +1141,18 @@ End
 Theorem avoid_ok_simps[simp]:
   (avoid_ok avoid (Prim c op ces) ⇔ EVERY (avoid_ok avoid) ces ∧ vars_ok avoid) ∧
   (avoid_ok avoid (Let c x ce1 ce2) ⇔
-    avoid_ok avoid ce1 ∧ avoid_ok avoid ce2 ∧ explode x ∈ set_of avoid) ∧
+    avoid_ok avoid ce1 ∧ avoid_ok avoid ce2 ∧ x ∈ set_of avoid) ∧
   (avoid_ok avoid (Lam c xs ce) ⇔
-    avoid_ok avoid ce ∧ set (MAP explode xs) ⊆ set_of avoid) ∧
+    avoid_ok avoid ce ∧ set xs ⊆ set_of avoid) ∧
   (avoid_ok avoid (App c ce ces) ⇔ avoid_ok avoid ce ∧ EVERY (avoid_ok avoid) ces) ∧
   (avoid_ok avoid (Letrec c fns ce) ⇔
     avoid_ok avoid ce ∧
     EVERY ( λ(f,ce). avoid_ok avoid ce) fns ∧
-    set (MAP (explode o FST) fns) ⊆ set_of avoid) ∧
+    set (MAP FST fns) ⊆ set_of avoid) ∧
   (avoid_ok avoid (pure_cexp$Case c ce x css usopt) ⇔
     avoid_ok avoid ce ∧
-    explode x ∈ set_of avoid ∧
-    EVERY (λ(cn,pvs,ce). set (MAP explode pvs) ⊆ set_of avoid ∧ avoid_ok avoid ce) css ∧
+    x ∈ set_of avoid ∧
+    EVERY (λ(cn,pvs,ce). set pvs ⊆ set_of avoid ∧ avoid_ok avoid ce) css ∧
     (∀cnars ce. usopt = SOME (cnars,ce) ⇒ avoid_ok avoid ce))
 Proof
   rw[avoid_ok_def, exp_of_def, EVERY_MEM, allvars_Apps, allvars_Lams, allvars_rows_of]
@@ -1289,13 +1289,13 @@ Proof
     drule fresh_boundvar_vars >> impl_tac >- fs[avoid_ok_def] >> strip_tac >>
     drule $ cj 1 freshen_aux_mono >> impl_tac >- gvs[avoid_ok_def] >> strip_tac >>
     `EVERY (λ(cn,pvs,ce).
-      set (MAP explode pvs) ⊆ set_of avoid3 ∧ avoid_ok avoid3 ce) css1` by (
+      set pvs ⊆ set_of avoid3 ∧ avoid_ok avoid3 ce) css1` by (
         gvs[EVERY_MEM, EVERY_MAP, FORALL_PROD] >>
         gvs[SUBSET_DEF, EXTENSION, avoid_ok_def] >> metis_tac[]) >>
     qsuff_tac
       `set_of avoid3 ⊆ set_of avoid4 ∧ vars_ok avoid4 ∧
        EVERY (λ(cn,pvs,ce).
-        set (MAP explode pvs) ⊆ set_of avoid4 ∧ avoid_ok avoid4 ce) css2`
+        set pvs ⊆ set_of avoid4 ∧ avoid_ok avoid4 ce) css2`
     >- (
       strip_tac >> namedCases_on `usopt` ["","us"] >> gvs[]
       >- (gvs[SUBSET_DEF, avoid_ok_def]) >>
@@ -1460,7 +1460,7 @@ Proof
       by (
         qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
         qpat_x_assum `EVERY cexp_wf _` mp_tac >>
-        `vars_ok avoid ∧ explode v' ∈ set_of avoid` by (
+        `vars_ok avoid ∧ v' ∈ set_of avoid` by (
           drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
           drule_all $ fresh_boundvar_vars >> rw[]) >>
         ntac 2 $ pop_assum mp_tac >>
@@ -1637,28 +1637,21 @@ Definition varmap_rel_def:
   varmap_rel varmap fmap ⇔
     map_ok varmap ∧
     (∀k v. lookup varmap k = SOME v ⇔
-      FLOOKUP fmap (explode k) = SOME (explode v))
+      FLOOKUP fmap k = SOME v)
 End
 
 Theorem fresh_boundvar_rel[local]:
   varmap_rel varmap m ∧
   vars_ok avoid ∧
   fresh_boundvar x varmap avoid = ((y,varmap'), avoid')
-  ⇒ varmap_rel varmap' (m |+ (explode x,explode y)) ∧
-    explode y ∉ set_of avoid ∧
-    set_of avoid' = explode y INSERT set_of avoid ∧
+  ⇒ varmap_rel varmap' (m |+ (x,y)) ∧
+    y ∉ set_of avoid ∧
+    set_of avoid' = y INSERT set_of avoid ∧
     vars_ok avoid'
 Proof
   strip_tac >> gvs[varmap_rel_def] >>
   drule_all fresh_boundvar_vars >> strip_tac >>
   drule_all fresh_boundvar_varmap >> strip_tac >> simp[FLOOKUP_SIMP] >> rw[]
-QED
-
-Theorem ALOOKUP_MAP_explode_FST[local]:
-  ALOOKUP (MAP (λ(a,b). (explode a,b)) l) (explode k) = ALOOKUP l k
-Proof
-  Induct_on `l` >> rw[] >>
-  pairarg_tac >> gvs[]
 QED
 
 Theorem fresh_boundvars_rel[local]:
@@ -1667,10 +1660,10 @@ Theorem fresh_boundvars_rel[local]:
   vars_ok avoid ∧
   fresh_boundvars xs varmap avoid = ((ys,varmap'), avoid')
   ⇒ LENGTH xs = LENGTH ys ∧
-    varmap_rel varmap' (m |++ ZIP (MAP explode xs, MAP explode ys)) ∧
-    set_of avoid' = set (MAP explode ys) ∪ set_of avoid ∧
+    varmap_rel varmap' (m |++ ZIP (xs, ys)) ∧
+    set_of avoid' = set ys ∪ set_of avoid ∧
     ALL_DISTINCT ys ∧
-    DISJOINT (set (MAP explode ys)) (set_of avoid) ∧
+    DISJOINT (set ys) (set_of avoid) ∧
     vars_ok avoid'
 Proof
   rpt gen_tac >> strip_tac >> gvs[varmap_rel_def] >>
@@ -1678,7 +1671,7 @@ Proof
   drule_all fresh_boundvars_varmap >> strip_tac >>
   imp_res_tac fresh_boundvars_LENGTH >>
   simp[FLOOKUP_FUPDATE_LIST, GSYM MAP_ZIP_ALT, GSYM MAP_REVERSE] >>
-  simp[ALOOKUP_MAP_explode_FST, ALOOKUP_MAP] >>
+  simp[ALOOKUP_MAP] >>
   rw[] >> CASE_TAC >> gvs[]
 QED
 
@@ -1707,8 +1700,7 @@ Proof
   >- ( (* Var *)
     simp[Once freshen_global_cases] >>
     CASE_TAC >> gvs[varmap_rel_def] >>
-    Cases_on `FLOOKUP m (explode v)` >> gvs[] >>
-    `∃x'. x = explode x'` by (qexists `implode x` >> simp[]) >> gvs[] >>
+    Cases_on `FLOOKUP m v` >> gvs[] >>
     first_x_assum $ drule o iffRL >> simp[]
     )
   >- ( (* Prim *)
@@ -1792,16 +1784,18 @@ Proof
     gvs[avoid_ok_def, SUBSET_DEF] >> gvs[allvars_thm]
     )
   >- ( (* Letrec *)
-    rpt (pairarg_tac >> gvs[]) >> gvs[exp_of_def, letrecs_distinct_def, cexp_wf_def] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    gvs[exp_of_def, letrecs_distinct_def, cexp_wf_def, SF ETA_ss] >>
     rename1 `freshen_aux _ ce1 avoid3 = (ce2,avoid4)` >>
     rename1 `fresh_boundvars _ _ _ = ((freshes,_),avoid2)` >>
     rename1 `freshen_mapM _ _ _ = (fns',_)` >>
     simp[Once freshen_global_cases] >>
     drule fresh_boundvars_rel >> rpt $ disch_then $ drule_at Any >>
     impl_tac >- gvs[avoid_ok_def] >> strip_tac >> gvs[] >>
-    qexists `FEMPTY |++ ZIP (MAP (explode o FST) fns, MAP explode freshes)` >>
+    qexists `FEMPTY |++ ZIP (MAP FST fns, freshes)` >> gvs[SF ETA_ss] >>
     rw[]
-    >- simp[FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MAP_ZIP]
+    >- simp[FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+            MAP_ZIP, FST_THM]
     >- (
       simp[Once DISJOINT_SYM] >> irule DISJOINT_SUBSET >>
       irule_at Any FRANGE_FUPDATE_LIST_SUBSET >> simp[MAP_ZIP]
@@ -1828,7 +1822,7 @@ Proof
       simp[GSYM ZIP_APPEND] >> irule_at Any EQ_REFL >> rw[]
       >- (
         simp[FLOOKUP_FUPDATE_LIST, REVERSE_APPEND, ALOOKUP_APPEND, AllCaseEqs()] >>
-        disj1_tac >> qpat_x_assum `ALL_DISTINCT (_ ++ [explode _] ++ _)` mp_tac >>
+        disj1_tac >> qpat_x_assum `ALL_DISTINCT (_ ++ [f1] ++ _)` mp_tac >>
         simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, ALL_DISTINCT_APPEND] >>
         simp[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP] >> simp[MEM_MAP, FORALL_PROD]
         ) >>
@@ -1844,6 +1838,7 @@ Proof
         map_every qid_spec_tac [`avoid2`,`fns'_l`] >>
         Induct_on `l` >> simp[freshen_mapM_def, AND_IMP_INTRO] >>
         rpt gen_tac >> strip_tac >> rpt (pairarg_tac >> gvs[]) >>
+        gvs [UNCURRY] >>
         drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
         drule_all $ cj 1 freshen_aux_avoid_ok >> strip_tac >>
         last_x_assum drule >> rpt $ disch_then drule >>
@@ -1862,7 +1857,7 @@ Proof
       >- gvs[SUBSET_DEF]
       >- (
         qabbrev_tac `fresh_set =
-          set (MAP explode fresh_l) ∪ {explode y} ∪ set (MAP explode fresh_r)` >>
+          set fresh_l ∪ {y} ∪ set fresh_r` >>
         qsuff_tac `FRANGE (FEMPTY |++ new) = fresh_set` >- (strip_tac >> gvs[]) >>
         irule SUBSET_ANTISYM >> rw[]
         >- (
@@ -1872,7 +1867,7 @@ Proof
         >- (
           irule SUBSET_TRANS >> irule_at Any FRANGE_FUPDATE_LIST_ALL_DISTINCT >>
           unabbrev_all_tac >> simp[SUBSET_DEF] >>
-          gvs[MAP_ZIP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          gvs[MAP_ZIP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
           )
         )
       >- (
@@ -1897,6 +1892,7 @@ Proof
         map_every qid_spec_tac [`avoid2`,`fns'`] >>
         Induct_on `fns` >> simp[freshen_mapM_def, AND_IMP_INTRO] >>
         rpt gen_tac >> strip_tac >> rpt (pairarg_tac >> gvs[]) >>
+        gvs [UNCURRY] >>
         drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
         drule_all $ cj 1 freshen_aux_avoid_ok >> strip_tac >>
         last_x_assum drule >> rpt $ disch_then drule >>
@@ -1909,7 +1905,7 @@ Proof
       irule freshen_global_mono >> goal_assum $ drule_at Any >> rw[]
       >- gvs[SUBSET_DEF]
       >- (
-        qsuff_tac `FRANGE (FEMPTY |++ new) = set (MAP explode freshes)`
+        qsuff_tac `FRANGE (FEMPTY |++ new) = set freshes`
         >- (strip_tac >> gvs[]) >>
         irule SUBSET_ANTISYM >> rw[]
         >- (
@@ -1919,7 +1915,7 @@ Proof
         >- (
           irule SUBSET_TRANS >> irule_at Any FRANGE_FUPDATE_LIST_ALL_DISTINCT >>
           unabbrev_all_tac >> simp[SUBSET_DEF] >>
-          gvs[MAP_ZIP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          gvs[MAP_ZIP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
           )
         )
       >- (
@@ -1941,7 +1937,7 @@ Proof
     rename1 `fresh_boundvar x _ avoid2 = ((y,_),_)` >>
     rename1 `freshen_aux _ _ _ = (ce2,_)` >>
     `¬ MEM y (FLAT (MAP (FST o SND) css2))` by (
-      `explode y ∈ set_of avoid3 ∧ vars_ok avoid3` by (
+      `y ∈ set_of avoid3 ∧ vars_ok avoid3` by (
         drule $ cj 1 freshen_aux_mono >> impl_tac >- gvs[avoid_ok_def] >> strip_tac >>
         drule fresh_boundvar_vars >> simp[]) >>
       qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
@@ -1972,14 +1968,14 @@ Proof
       qsuff_tac
         `vars_ok avoid4 ∧ set_of avoid3 ⊆ set_of avoid4 ∧
          EVERY (λ(cn,pvs,ce).
-            set (MAP explode pvs) ∪ boundvars (exp_of ce) ⊆ set_of avoid4) css2`
+            set pvs ∪ boundvars (exp_of ce) ⊆ set_of avoid4) css2`
       >- (
         strip_tac >> gvs[avoid_ok_def, SUBSET_DEF] >>
         conj_tac >- gvs[allvars_thm] >>
         gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]
         ) >>
       `EVERY (λ(cn,pvs,ce).
-        set (MAP explode pvs) ⊆ set_of avoid3 ∧ avoid_ok avoid3 ce) css1` by (
+        set pvs ⊆ set_of avoid3 ∧ avoid_ok avoid3 ce) css1` by (
           gvs[EVERY_MEM, FORALL_PROD, SUBSET_DEF, avoid_ok_def] >>
           metis_tac[]) >>
       pop_assum mp_tac >>
@@ -2015,12 +2011,12 @@ Proof
     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
     irule_at Any freshen_global_mono >> first_x_assum $ irule_at Any >>
     `EVERY (λ(cn,pvs,ce).
-      set (MAP explode pvs) ⊆ set_of avoid3 ∧ avoid_ok avoid3 ce) l1` by (
+      set pvs ⊆ set_of avoid3 ∧ avoid_ok avoid3 ce) l1` by (
         gvs[EVERY_MEM, FORALL_PROD, SUBSET_DEF, avoid_ok_def] >>
         metis_tac[]) >>
     `vars_ok avoidL ∧ set_of avoid3 ⊆ set_of avoidL ∧
      EVERY (λ(cn,pvs,ce).
-      set (MAP explode pvs) ∪ boundvars (exp_of ce) ⊆ set_of avoidL) l2` by (
+      set pvs ∪ boundvars (exp_of ce) ⊆ set_of avoidL) l2` by (
       pop_assum mp_tac >>
       map_every (fn p => qpat_x_assum p mp_tac)
         [`freshen_mapM _ _ _ = _`,`vars_ok avoid3`] >>
@@ -2141,13 +2137,13 @@ Theorem freshen_aux_preserves_typing:
     freshen_aux m ce1 avoid1 = (ce2, avoid2) ∧
     type_tcexp ns db st env1 (tcexp_of ce1) t ∧
     ctxt_rel m (freevars_cexp ce1) env1 env2 ∧
-    map_ok m ∧ (∀k v. lookup m k = SOME v ⇒ explode v ∈ set_of avoid1) ∧
+    map_ok m ∧ (∀k v. lookup m k = SOME v ⇒ v ∈ set_of avoid1) ∧
     avoid_ok avoid1 ce1
   ⇒ type_tcexp ns db st env2 (tcexp_of ce2) t) ∧
   (∀m (ces1:α cexp list) avoid1 ces2 avoid2 ns db st env1 t env2.
     freshen_aux_list m ces1 avoid1 = (ces2, avoid2) ∧
     ctxt_rel m (BIGUNION $ set $ MAP freevars_cexp ces1) env1 env2 ∧
-    map_ok m ∧ (∀k v. lookup m k = SOME v ⇒ explode v ∈ set_of avoid1) ∧
+    map_ok m ∧ (∀k v. lookup m k = SOME v ⇒ v ∈ set_of avoid1) ∧
     EVERY (avoid_ok avoid1) ces1
   ⇒ LIST_REL (λce1 ce2. ∀t.
       type_tcexp ns db st env1 (tcexp_of ce1) t
@@ -2294,7 +2290,7 @@ Proof
     rewrite_tac[GSYM MAP_APPEND] >>
     qmatch_asmsub_abbrev_tac `ctxt_rel _ _ env1' env2'` >>
     qpat_x_assum `ctxt_rel _ _ _ _` mp_tac >> simp[Abbr `bigunion`] >>
-    `∀k v. lookup m' k = SOME v ⇒ explode v ∈ set_of avoid2` by (
+    `∀k v. lookup m' k = SOME v ⇒ v ∈ set_of avoid2` by (
       simp[] >> rpt gen_tac >> CASE_TAC >> strip_tac >> gvs[]
       >- (gvs[SUBSET_DEF] >> metis_tac[]) >>
       imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, SUBSET_DEF, MEM_MAP] >>
@@ -2334,7 +2330,7 @@ Proof
     drule_all fresh_boundvar_varmap >> strip_tac >>
     drule_all fresh_boundvar_vars >> strip_tac >>
     qmatch_asmsub_abbrev_tac `ctxt_rel m fvs env1 env2` >>
-    `IMAGE explode fvs ⊆ set_of avoid1` by (
+    `fvs ⊆ set_of avoid1` by (
       gvs[Abbr `fvs`, allvars_thm, freevars_exp_of] >>
       simp[UNION_DELETE] >> gvs[SUBSET_DEF, PULL_EXISTS] >> rw[]
       >- (gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> metis_tac[])
@@ -2353,7 +2349,7 @@ Proof
             (REVERSE (ZIP (pvs',ts)) ++ (y,tx)::env2) (tcexp_of ce') t)) css css' ∧
      vars_ok avoid4 ∧ set_of avoid3 ⊆ set_of avoid4` by (
       qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
-      `explode y ∈ set_of avoid3` by simp[] >> pop_assum mp_tac >>
+      `y ∈ set_of avoid3` by simp[] >> pop_assum mp_tac >>
       `∀s t. s ⊆ x INSERT
         BIGUNION (set $ MAP ( λ(cn,pvs,e). freevars_cexp e DIFF set pvs) css)
           ⇒ ctxt_rel m' s ((x,t)::env1) ((y,t)::env2)` by (
@@ -2361,11 +2357,11 @@ Proof
             first_x_assum irule >> gvs[SUBSET_DEF] >> metis_tac[]) >>
       pop_assum mp_tac >>
       qpat_x_assum `map_ok m'` mp_tac >>
-      `∀k v. lookup m' k = SOME v ⇒ explode v ∈ set_of avoid3` by (
+      `∀k v. lookup m' k = SOME v ⇒ v ∈ set_of avoid3` by (
         rw[DISJ_EQ_IMP] >> gvs[SUBSET_DEF] >> metis_tac[]) >>
       pop_assum mp_tac >>
       qpat_x_assum `vars_ok avoid3` mp_tac >>
-      `EVERY (λ(cn,pvs,ce). set (MAP explode pvs) ⊆ set_of avoid3 ∧
+      `EVERY (λ(cn,pvs,ce). set pvs ⊆ set_of avoid3 ∧
                             allvars (exp_of ce) ⊆ set_of avoid3) css` by (
         gvs[EVERY_MEM, FORALL_PROD, SUBSET_DEF] >> metis_tac[]) >>
       pop_assum mp_tac >>
@@ -2554,7 +2550,7 @@ Proof
       `∀acc. EVERY NestedCase_free (MAP SND fns) ∧ vars_ok acc ⇒
         vars_ok (FOLDR f acc fns) ∧
         set_of (FOLDR f acc fns) =
-          set (MAP (λ(f,e). explode f) fns) ∪ BIGUNION s ∪ set_of acc`
+          set (MAP FST fns) ∪ BIGUNION s ∪ set_of acc`
     >- (
       unabbrev_all_tac >> gvs[SF ETA_ss] >>
       disch_then $ qspec_then `boundvars_of ce` mp_tac >> rw[] >>
@@ -2637,7 +2633,7 @@ Proof
     qsuff_tac
       `∀acc. vars_ok acc ⇒
         vars_ok (FOLDR f acc fns) ∧
-        set (MAP (λ(f,e). explode f) fns) ∪ BIGUNION s ∪ set_of acc ⊆
+        set (MAP FST fns) ∪ BIGUNION s ∪ set_of acc ⊆
           set_of (FOLDR f acc fns)`
     >- (
       unabbrev_all_tac >> gvs[SF ETA_ss] >>
@@ -2680,7 +2676,7 @@ Proof
     simp[LIST_TO_SET_MAP, cepat_vars_l_correct] >>
     `∀acc. vars_ok acc ⇒ vars_ok (FOLDR f acc pces) ∧
       BIGUNION $ set $ MAP
-        (λ(p,e). boundvars (exp_of e) ∪ IMAGE explode (cepat_vars p)) pces ⊆
+        (λ(p,e). boundvars (exp_of e) ∪ (cepat_vars p)) pces ⊆
       set_of (FOLDR f acc pces)` by (
       qpat_x_assum `Abbrev (acc = _)` kall_tac >>
       last_x_assum assume_tac >> ntac 4 $ last_x_assum kall_tac >>
@@ -2699,7 +2695,7 @@ Proof
       simp[AC CONJ_ASSOC CONJ_COMM] >> conj_tac >- gvs[SUBSET_DEF] >> rw[]
       >- (
         simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> gen_tac >> strip_tac >>
-        PairCases_on `y` >> gvs[] >> Cases_on `patguards [Var (explode x),p]` >>
+        PairCases_on `y` >> gvs[] >> Cases_on `patguards [Var x,p]` >>
         drule patguards_binds_pvars >> gvs[MEM_MAP, EXTENSION, EXISTS_PROD] >>
         metis_tac[]
         )
@@ -2723,7 +2719,7 @@ Definition avoid_set_ok_def:
   avoid_set_ok avoid (ce:'a cexp) ⇔
     vars_ok avoid ∧
     ∀x. x ∈ freevars (exp_of ce) ∪ boundvars (exp_of ce)
-      ⇒ ∃v. lookup (FST avoid) (implode x) = SOME v
+      ⇒ ∃v. lookup (FST avoid) x = SOME v
 End
 
 Theorem avoid_set_ok_avoid_ok:
@@ -2732,12 +2728,10 @@ Proof
   rw[avoid_set_ok_def, avoid_ok_def] >>
   simp[allvars_thm, SUBSET_DEF] >> eq_tac >> strip_tac >> gvs[] >> gen_tac
   >- (
-    `∃x'. x = explode x'` by (qexists `implode x` >> simp[]) >>
     strip_tac >> gvs[] >> res_tac >> simp[GSYM contains_var_in_set_of] >>
     PairCases_on `avoid` >> simp[contains_var_def] >> fs[]
     ) >>
   gvs[SF DNF_ss] >> rw[] >> first_x_assum drule >>
-  `∃x'. x = explode x'` by (qexists `implode x` >> simp[]) >> gvs[] >>
   simp[GSYM contains_var_in_set_of] >>
   PairCases_on `avoid` >> gvs[contains_var_def] >> CASE_TAC >> gvs[]
 QED
@@ -2748,7 +2742,6 @@ Proof
   rw[closed_def, avoid_set_ok_def] >>
   qspec_then `x` assume_tac $ GEN_ALL boundvars_of_SUBSET >> gvs[] >>
   gvs[SUBSET_DEF] >> first_x_assum drule >> strip_tac >>
-  `∃y. x' = explode y` by (qexists `implode x'` >> simp[]) >>
   gvs[GSYM contains_var_in_set_of] >>
   Cases_on `boundvars_of x` >> gvs[contains_var_def] >>
   FULL_CASE_TAC >> gvs[]

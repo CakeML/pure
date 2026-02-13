@@ -4,7 +4,7 @@
  *)
 Theory state_app_unitProof
 Ancestors
-  string option sum pair list alist
+  mlstring option sum pair list alist
   finite_map pred_set rich_list arithmetic pure_exp_lemmas
   pure_misc pure_config pure_semantics[qualified]
   state_app_unit stateLang state_cexp state_app_unit_1Proof
@@ -134,7 +134,7 @@ Proof
     \\ rpt (irule_at Any state_app_unit_1ProofTheory.compile_rel_App \\ fs [])
     \\ drule_all LIST_REL_rel2_rel1
     \\ strip_tac
-    \\ qexists_tac ‘MAP2 (λ(n,v,_) y. (explode n,Lam (SOME (explode v)) y)) sfns ys’
+    \\ qexists_tac ‘MAP2 (λ(n,v,_) y. (n,Lam (SOME v) y)) sfns ys’
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ rpt (pop_assum mp_tac)
     \\ qid_spec_tac ‘tfns’
@@ -150,7 +150,7 @@ Proof
    (irule_at Any state_app_unit_1ProofTheory.compile_rel_Var \\ fs []
     \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Var \\ fs [])
   >-
-   (qexists_tac ‘Lam (OPTION_MAP explode ov) y’
+   (qexists_tac ‘Lam ov y’
     \\ once_rewrite_tac [state_app_unit_2ProofTheory.compile_rel_cases] \\ simp []
     \\ once_rewrite_tac [state_app_unit_1ProofTheory.compile_rel_cases] \\ simp [])
   >-
@@ -176,7 +176,7 @@ Proof
     \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Letrec \\ fs []
     \\ rpt $ first_x_assum $ irule_at $ Any
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-    \\ qexists_tac ‘MAP (λ((x,y,_),z). (explode x,Lam (SOME (explode y)) z)) (ZIP (tfns,ys))’
+    \\ qexists_tac ‘MAP (λ((x,y,_),z). (x,Lam (SOME y) z)) (ZIP (tfns,ys))’
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ rpt (pop_assum mp_tac)
     \\ qid_spec_tac ‘ys’
@@ -201,9 +201,9 @@ Proof
   \\ irule_at Any state_app_unit_1ProofTheory.compile_rel_Case \\ fs []
   \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Case \\ fs []
   \\ ‘∃tt. OPTREL (λ(a,x) (b,y). a = b ∧ rel2 x y)
-             (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) te) tt ∧
+             (OPTION_MAP (λ(alts,e). (alts,exp_of e)) te) tt ∧
            OPTREL (λ(a,x) (b,y). a = b ∧ rel1 x y) tt
-             (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) se)’ by
+             (OPTION_MAP (λ(alts,e). (alts,exp_of e)) se)’ by
    (Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs []
     \\ gvs [UNCURRY]
     \\ Q.REFINE_EXISTS_TAC ‘SOME (_,_)’
@@ -211,7 +211,7 @@ Proof
   \\ pop_assum $ irule_at Any
   \\ pop_assum $ irule_at Any
   \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-  \\ qexists_tac ‘MAP (λ((x,y,_),z). (explode x,MAP explode y,z)) (ZIP (tes,ys))’
+  \\ qexists_tac ‘MAP (λ((x,y,_),z). (x,y,z)) (ZIP (tes,ys))’
   \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
   \\ rpt (pop_assum mp_tac)
   \\ qid_spec_tac ‘ys’

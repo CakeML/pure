@@ -3,7 +3,7 @@
  *)
 Theory thunk_to_envProof
 Ancestors
-  string option sum pair list alist pred_set rich_list
+  mlstring option sum pair list alist pred_set rich_list
   thunkLang_primitives envLang finite_map thunkLang
   env_semantics thunk_semantics pure_misc thunkLangProps thunk_cexp
   thunk_to_env thunk_to_env_1Proof thunk_exp_of
@@ -92,7 +92,7 @@ Proof
     \\ reverse conj_tac
     >- (first_x_assum irule \\ fs [SF SFY_ss])
     \\ qspec_tac (‘LENGTH h1’,‘l’)
-    \\ qspec_tac (‘(MAPi (λi v. (i,v)) (MAP explode h1))’,‘xs’)
+    \\ qspec_tac (‘(MAPi (λi v. (i,v)) h1)’,‘xs’)
     \\ Induct \\ fs [FORALL_PROD]
     \\ fs [lets_for_def,envLangTheory.lets_for_def]
     \\ rw []

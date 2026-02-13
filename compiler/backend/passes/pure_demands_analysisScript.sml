@@ -375,7 +375,7 @@ Definition demands_analysis_fun_def:
      (m, Case a0 e' n cases' eopt', NONE)) ∧
   (demands_analysis_fun c (NestedCase i _ _ _ _ _) fds =
    (empty compare,
-    Var i (implode "Fail: demands analysis on NestedCase"),
+    Var i «Fail: demands analysis on NestedCase»,
     NONE))
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []

@@ -3,7 +3,7 @@
  *)
 Theory env_to_stateProof
 Ancestors
-  string option sum pair list alist finite_map
+  mlstring option sum pair list alist finite_map
   pred_set rich_list arithmetic pure_exp_lemmas pure_misc
   pure_config envLang thunkLang_primitives stateLang
   env_semantics state_caseProof state_unthunkProof env_cexp
@@ -31,7 +31,7 @@ QED
 Theorem IMP_state_cexp_wf:
   envLang$cexp_wf x ⇒
   cexp_wf (compile_to_state c x) ∧
-  cns_arities (compile_to_state c x) ⊆ cns_arities x ∪ {{("",0)}; {("True", 0)}; {("False", 0)}}
+  cns_arities (compile_to_state c x) ⊆ cns_arities x ∪ {{(«»,0)}; {(«True», 0)}; {(«False», 0)}}
 Proof
   strip_tac
   \\ simp [compile_to_state_def]

@@ -9,7 +9,7 @@
  *)
 Theory thunk_case_liftProof
 Ancestors
-  string option sum pair list alist thunkLang_primitives pure_misc
+  mlstring option sum pair list alist thunkLang_primitives pure_misc
   finite_map pred_set rich_list thunkLang wellorder
   thunk_semantics[qualified] thunkLangProps thunk_tickProof
 Libs
@@ -370,8 +370,8 @@ Proof
       )
         (* Recclosure *)
     \\ rename1 ‘LIST_REL _ xs ys’
-    \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s)
-                       (ALOOKUP (REVERSE ys) s)’
+    \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m)
+                       (ALOOKUP (REVERSE ys) m)’
       by (irule LIST_REL_OPTREL \\ gs [])
     \\ gs [OPTREL_def]
     \\ rgs [Once exp_rel_cases]
@@ -463,8 +463,8 @@ Proof
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
       >- (
         rename1 ‘LIST_REL _ xs ys’
-        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s)
-                           (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m)
+                           (ALOOKUP (REVERSE ys) m)’
           by (irule LIST_REL_OPTREL \\ gs [])
         \\ gs [OPTREL_def]
         \\ rgs [Once exp_rel_cases]
@@ -652,7 +652,7 @@ Proof
     \\ irule exp_rel_eval
     \\ irule exp_rel_subst \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
-  \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+  \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) m) (ALOOKUP (REVERSE ys) m)’
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]

@@ -5,7 +5,6 @@ local
   open HolKernel boolLib bossLib
   open computeLib reduceLib optionLib pairLib listSimps stringLib sptreeLib
        combinLib finite_mapLib pred_setLib
-  open basisComputeLib
   open pure_unificationTheory pure_inferenceTheory pure_printTheory pure_printLib
 
   val pure_wfs_FEMPTY = Q.prove(`pure_wfs FEMPTY`, rw[pure_wfs_def]);
@@ -81,17 +80,22 @@ in
       (``pure_oc``, 3, pure_oc_conv eval)
     ]
 
-    val _ = computeLib.add_thms funs compset
-    val _ = List.app (Lib.C computeLib.add_conv compset)
-              (convs (computeLib.CBV_CONV compset))
-    val _ = computeLib.extend_compset [computeLib.Tys [``:utype``]] compset
+    val compset = computeLib.add_thms funs compset
+    val compset =
+      List.foldl
+        (fn (conv, cs) => computeLib.add_conv conv cs)
+        compset
+        (convs (computeLib.CBV_CONV compset))
+    val compset =
+      computeLib.extend_compset [computeLib.Tys [``:utype``]] compset
+
     in
-      ()
+      compset
     end
 
-  fun pure_infer_compset () = let
-    val cmp = reduceLib.num_compset ()
-    val _ = Lib.C computeLib.extend_compset cmp (
+  val pure_infer_compset = let
+    val cmp = reduceLib.num_compset
+    val cmp = Lib.C computeLib.extend_compset cmp (
               computeLib.Extenders [
                 optionLib.OPTION_rws,
                 pairLib.add_pair_compset,
@@ -99,9 +103,9 @@ in
                 alistLib.add_alist_compset,
                 listLib.add_rich_list_compset,
                 stringLib.add_string_compset,
+                mlstringLib.add_mlstring_compset,
                 sptreeLib.add_sptree_compset,
                 combinLib.add_combin_compset,
-                basisComputeLib.add_basis_compset,
                 finite_mapLib.add_finite_map_compset,
                 pred_setLib.add_pred_set_compset,
                 add_unify_compset
@@ -116,11 +120,11 @@ in
           )
     in cmp end
 
-  val pure_infer_eval = CBV_CONV (pure_infer_compset ())
+  val pure_infer_eval = CBV_CONV pure_infer_compset
 
-  fun pure_parse_infer_compset () = let
-    val cmp = pure_infer_compset ()
-    val _ = Lib.C computeLib.extend_compset cmp (
+  val pure_parse_infer_compset = let
+    val cmp = pure_infer_compset
+    val cmp = Lib.C computeLib.extend_compset cmp (
               computeLib.Extenders [pred_setLib.add_pred_set_compset] ::
               computeLib.Tys [``:source_values$v``] ::
               map (computeLib.Defs o theory_computes) [
@@ -129,7 +133,7 @@ in
               )
     in cmp end
 
-  val pure_parse_infer_eval = CBV_CONV (pure_parse_infer_compset ())
+  val pure_parse_infer_eval = CBV_CONV pure_parse_infer_compset
 
 end
 

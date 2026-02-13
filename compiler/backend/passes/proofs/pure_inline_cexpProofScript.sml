@@ -3,7 +3,7 @@
 *)
 Theory pure_inline_cexpProof
 Ancestors
-  fixedPoint arithmetic list string alist option pair ltree llist
+  fixedPoint arithmetic list mlstring alist option pair ltree llist
   bag pred_set relation rich_list finite_map combin mlmap
   indexedLists pure_exp pure_value pure_eval pure_eval_lemmas
   pure_exp_lemmas pure_limit pure_exp_rel pure_alpha_equiv
@@ -18,11 +18,11 @@ Libs
 (* xs and m have the same elements *)
 Definition memory_inv_def:
   memory_inv xs m (ns:(mlstring,unit) map # num) ⇔
-    { explode a | ∃e. lookup m a = SOME e } = set (MAP FST xs) ∧
+    { a | ∃e. lookup m a = SOME e } = set (MAP FST xs) ∧
     EVERY (λ(v,r). v ∈ set_of ns ∧ ∃e:'a cexp. avoid_set_ok ns e ∧ r = exp_of e) xs ∧
     ∀v e. (lookup m v = SOME e) ⇒
           ∃e1. e = (e1:'a cexp) ∧ cheap e1 ∧
-               MEM (explode v, exp_of e) xs ∧
+               MEM (v, exp_of e) xs ∧
                avoid_set_ok ns e1 ∧
                NestedCase_free e1 ∧
                letrecs_distinct (exp_of e1) ∧
@@ -91,12 +91,12 @@ QED
 Theorem memory_inv_APPEND:
   memory_inv xs m ns ∧
   map_ok m ∧ cheap e1 ∧
-  avoid_set_ok ns e1 ∧ explode v ∈ set_of ns ∧
+  avoid_set_ok ns e1 ∧ v ∈ set_of ns ∧
   NestedCase_free e1 ∧
   letrecs_distinct (exp_of e1) ∧
   cexp_wf e1 ∧
-  ¬MEM (explode v) (MAP FST xs) ⇒
-  memory_inv (xs ++ [(explode v,exp_of e1)]) (insert m v e1) ns
+  ¬MEM v (MAP FST xs) ⇒
+  memory_inv (xs ++ [(v,exp_of e1)]) (insert m v e1) ns
 Proof
   gvs [memory_inv_def]
   \\ disch_tac \\ fs []
@@ -238,7 +238,7 @@ Theorem exp_of_Lets:
   ∀vs xs b.
     LENGTH vs = LENGTH xs ⇒
     exp_of (Lets a (ZIP (vs,xs)) b) =
-    Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
+    Lets (ZIP (vs, MAP exp_of xs)) (exp_of b)
 Proof
   Induct \\ Cases_on ‘xs’
   \\ gvs [pure_cexpTheory.Lets_def,pure_expTheory.Lets_def]
@@ -475,7 +475,7 @@ QED
 
 Theorem TO_IN_set_of:
   vars_ok ns ⇒
-  (lookup (FST ns) v = SOME () ⇔ explode v ∈ set_of ns)
+  (lookup (FST ns) v = SOME () ⇔ v ∈ set_of ns)
 Proof
   PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
   \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
@@ -528,7 +528,7 @@ QED
 
 Theorem avoid_set_ok_Lam:
   avoid_set_ok ns (Lam a vs e) ⇔
-  avoid_set_ok ns e ∧ set (MAP explode vs) ⊆ set_of ns
+  avoid_set_ok ns e ∧ set vs ⊆ set_of ns
 Proof
   fs [avoid_set_ok_allvars,exp_of_def,allvars_Lams]
   \\ eq_tac \\ rw [] \\ gvs []
@@ -536,7 +536,7 @@ Proof
   (gvs [SUBSET_DEF]
    \\ PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
    \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
-   \\ qexists_tac ‘implode x’ \\ fs [])
+   \\ qexists_tac ‘x’ \\ fs [])
   \\ gvs [SUBSET_DEF]
   \\ PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
   \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
@@ -553,7 +553,7 @@ QED
 
 Theorem avoid_set_ok_Let:
   avoid_set_ok ns (Let a v e1 e2) ⇔
-  explode v ∈ set_of ns ∧
+  v ∈ set_of ns ∧
   avoid_set_ok ns e1 ∧
   avoid_set_ok ns e2
 Proof
@@ -569,7 +569,7 @@ Proof
 QED
 
 Theorem allvars_IfDisj:
-  ∀xs v e. w ∈ allvars (IfDisj v xs e) ⇒ w = explode v ∨ w ∈ allvars e
+  ∀xs v e. w ∈ allvars (IfDisj v xs e) ⇒ w = v ∨ w ∈ allvars e
 Proof
   Induct \\ fs [IfDisj_def,Disj_def]
   \\ PairCases \\ fs [Disj_def] \\ metis_tac []
@@ -593,14 +593,14 @@ QED
 
 Theorem avoid_set_ok_Case:
   avoid_set_ok ns (Case a e v rows e1) ⇔
-  explode v ∈ set_of ns ∧
+  v ∈ set_of ns ∧
   avoid_set_ok ns e ∧
-  EVERY (λ(c,vs,x). avoid_set_ok ns x ∧ EVERY (λv. explode v ∈ set_of ns) vs) rows ∧
+  EVERY (λ(c,vs,x). avoid_set_ok ns x ∧ EVERY (λv. v ∈ set_of ns) vs) rows ∧
   (∀vs x. e1 = SOME (vs,x) ⇒ avoid_set_ok ns x)
 Proof
   fs [avoid_set_ok_allvars,exp_of_def,SF DNF_ss,allvars_if]
   \\ Cases_on ‘vars_ok ns’ \\ fs [TO_IN_set_of]
-  \\ Cases_on ‘explode v ∈ set_of ns’ \\ fs []
+  \\ Cases_on ‘v ∈ set_of ns’ \\ fs []
   \\ simp [AC CONJ_ASSOC CONJ_COMM]
   \\ irule (METIS_PROVE [] “(a ⇒ (b ⇔ b1)) ⇒ (a ∧ b ⇔ a ∧ b1)”)
   \\ strip_tac
@@ -618,7 +618,7 @@ QED
 
 Theorem avoid_set_ok_Letrec:
   avoid_set_ok ns (Letrec a xs x) ⇔
-  (set (MAP explode (MAP FST xs)) ⊆ set_of ns ∧
+  (set (MAP FST xs) ⊆ set_of ns ∧
    EVERY (avoid_set_ok ns) (MAP SND xs) ∧
    avoid_set_ok ns x)
 Proof
@@ -673,10 +673,10 @@ Theorem Case_lemma:
     set_of ns2 ⊆ set_of ns1 ∧ vars_ok ns1 ∧
     EVERY (avoid_set_ok ns2) bs2 ∧
     EVERY (λ(c,vs,x).
-             avoid_set_ok ns x ∧ EVERY (λv. explode v ∈ set_of ns) vs) bs
+             avoid_set_ok ns x ∧ EVERY (λv. v ∈ set_of ns) vs) bs
     ⇒
     EVERY (λ(c,vs,x).
-             avoid_set_ok ns1 x ∧ EVERY (λv. explode v ∈ set_of ns1) vs)
+             avoid_set_ok ns1 x ∧ EVERY (λv. v ∈ set_of ns1) vs)
           (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2)
 Proof
   ntac 4 gen_tac
@@ -806,7 +806,7 @@ Proof
     \\ imp_res_tac inline_set_of \\ gvs []
     \\ imp_res_tac avoid_set_ok_subset \\ gvs []
     \\ imp_res_tac mem_inv_subset \\ gvs []
-    \\ ‘explode v ∈ set_of ns1’ by gvs [SUBSET_DEF] \\ fs []
+    \\ ‘v ∈ set_of ns1’ by gvs [SUBSET_DEF] \\ fs []
     \\ imp_res_tac inline_list_length \\ fs []
     \\ ‘EVERY (avoid_set_ok ns1a) (MAP (λ(v,vs,e). e) bs)’ by
       (gvs [EVERY_MEM,EXISTS_PROD,PULL_EXISTS,MEM_MAP]
@@ -857,12 +857,13 @@ Theorem freevars_Lets:
   ∀xs x.
     freevars (exp_of (Lets a xs x)) ⊆
     BIGUNION (set (MAP freevars (MAP exp_of (MAP SND xs)))) ∪
-    (freevars (exp_of x) DIFF set (MAP explode (MAP FST xs)))
+    (freevars (exp_of x) DIFF set (MAP FST xs))
 Proof
   Induct_on ‘xs’ \\ fs [Lets_def]
   \\ PairCases \\ fs [Lets_def,exp_of_def]
   \\ gvs [AC UNION_COMM UNION_ASSOC]
   \\ gvs [SUBSET_DEF]
+  \\ metis_tac []
 QED
 
 Theorem NestedCase_free_Lets:
@@ -1154,8 +1155,8 @@ Proof
           rw[] >> first_x_assum drule >> rw[] >> gvs[TO_IN_set_of])
     \\ fs [cns_arities_def]
     \\ ‘MAP SND (MAP2 (λ(v,_). $, v) vbs vbs1) = vbs1 ∧
-        MAP (λ(p1,p2). explode p1) (MAP2 (λ(v,_). $, v) vbs vbs1) =
-        MAP (λ(p1,p2). explode p1) vbs ∧
+        MAP FST (MAP2 (λ(v,_). $, v) vbs vbs1) =
+        MAP FST vbs ∧
         MAP (λ(p1,p2). freevars (exp_of p2)) (MAP2 (λ(v,_). $, v) vbs vbs1) =
         MAP (λx. freevars (exp_of x)) vbs1 ∧
         MAP (λ(v,e'). cns_arities e') (MAP2 (λ(v,_). $, v) vbs vbs1) =
@@ -1169,7 +1170,7 @@ Proof
       \\ qid_spec_tac ‘vbs’
       \\ Induct \\ fs []
       \\ PairCases \\ Cases \\ fs [])
-    \\ gvs [] >>
+    \\ gvs [FST_THM] >>
        drule $ cj 2 inline_set_of >>
        impl_tac >- gvs[avoid_set_ok_def] >> strip_tac >>
        drule $ cj 1 inline_set_of >>
@@ -1199,7 +1200,7 @@ Proof
     \\ gvs []
     \\ imp_res_tac inline_list_length \\ gvs []
     \\ ‘EVERY letrecs_distinct (MAP exp_of (MAP (SND ∘ SND) bs))’ by
-          (qpat_x_assum ‘letrecs_distinct (rows_of (explode v) _ _)’ mp_tac
+          (qpat_x_assum ‘letrecs_distinct (rows_of v _ _)’ mp_tac
            \\ rpt (pop_assum kall_tac)
            \\ gvs [letrecs_distinct_rows_of,EVERY_MAP,o_DEF,LAMBDA_PROD])
     \\ ‘MAP (FST ∘ SND) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
@@ -1215,7 +1216,7 @@ Proof
         MAP (SND ∘ SND) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) = bs2 ∧
         (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2 ≠ [] ⇔ bs ≠ []) ∧
         EVERY (λ(cons,vL,e). letrecs_distinct e)
-          (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x'))
+          (MAP (λ(c,vs,x'). (c,vs,exp_of x'))
              (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2)) =
         EVERY letrecs_distinct (MAP exp_of bs2)’ by
       (qpat_x_assum ‘LENGTH bs = LENGTH bs2’ mp_tac
@@ -1279,16 +1280,16 @@ Proof
     \\ gvs [letrecs_distinct_rows_of]
     \\ ‘∀xx. BIGUNION
             (set
-               (MAP (λ(c,vs,e). freevars e DIFF set vs ∪ {explode v})
-                  (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x'))
+               (MAP (λ(c,vs,e). freevars e DIFF set vs ∪ {v})
+                  (MAP (λ(c,vs,x'). (c,vs,exp_of x'))
                      (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2)))) ⊆
-          explode v INSERT
+          v INSERT
           xx ∪
           BIGUNION
             (set
-               (MAP (λ(c,vs,e). freevars e DIFF set vs ∪ {explode v})
-                  (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) bs)))
-             DELETE explode v ∪ freevars (exp_of e) ∪
+               (MAP (λ(c,vs,e). freevars e DIFF set vs ∪ {v})
+                  (MAP (λ(c,vs,x'). (c,vs,exp_of x')) bs)))
+             DELETE v ∪ freevars (exp_of e) ∪
           {a | ∃n x. lookup m n = SOME x ∧ a ∈ freevars (exp_of x)}’ by
       (rpt gen_tac
        \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
@@ -1597,7 +1598,7 @@ Proof
   \\ gvs [avoid_set_ok_def,set_of_def,SUBSET_DEF,vars_ok_def]
   \\ gvs [TO_FLOOKUP,GSYM mlmapTheory.lookup_thm] \\ rw []
   \\ first_x_assum $ qspec_then ‘x’ mp_tac \\ fs [] \\ rw []
-  \\ qexists_tac ‘implode x’ \\ fs []
+  \\ qexists_tac ‘x’ \\ fs []
 QED
 
 Theorem memory_inv_imp_set_of:
@@ -1830,7 +1831,7 @@ Proof
     \\ irule_at Any inline_rel_simp
     \\ irule_at (Pos hd) inline_rel_Apps
     \\ irule_at (Pos hd) inline_rel_Var
-    \\ ‘MEM (explode v,exp_of c) xs’ by
+    \\ ‘MEM (v,exp_of c) xs’ by
           (fs [memory_inv_def] \\ res_tac  \\ fs [])
     \\ pop_assum $ irule_at Any
     \\ qexists_tac ‘MAP exp_of es1’
@@ -1882,7 +1883,7 @@ Proof
     \\ DEP_REWRITE_TAC [Apps_Lams_eq_Lets_boundvars]
     \\ DEP_REWRITE_TAC [Apps_Lams_eq_Lets_freevars]
     \\ gvs [SF CONJ_ss,Apps_append]
-    \\ qabbrev_tac ‘app_lam = Apps (Lams (MAP explode l3) (exp_of c3)) (MAP exp_of es2a)’
+    \\ qabbrev_tac ‘app_lam = Apps (Lams l3 (exp_of c3)) (MAP exp_of es2a)’
     \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
     \\ irule_at Any barendregt_Lets_lemma \\ fs []
     \\ irule_at Any memory_inv_subset
@@ -1915,17 +1916,17 @@ Proof
           DISJOINT (freevars (exp_of y')) (boundvars app_lam))’
           by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]) \\ fs []
     \\ ‘∀y. MEM y es2a ⇒
-            DISJOINT (set (MAP explode l3)) (freevars (exp_of y))’
+            DISJOINT (set l3) (freevars (exp_of y))’
           by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
               \\ gvs [boundvars_Apps,boundvars_Lams]) \\ fs []
     \\ ‘∀y'. MEM y' es2b ⇒
-           DISJOINT (freevars (exp_of c3) DIFF set (MAP explode l3))
+           DISJOINT (freevars (exp_of c3) DIFF set l3)
              (boundvars (exp_of y')) ∧
            ∀y''. MEM y'' es2a ⇒
              DISJOINT (freevars (exp_of y'')) (boundvars (exp_of y'))’
           by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
               \\ gvs [boundvars_Apps,boundvars_Lams]) \\ fs [SF SFY_ss]
-    \\ ‘DISJOINT (freevars (exp_of c3) DIFF set (MAP explode l3))
+    \\ ‘DISJOINT (freevars (exp_of c3) DIFF set l3)
           (boundvars app_lam)’
           by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
               \\ gvs [boundvars_Apps,boundvars_Lams]) \\ fs []
@@ -1978,11 +1979,11 @@ Proof
       \\ imp_res_tac avoid_set_ok_imp_vars_ok
       \\ gvs []
       \\ ‘avoid_set_ok ns3 (Let a v e1 e2)’ by metis_tac [avoid_set_ok_subset]
-      \\ ‘explode v ∈ set_of ns3’ by
+      \\ ‘v ∈ set_of ns3’ by
        (gvs [avoid_set_ok_def,exp_of_def]
         \\ PairCases_on ‘ns3’ \\ gvs [set_of_def,vars_ok_def]
         \\ gvs [GSYM mlmapTheory.lookup_thm, TO_FLOOKUP, NOT_NONE_UNIT]
-        \\ first_x_assum $ qspec_then ‘explode v’ mp_tac \\ fs [])
+        \\ first_x_assum $ qspec_then ‘v’ mp_tac \\ fs [])
       \\ gvs [barendregt_alt_def]
       \\ metis_tac [memory_inv_subset,avoid_set_ok_subset,SUBSET_TRANS]
     )
@@ -2072,13 +2073,13 @@ Proof
     \\ strip_tac \\ fs []
     \\ fs [mlmapTheory.insert_thm]
     \\ irule_at Any memory_inv_APPEND \\ fs []
-    \\ rename [‘explode w ∈ set_of ns8’]
-    \\ ‘explode w ∈ set_of ns8’ by
+    \\ rename [‘w ∈ set_of ns8’]
+    \\ ‘w ∈ set_of ns8’ by
      (‘avoid_set_ok ns8 (Letrec a [(w,u)] e)’ by metis_tac [avoid_set_ok_subset]
       \\ gvs [avoid_set_ok_def,exp_of_def]
       \\ PairCases_on ‘ns8’ \\ gvs [set_of_def,vars_ok_def]
       \\ gvs [GSYM mlmapTheory.lookup_thm, TO_FLOOKUP, NOT_NONE_UNIT]
-      \\ first_x_assum $ qspec_then ‘explode w’ mp_tac \\ fs [])
+      \\ first_x_assum $ qspec_then ‘w’ mp_tac \\ fs [])
     \\ qpat_x_assum ‘barendregt (Letrec _ _)’ mp_tac
     \\ simp [barendregt_alt_def] \\ strip_tac
     \\ ‘cheap x’ by (imp_res_tac specialise_is_Lam \\ simp [cheap_def])
@@ -2088,7 +2089,7 @@ Proof
      (fs [avoid_set_ok_def,SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
       \\ gvs [] \\ rename [‘FST ns5’] \\ PairCases_on ‘ns5’ \\ fs []
       \\ PairCases_on ‘ns’ \\ gvs [exp_of_def]
-      \\ last_x_assum $ qspec_then ‘explode w’ mp_tac
+      \\ last_x_assum $ qspec_then ‘w’ mp_tac
       \\ fs [] \\ gvs [set_of_def,TO_FLOOKUP,PULL_EXISTS]
       \\ gvs [mlmapTheory.lookup_thm,vars_ok_def,NOT_NONE_UNIT])
     \\ drule_all speclise_wf
