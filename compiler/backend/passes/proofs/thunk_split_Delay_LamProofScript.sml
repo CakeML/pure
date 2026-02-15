@@ -1511,15 +1511,6 @@ Proof
   \\ gs [boundvars_def]
 QED
 
-Theorem INFINITE_mlstring[local]:
-  INFINITE 𝕌(:mlstring)
-Proof
-  strip_assume_tac explode_BIJ
-  \\ strip_tac
-  \\ drule_all pred_setTheory.FINITE_BIJ
-  \\ simp [INFINITE_LIST_UNIV]
-QED
-
 Theorem letrec_split_soundness:
   ∀binds.
     (∀e. MEM e (MAP SND binds) ⇒
@@ -1824,20 +1815,20 @@ Proof
           >- (gs [FOLDL_replace_Force_Lam]
               \\ rename1 ‘cexp_ok_bind e2’
               \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
-              >- (rename1 ‘Apps _ (MAP _ list)’
-                  \\ qspec_then ‘list’ assume_tac SNOC_CASES
+              >- (rename1 ‘Apps _ (MAP _ list')’
+                  \\ qspec_then ‘list'’ assume_tac SNOC_CASES
                   \\ gs [exp_of_def, FOLDL_MAP, FOLDL_SNOC])
-              >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
-                  \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
+              >- (rename1 ‘rows_of _ (MAP _ list') (OPTION_MAP _ fall)’
+                  \\ Cases_on ‘list'’ \\ gs [rows_of_def, FOLDL_APPEND]
                   \\ pairarg_tac \\ gs [rows_of_def]))
           >- (gs [FOLDL_replace_Force_Delay]
               \\ rename1 ‘cexp_ok_bind e2’
               \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
-              >- (rename1 ‘Apps _ (MAP _ list)’
-                  \\ qspec_then ‘list’ assume_tac SNOC_CASES
+              >- (rename1 ‘Apps _ (MAP _ list')’
+                  \\ qspec_then ‘list'’ assume_tac SNOC_CASES
                   \\ gs [exp_of_def, FOLDL_MAP, FOLDL_SNOC])
-              >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
-                  \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
+              >- (rename1 ‘rows_of _ (MAP _ list') (OPTION_MAP _ fall)’
+                  \\ Cases_on ‘list'’ \\ gs [rows_of_def, FOLDL_APPEND]
                   \\ pairarg_tac \\ gs [rows_of_def])))
       >- (gs [ALL_DISTINCT_APPEND]
           \\ drule_all_then assume_tac unfold_Delay_Lam_Eq2

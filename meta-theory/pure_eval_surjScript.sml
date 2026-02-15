@@ -10,52 +10,6 @@ Ancestors
 Libs
   term_tactic BasicProvers dep_rewrite
 
-Theorem char_countable:
-  COUNTABLE 𝕌(:char)
-Proof
-  rw[countable_def] >>
-  qexists_tac ‘ORD’ >>
-  rw[INJ_DEF,ORD_11]
-QED
-
-Theorem list_countable:
-  COUNTABLE 𝕌(:'a) ⇒ COUNTABLE 𝕌(:'a list)
-Proof
-  strip_tac >>
-  qsuff_tac ‘∀n. COUNTABLE {s:'a list | LENGTH s = n}’
-  >- (strip_tac >>
-      ‘𝕌(:'a list) = BIGUNION(IMAGE (λn. {s:'a list | LENGTH s = n}) 𝕌(:num))’
-        by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
-           rw[PULL_EXISTS]) >>
-      pop_assum SUBST_ALL_TAC >>
-      match_mp_tac COUNTABLE_BIGUNION >>
-      simp[COUNTABLE_IMAGE,num_countable] >>
-      metis_tac[]) >>
-  Induct >- rw[countable_def,INJ_DEF] >>
-  ‘{s | LENGTH s = SUC n} =
-   BIGUNION {IMAGE (CONS c) {s:'a list | LENGTH s = n} | c ∈ 𝕌(:'a)}’
-    by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
-       conj_tac >> Cases >> rw[IN_IMAGE,PULL_EXISTS]) >>
-  pop_assum SUBST_ALL_TAC >>
-  match_mp_tac COUNTABLE_BIGUNION >>
-  conj_tac
-  >- (simp[Once GSPEC_IMAGE] >>
-      match_mp_tac COUNTABLE_IMAGE >>
-      simp[o_DEF,GSYM UNIV_DEF]) >>
-  rw[] >>
-  simp[COUNTABLE_IMAGE]
-QED
-
-Theorem string_countable:
-  COUNTABLE 𝕌(:mlstring)
-Proof
-  ‘COUNTABLE 𝕌(:string)’ by metis_tac[list_countable,char_countable]
-  \\ gvs [countable_def, INJ_DEF]
-  \\ qexists ‘f o explode’ \\ gvs [] \\ rw []
-  \\ gvs [oneline explode_thm]
-  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs []
-QED
-
 Theorem prod_countable:
   COUNTABLE 𝕌(:'a) ∧ COUNTABLE 𝕌(:'b)
   ⇒
@@ -107,11 +61,11 @@ Proof
              ∪ IMAGE (λ(x,y). Msg x y) (𝕌(:mlstring) × 𝕌(:mlstring))` by (
       rw[EXTENSION,EXISTS_PROD] >> Cases_on `x` >> gvs[]) >>
   pop_assum SUBST_ALL_TAC >> simp[] >>
-  simp[COUNTABLE_IMAGE, string_countable, int_countable] >>
+  simp[COUNTABLE_IMAGE, COUNTABLE_mlstring, int_countable] >>
   irule COUNTABLE_IMAGE >>
   irule COUNTABLE_IMAGE >>
   irule pred_setTheory.cross_countable >>
-  fs [string_countable]
+  fs [COUNTABLE_mlstring]
 QED
 
 Theorem op_countable:
@@ -129,7 +83,7 @@ Proof
        metis_tac[FST,SND]) >>
   pop_assum SUBST_ALL_TAC >>
   simp[union_countable_IFF,COUNTABLE_IMAGE,
-       string_countable,prod_countable,num_countable,atom_op_countable]
+       COUNTABLE_mlstring,prod_countable,num_countable,atom_op_countable]
 QED
 
 Theorem list_countable_res:
@@ -221,7 +175,7 @@ Proof
       match_mp_tac COUNTABLE_IMAGE >>
       match_mp_tac COUNTABLE_SUBSET >>
       irule_at (Pos hd) SUBSET_UNIV >>
-      simp[string_countable])
+      simp[COUNTABLE_mlstring])
   >- (rename1 ‘pure_exp$Prim’ >>
       match_mp_tac COUNTABLE_IMAGE >>
       ho_match_mp_tac (COUNTABLE_PRODUCT_DEPENDENT |> SIMP_RULE std_ss [IN_DEF]) >>
@@ -247,7 +201,7 @@ Proof
       conj_tac
       >- (match_mp_tac COUNTABLE_SUBSET >>
           irule_at (Pos hd) SUBSET_UNIV >>
-          simp[string_countable]) >>
+          simp[COUNTABLE_mlstring]) >>
       ‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
       gvs[])
   >- (rename1 ‘pure_exp$Letrec’ >>
@@ -263,7 +217,7 @@ Proof
              by(rw[ELIM_UNCURRY]) >>
            pop_assum SUBST_ALL_TAC >>
            ho_match_mp_tac COUNTABLE_PRODUCT_2 >>
-           rw[GSYM UNIV_DEF,string_countable] >>
+           rw[GSYM UNIV_DEF,COUNTABLE_mlstring] >>
            ‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
            gvs[]) >>
       drule_at_then (Pos last) match_mp_tac COUNTABLE_SUBSET >>

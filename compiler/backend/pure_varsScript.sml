@@ -4,8 +4,7 @@
 *)
 Theory pure_vars
 Ancestors
-  list string alist option pair pred_set finite_map mlmap
-  mlstring
+  list mlstring alist option pair pred_set finite_map mlmap
 Libs
   BasicProvers dep_rewrite
 
@@ -223,13 +222,13 @@ Definition var_creator_ok_def:
 End
 
 Definition vc_to_set_def:
-  vc_to_set vc = IMAGE explode (FDOM (to_fmap vc))
+  vc_to_set vc = FDOM (to_fmap vc)
 End
 
 Theorem new_var_soundness:
   ∀vc' s'. new_var vc s = (s', vc') ∧ var_creator_ok vc ⇒
-           var_creator_ok vc' ∧ explode s' ∉ vc_to_set vc ∧
-           vc_to_set vc' = vc_to_set vc ∪ {explode s'}
+           var_creator_ok vc' ∧ s' ∉ vc_to_set vc ∧
+           vc_to_set vc' = vc_to_set vc ∪ {s'}
 Proof
   completeInduct_on ‘CARD (FDOM (to_fmap vc) ∩ {s2 | strlen s ≤ strlen s2})’
   \\ gvs [var_creator_ok_def]

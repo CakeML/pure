@@ -1052,7 +1052,7 @@ Proof
       gvs []) >>
   gvs [FOLDR_SNOC, FOLDL_MAP, FOLDL_SNOC, eval_to_def] >>
   rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
-  first_x_assum $ qspecl_then [‘eL’, ‘Lam s e’, ‘k’, ‘list’, ‘v’] assume_tac >>
+  first_x_assum $ qspecl_then [‘eL’, ‘Lam s e’, ‘k’, ‘list'’, ‘v’] assume_tac >>
   gvs [subst_def, eval_to_def, dest_anyClosure_def] >>
   once_rewrite_tac [SNOC_APPEND] >>
   AP_TERM_TAC >>
@@ -2400,12 +2400,12 @@ Proof
                 \\ gvs []
                 \\ qpat_x_assum ‘∀i. eval_to _ g = _’ mp_tac
                 \\ qmatch_goalsub_abbrev_tac ‘eval_to _ g
-                      = INR (Closure _ (Apps (Value (Recclosure list _)) _))’
+                      = INR (Closure _ (Apps (Value (Recclosure list' _)) _))’
                 \\ strip_tac \\ rename1 ‘force_arg_rel x2 y2’
                 \\ last_x_assum $ qspecl_then [‘ZIP (vL1, eL1)
            ++ (FILTER (λ(v,x).¬MEM v vL1 ∧ v ≠ s) (MAP (λ(v,x).(v, Recclosure xs v)) xs))’,
            ‘s2’, ‘val1’, ‘Tick x2’, ‘subst (ZIP(vL1, eL2) ++ (FILTER (λ(v,x).¬MEM v vL1 ∧ v ≠ s2)
-           (MAP (λ(v,x).(v, Recclosure list v)) list)) ++ [(s2, val2)]) (Tick y2)’] mp_tac
+           (MAP (λ(v,x).(v, Recclosure list' v)) list')) ++ [(s2, val2)]) (Tick y2)’] mp_tac
                 \\ impl_tac
                 >- (gvs [subst_APPEND]
                     \\ irule force_arg_rel_subst \\ gvs [MAP_ZIP, LIST_REL_EL_EQN]
@@ -2414,7 +2414,7 @@ Proof
                                      (MAP (λ(v,x).(v,Recclosure xs v)) xs)’,
                       ‘subst1 s2 val1 (Tick x2)’, ‘{s2}’] assume_tac $ GSYM subst_remove
                     \\ qspecl_then [‘FILTER (λ(v,x). ¬MEM v vL1 ∧ v ≠ s2)
-                                     (MAP (λ(v,x).(v,Recclosure list v)) list)’,
+                                     (MAP (λ(v,x).(v,Recclosure list' v)) list')’,
                       ‘subst1 s2 val2 (Tick y2)’, ‘{s}’] assume_tac $ GSYM subst_remove
                     \\ gvs [freevars_subst, freevars_def]
                     \\ gvs [FILTER_FILTER, LAMBDA_PROD]
@@ -2423,10 +2423,10 @@ Proof
                     \\ gvs [MAP_APPEND, FILTER_APPEND, SNOC_APPEND, subst_APPEND]
                     \\ gvs [subst1_def, freevars_subst, subst1_notin_frees]
                     \\ irule force_arg_rel_subst
-                    \\ qmatch_goalsub_abbrev_tac ‘ MAP FST _ = MAP FST (FILTER _ (MAP _ list))’
+                    \\ qmatch_goalsub_abbrev_tac ‘ MAP FST _ = MAP FST (FILTER _ (MAP _ list'))’
                     \\ irule_at Any force_arg_rel_Letrec \\ gvs [force_arg_rel_subst]
                     \\ qspecl_then [‘MAP (λ(v,x). (v, Recclosure xs v)) xs’,
-                ‘MAP (λ(v,x). (v, Recclosure (list ++ [(v2, Lams (vL1 ++ [s2]) y2)]) v)) list’,
+                ‘MAP (λ(v,x). (v, Recclosure (list' ++ [(v2, Lams (vL1 ++ [s2]) y2)]) v)) list'’,
                 ‘v_rel’,
                 ‘λv. v ≠ s2 ∧ ¬MEM v vL1 ∧ v ≠ s’]  mp_tac LIST_FILTERED
                     \\ impl_tac \\ gvs []
@@ -2484,7 +2484,7 @@ Proof
                     \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono
                     \\ gs []
                     \\ Cases_on ‘eval_to (k - 2) (Force (Value w1))’ \\ gs [eval_to_Tick]
-                    \\ qspecl_then [‘vL1 ++ [s2]’, ‘eL2 ++ [val2]’, ‘y2’, ‘k - 1’, ‘list’, ‘v2’]
+                    \\ qspecl_then [‘vL1 ++ [s2]’, ‘eL2 ++ [val2]’, ‘y2’, ‘k - 1’, ‘list'’, ‘v2’]
                                    mp_tac eval_to_Apps_Recclosure_Lams_not_0
                     \\ impl_tac
                     >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC])
@@ -2508,7 +2508,7 @@ Proof
                 \\ gs [eval_to_Tick]
                 \\ pop_assum kall_tac
                 \\ qspecl_then [‘vL1 ++ [s2]’, ‘eL2 ++ [val2]’, ‘y2’,
-                                ‘j + j1 + j2 + j3 + k - 1’, ‘list’, ‘v2’]
+                                ‘j + j1 + j2 + j3 + k - 1’, ‘list'’, ‘v2’]
                                mp_tac eval_to_Apps_Recclosure_Lams_not_0
                 \\ impl_tac
                 >- (gs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gs [REVERSE_SNOC])
@@ -2685,13 +2685,13 @@ Proof
                 \\ gvs [subst1_commutes]
                 \\ qpat_x_assum ‘∀i. eval_to _ g = _’ mp_tac
                 \\ qmatch_goalsub_abbrev_tac ‘eval_to _ g
-                      = INR (Closure _ (Apps (App (Value (Recclosure list _)) _) _))’
+                      = INR (Closure _ (Apps (App (Value (Recclosure list' _)) _) _))’
                 \\ strip_tac \\ rename1 ‘force_arg_rel x2 y2’
                 \\ last_x_assum $ qspecl_then [‘(s, v1)::ZIP (vL1, eL1) ++
       (FILTER (λ(v,x).¬MEM v vL1 ∧ v ≠ s) (MAP (λ(v,x).(v, Recclosure xs v)) xs))’,
       ‘s2’, ‘val1’, ‘Tick x2’, ‘subst ((s, w1)::ZIP(vL1, eL2) ++ [(s2, val2)]
                                        ++ (FILTER (λ(v,x).(v ≠ s ∧ ¬MEM v vL1) ∧ v ≠ s2)
-                                           (MAP (λ(v,x).(v, Recclosure list v)) list)))
+                                           (MAP (λ(v,x).(v, Recclosure list' v)) list')))
                                       (Tick y2)’] mp_tac
                 \\ impl_tac
                 >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
@@ -2727,7 +2727,7 @@ Proof
                                                              (subst1 s2 val1 (Tick x2)))’,
                                     ‘set vL1 ∪ {s}’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT, freevars_subst, MAP_ZIP]
-                    \\ qspecl_then [‘MAP (λ(v,x). (v, Recclosure list v)) list’,
+                    \\ qspecl_then [‘MAP (λ(v,x). (v, Recclosure list' v)) list'’,
                                     ‘subst1 s w1 (subst (ZIP (vL1, eL2))
                                                              (subst1 s2 val2 (Tick y2)))’,
                                     ‘{s} ∪ set vL1 ∪ {s2}’] assume_tac subst_remove
@@ -2736,7 +2736,7 @@ Proof
                             Abbr ‘filter2’, GSYM CONJ_ASSOC]
                     \\ pop_assum kall_tac \\ pop_assum kall_tac \\ pop_assum kall_tac
                     \\ qspecl_then [‘x2’, ‘y2’] assume_tac force_arg_rel_freevars
-                    \\ gvs [Abbr ‘filter1’, Abbr ‘list’, MAP_APPEND, SNOC_APPEND, subst_APPEND,
+                    \\ gvs [Abbr ‘filter1’, Abbr ‘list'’, MAP_APPEND, SNOC_APPEND, subst_APPEND,
                             subst1_notin_frees, freevars_subst, freevars_def]
                     \\ irule force_arg_rel_subst \\ fs []
                     \\ irule_at Any force_arg_rel_subst
@@ -2781,11 +2781,11 @@ Proof
                                    assume_tac eval_to_Apps_APPEND1
                     \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono
                     \\ Cases_on ‘eval_to (k - 2) (Force (Value w1))’ \\ gvs []
-                    \\ first_x_assum $ qspecl_then [‘Value (Recclosure list v2)’,
+                    \\ first_x_assum $ qspecl_then [‘Value (Recclosure list' v2)’,
                                                     ‘Value w1::MAP Value eL2’] assume_tac
                     \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
                     \\ qspecl_then [‘s::vL1 ++ [s2]’, ‘w1::eL2 ++ [val2]’,
-                                    ‘y2’, ‘k - 1’, ‘list’, ‘v2’]
+                                    ‘y2’, ‘k - 1’, ‘list'’, ‘v2’]
                                    mp_tac eval_to_Apps_Recclosure_Lams_not_0
                     \\ impl_tac
                     >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC]
@@ -2807,11 +2807,11 @@ Proof
                 \\ qspecl_then [‘Tick (Force (Value w1))’, ‘j + j1 + j2 + j3 + k - 1’]
                                assume_tac eval_to_Apps_APPEND1
                 \\ gvs []
-                \\ pop_assum $ qspecl_then [‘Value (Recclosure list v2)’,
+                \\ pop_assum $ qspecl_then [‘Value (Recclosure list' v2)’,
                                             ‘MAP Value eL2 ++ [Value w1]’] assume_tac
                 \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
                 \\ qspecl_then [‘s::vL1 ++ [s2]’, ‘w1::eL2 ++ [val2]’, ‘y2’,
-                                ‘j + j1 + j2 + j3 + k - 1’, ‘list’, ‘v2’]
+                                ‘j + j1 + j2 + j3 + k - 1’, ‘list'’, ‘v2’]
                                mp_tac eval_to_Apps_Recclosure_Lams_not_0
                 \\ impl_tac
                 >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC]
@@ -3004,12 +3004,12 @@ Proof
             \\ gvs []
             \\ rename1 ‘Lams (vL1 ++ s::vL2 ++ [v3]) (Apps _ _)’
             \\ qpat_x_assum ‘∀i. eval_to _ g = _’ mp_tac
-            \\ qmatch_goalsub_abbrev_tac ‘Apps (Value (Recclosure list _)) _’ \\ strip_tac
+            \\ qmatch_goalsub_abbrev_tac ‘Apps (Value (Recclosure list' _)) _’ \\ strip_tac
             \\ last_x_assum $ qspecl_then [‘ZIP (vL1 ++ vL2, eL1 ++ eL2) ++ [(v3, v1)]
                 ++ (FILTER (λ(v,x). ¬MEM v (vL1 ++ s::vL2 ++ [v3])) (MAP (λ(v,x). (v, Recclosure xs v)) xs))’,
                                            ‘s2’, ‘v2'’, ‘Tick x2’,
               ‘subst (ZIP (vL1 ++ s2::vL2 ++ [v3], eL1' ++ w2'::eL2' ++ [w1])
-                ++ (FILTER (λ(v,x). ¬MEM v (vL1 ++ s2::vL2 ++ [v3])) (MAP (λ(v,x). (v, Recclosure list v)) list)))
+                ++ (FILTER (λ(v,x). ¬MEM v (vL1 ++ s2::vL2 ++ [v3])) (MAP (λ(v,x). (v, Recclosure list' v)) list')))
                                                    (Tick y2)’] mp_tac
             \\ impl_tac
             >- (gvs [subst_APPEND, LIST_REL_EL_EQN, GSYM ZIP_APPEND]
@@ -3026,9 +3026,9 @@ Proof
                 \\ impl_tac \\ gvs [subst1_commutes]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
                 \\ ‘subst1 s2 w2' (subst (FILTER (λ(v,x). ¬MEM v (vL1 ++ s2::vL2 ++ [v3]))
-                                          (MAP (λ(v,x). (v, Recclosure list v)) list)) y2)
+                                          (MAP (λ(v,x). (v, Recclosure list' v)) list')) y2)
                     = subst (FILTER (λ(v,x). ¬MEM v (vL1 ++ s2::vL2 ++ [v3]))
-                             (MAP (λ(v,x). (v, Recclosure list v)) list)) (subst1 s2 w2' y2)’
+                             (MAP (λ(v,x). (v, Recclosure list' v)) list')) (subst1 s2 w2' y2)’
                   by (irule subst_commutes \\ gvs [MAP_FST_FILTER, MEM_FILTER])
                 \\ gvs [GSYM CONJ_ASSOC]
                 \\ qmatch_goalsub_abbrev_tac ‘force_arg_rel (subst l1 e1) (subst l2 e2)’
@@ -3043,7 +3043,7 @@ Proof
                                              ∧ p1 ≠ v3) l’
                   by (gen_tac \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [] \\ metis_tac [CONJ_COMM])
                 \\ gvs []
-                \\ gvs [Abbr ‘list’, SNOC_APPEND, MAP_APPEND, FILTER_APPEND, subst_APPEND]
+                \\ gvs [Abbr ‘list'’, SNOC_APPEND, MAP_APPEND, FILTER_APPEND, subst_APPEND]
                 \\ gvs [subst1_notin_frees, freevars_subst]
                 \\ irule force_arg_rel_subst \\ gvs [force_arg_rel_subst]
                 \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
@@ -3101,7 +3101,7 @@ Proof
                 \\ qspecl_then [‘eL2' ++ [w1]’, ‘Tick (Force (Value w2))’, ‘k - 1’] assume_tac eval_to_Apps_INR
                 \\ gvs [FOLDL_APPEND]
                 \\ Cases_on ‘eval_to (k - 2) (Force (Value w2))’ \\ gvs []
-                \\ qspecl_then [‘vL1 ++ s2::vL2 ++ [v3]’, ‘eL1' ++ w2' ::eL2' ++ [w1]’, ‘y2’, ‘k - 1’, ‘list’, ‘var’]
+                \\ qspecl_then [‘vL1 ++ s2::vL2 ++ [v3]’, ‘eL1' ++ w2' ::eL2' ++ [w1]’, ‘y2’, ‘k - 1’, ‘list'’, ‘var’]
                                mp_tac eval_to_Apps_Recclosure_Lams_not_0
                 \\ impl_tac
                 >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC])
@@ -3122,7 +3122,7 @@ Proof
             \\ dxrule_then (qspecl_then [‘j + j1 + j2 + j3 + k - 2’] assume_tac) eval_to_mono
             \\ gvs [FOLDL_APPEND]
             \\ qspecl_then [‘vL1 ++ s2::vL2 ++ [v3]’, ‘eL1' ++ w2' ::eL2' ++ [w1]’, ‘y2’,
-                            ‘j + j1 + j2 + j3 + k - 1’, ‘list’, ‘var’] mp_tac eval_to_Apps_Recclosure_Lams_not_0
+                            ‘j + j1 + j2 + j3 + k - 1’, ‘list'’, ‘var’] mp_tac eval_to_Apps_Recclosure_Lams_not_0
             \\ impl_tac
             >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC])
             \\ rw [subst_APPEND, GSYM CONJ_ASSOC, FOLDL_APPEND]
@@ -3300,12 +3300,12 @@ Proof
                   \\ gvs [freevars_subst])
             \\ gvs []
             \\ qpat_x_assum ‘∀i. eval_to _ g = _’ mp_tac
-            \\ qmatch_goalsub_abbrev_tac ‘Apps (App (Value (Recclosure list _)) _) _’ \\ strip_tac
+            \\ qmatch_goalsub_abbrev_tac ‘Apps (App (Value (Recclosure list' _)) _) _’ \\ strip_tac
             \\ last_x_assum $ qspecl_then [‘ZIP (vL1 ++ s::vL2, eL1 ++ v2::eL2) ++ [(v3, v1)]
                 ++ (FILTER (λ(v,x). ¬MEM v (vL1 ++ s::vL2 ++ [v3])) (MAP (λ(v,x). (v, Recclosure xs v)) xs))’,
                                            ‘s2’, ‘v2'’, ‘Tick x2’,
               ‘subst (ZIP (s::vL1 ++ s2::vL2 ++ [v3], w2::eL1' ++ w2'::eL2' ++ [w1])
-                ++ (FILTER (λ(v,x). ¬MEM v (s::vL1 ++ s2::vL2 ++ [v3])) (MAP (λ(v,x). (v, Recclosure list v)) list)))
+                ++ (FILTER (λ(v,x). ¬MEM v (s::vL1 ++ s2::vL2 ++ [v3])) (MAP (λ(v,x). (v, Recclosure list' v)) list')))
                                                    (Tick y2)’] mp_tac
             \\ impl_tac
             >- (gvs [subst_APPEND, LIST_REL_EL_EQN, GSYM ZIP_APPEND]
@@ -3329,9 +3329,9 @@ Proof
                 \\ impl_tac \\ gvs [subst1_commutes]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
                 \\ ‘subst1 s2 w2' (subst (FILTER (λ(v,x). ¬MEM v (s::vL1 ++ s2::vL2 ++ [v3]))
-                                          (MAP (λ(v,x). (v, Recclosure list v)) list)) y2)
+                                          (MAP (λ(v,x). (v, Recclosure list' v)) list')) y2)
                     = subst (FILTER (λ(v,x). ¬MEM v (s::vL1 ++ s2::vL2 ++ [v3]))
-                             (MAP (λ(v,x). (v, Recclosure list v)) list)) (subst1 s2 w2' y2)’
+                             (MAP (λ(v,x). (v, Recclosure list' v)) list')) (subst1 s2 w2' y2)’
                   by (irule subst_commutes \\ gvs [MAP_FST_FILTER, MEM_FILTER])
                 \\ gvs [GSYM CONJ_ASSOC]
                 \\ qmatch_goalsub_abbrev_tac ‘force_arg_rel (subst l1 e1) _’
@@ -3345,7 +3345,7 @@ Proof
                                              ∧ ¬MEM p1 vL2 ∧ p1 ≠ v3) l’
                   by (gen_tac \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [] \\ metis_tac [CONJ_COMM])
                 \\ gvs []
-                \\ gvs [Abbr ‘list’, SNOC_APPEND, MAP_APPEND, FILTER_APPEND, subst_APPEND]
+                \\ gvs [Abbr ‘list'’, SNOC_APPEND, MAP_APPEND, FILTER_APPEND, subst_APPEND]
                 \\ gvs [subst1_notin_frees, freevars_subst]
                 \\ irule force_arg_rel_subst \\ gvs [force_arg_rel_subst]
                 \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
@@ -3407,7 +3407,7 @@ Proof
                 \\ first_x_assum $ qspecl_then [‘e’, ‘[]’] assume_tac \\ gvs []
                 \\ Cases_on ‘eval_to (k - 2) (Force (Value w2))’ \\ gvs [] \\ gs [Abbr ‘e’]
                 \\ qspecl_then [‘s::vL1 ++ s2::vL2 ++ [v3]’, ‘w2::eL1' ++ w2' ::eL2' ++ [w1]’,
-                                ‘y2’, ‘k - 1’, ‘list’, ‘var’]
+                                ‘y2’, ‘k - 1’, ‘list'’, ‘var’]
                                mp_tac eval_to_Apps_Recclosure_Lams_not_0
                 \\ impl_tac
                 >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC]
@@ -3426,13 +3426,13 @@ Proof
             \\ gvs [subst_Apps, subst1_def, MAP_MAP_o, combinTheory.o_DEF]
             \\ gvs [SF ETA_ss]
             \\ qspecl_then [‘eL2' ++ [w1]’, ‘Tick (Force (Value w2))’, ‘j + j1 + j2 + j3 + k - 1’,
-                           ‘Value (Recclosure list var)’, ‘Value w2::MAP Value eL1'’]
+                           ‘Value (Recclosure list' var)’, ‘Value w2::MAP Value eL1'’]
                            assume_tac eval_to_Apps_INR
             \\ ‘eval_to (j2 + k - 2) (Force (Value w2)) ≠ INL Diverge’ by gvs []
             \\ dxrule_then (qspecl_then [‘j + j1 + j2 + j3 + k - 2’] assume_tac) eval_to_mono
             \\ gvs [FOLDL_APPEND]
             \\ qspecl_then [‘s::vL1 ++ s2::vL2 ++ [v3]’, ‘w2::eL1' ++ w2' ::eL2' ++ [w1]’, ‘y2’,
-                            ‘j + j1 + j2 + j3 + k - 1’, ‘list’, ‘var’]
+                            ‘j + j1 + j2 + j3 + k - 1’, ‘list'’, ‘var’]
                            mp_tac eval_to_Apps_Recclosure_Lams_not_0
             \\ impl_tac
             >- (gvs [LIST_REL_EL_EQN] \\ unabbrev_all_tac \\ gvs [REVERSE_SNOC])
@@ -3573,9 +3573,9 @@ Proof
             \\ Cases_on ‘SND (EL n xs)’ \\ gvs [force_arg_rel_def]
             \\ rename1 ‘force_arg_rel body body'’
             \\ qpat_x_assum ‘∀i. _ = INR (Recclosure (SNOC _ _) _)’ mp_tac
-            \\ qmatch_goalsub_abbrev_tac ‘_ = INR (Recclosure list _)’ \\ strip_tac
+            \\ qmatch_goalsub_abbrev_tac ‘_ = INR (Recclosure list' _)’ \\ strip_tac
             \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g,Recclosure xs g)) xs’, ‘m’, ‘v1’, ‘body’,
-                     ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list ++ [(m,w1)]) body'’] mp_tac
+                     ‘subst (MAP (λ(g,x).(g,Recclosure list' g)) list' ++ [(m,w1)]) body'’] mp_tac
             \\ impl_tac
             >- (unabbrev_all_tac \\ gvs [SNOC_APPEND, MAP_APPEND, subst_APPEND]
                 \\ irule force_arg_rel_subst
@@ -3656,12 +3656,12 @@ Proof
             \\ gvs [eval_to_Lams]
             \\ ‘HD (vL1 ++ [s3] ++ vL2) = HD (SNOC s3 vL1)’
               by (Cases_on ‘vL1’ \\ gvs []) \\ gvs []
-            \\ qmatch_goalsub_abbrev_tac ‘subst (FILTER _ list) (Apps _ _)’
-            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list) (Var s))
+            \\ qmatch_goalsub_abbrev_tac ‘subst (FILTER _ list') (Apps _ _)’
+            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list') (Var s))
                 vL1 = MAP Var vL1’
               by (irule LIST_EQ \\ rw [EL_MAP]
                   \\ gvs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM])
-            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list) (Var s))
+            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list') (Var s))
                 vL2 = MAP Var vL2’
               by (irule LIST_EQ \\ rw [EL_MAP]
                   \\ gvs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM])
@@ -3722,13 +3722,13 @@ Proof
             \\ IF_CASES_TAC \\ gvs []
             >- (rpt $ first_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [EL_MAP])
             \\ gvs [subst_def, eval_to_def]
-            \\ qmatch_goalsub_abbrev_tac ‘v_rel _ (Closure _ (subst (FILTER _ list) _))’
+            \\ qmatch_goalsub_abbrev_tac ‘v_rel _ (Closure _ (subst (FILTER _ list') _))’
             \\ gvs [subst_Lams, subst_Apps, subst_App, MAP_MAP_o, combinTheory.o_DEF,
                     FILTER_FILTER, LAMBDA_PROD, subst_Var, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
             \\ rename1 ‘v_rel (Closure h (Lams vL1 _)) _’
             \\ ‘¬MEM v2 (h::vL1)’ by (strip_tac \\ dxrule_then mp_tac $ iffLR MEM_EL \\ gvs [])
             \\ gvs []
-            \\ ‘MAP (λx. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ h) list) (Var x)) vL1
+            \\ ‘MAP (λx. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ h) list') (Var x)) vL1
                 = MAP Var vL1’
               by (irule LIST_EQ \\ rw [EL_MAP, subst_def]
                   \\ gvs [GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM])
@@ -3826,10 +3826,10 @@ Proof
                         ‘subst1 s2 val1 x2’, ‘{s2}’] assume_tac subst_remove
         \\ gvs [freevars_subst] \\ pop_assum kall_tac
         \\ qpat_x_assum ‘∀i. eval_to _ g = INR (Recclosure (SNOC _ _) _)’ mp_tac
-        \\ qmatch_goalsub_abbrev_tac ‘eval_to _ _ = INR (Recclosure list _)’ \\ strip_tac
+        \\ qmatch_goalsub_abbrev_tac ‘eval_to _ _ = INR (Recclosure list' _)’ \\ strip_tac
         \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g, Recclosure xs g)) xs’, ‘s2’, ‘val1’,
                                        ‘Tick x2’,
-                                       ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list)
+                                       ‘subst (MAP (λ(g,x).(g,Recclosure list' g)) list')
                                               (subst1 s2 val2 (Tick y2))’] mp_tac
         \\ impl_tac
         >- (unabbrev_all_tac \\ gvs [SNOC_APPEND, MAP_APPEND, subst_APPEND]
@@ -3940,9 +3940,9 @@ Proof
             \\ Cases_on ‘SND (EL n xs)’ \\ gvs [force_arg_rel_def]
             \\ rename1 ‘force_arg_rel body body'’
             \\ qpat_x_assum ‘∀i. _ = INR (Recclosure (SNOC _ _) _)’ mp_tac
-            \\ qmatch_goalsub_abbrev_tac ‘_ = INR (Recclosure list _)’ \\ strip_tac
+            \\ qmatch_goalsub_abbrev_tac ‘_ = INR (Recclosure list' _)’ \\ strip_tac
             \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g,Recclosure xs g)) xs’, ‘m’, ‘v1’, ‘body’,
-                     ‘subst (MAP (λ(g,x).(g,Recclosure list g)) list ++ [(m,w1)]) body'’] mp_tac
+                     ‘subst (MAP (λ(g,x).(g,Recclosure list' g)) list' ++ [(m,w1)]) body'’] mp_tac
             \\ impl_tac
             >- (unabbrev_all_tac \\ gvs [SNOC_APPEND, MAP_APPEND, subst_APPEND]
                 \\ irule force_arg_rel_subst
@@ -4027,12 +4027,12 @@ Proof
             \\ gvs [eval_to_Lams]
             \\ ‘HD (vL1 ++ [s3] ++ vL2) = HD (SNOC s3 vL1)’
               by (Cases_on ‘vL1’ \\ gvs []) \\ gvs []
-            \\ qmatch_goalsub_abbrev_tac ‘subst (FILTER _ list) (Apps _ _)’
-            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list) (Var s))
+            \\ qmatch_goalsub_abbrev_tac ‘subst (FILTER _ list') (Apps _ _)’
+            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list') (Var s))
                 vL1 = MAP Var vL1’
               by (irule LIST_EQ \\ rw [EL_MAP]
                   \\ gvs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM])
-            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list) (Var s))
+            \\ ‘MAP (λs. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ s3 ∧ ¬MEM v vL2) list') (Var s))
                 vL2 = MAP Var vL2’
               by (irule LIST_EQ \\ rw [EL_MAP]
                   \\ gvs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM])
@@ -4095,13 +4095,13 @@ Proof
             \\ IF_CASES_TAC \\ gvs []
             >- (rpt $ first_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [EL_MAP])
             \\ gvs [subst_def, eval_to_def]
-            \\ qmatch_goalsub_abbrev_tac ‘v_rel _ (Closure _ (subst (FILTER _ list) _))’
+            \\ qmatch_goalsub_abbrev_tac ‘v_rel _ (Closure _ (subst (FILTER _ list') _))’
             \\ gvs [subst_Lams, subst_Apps, subst_App, MAP_MAP_o, combinTheory.o_DEF,
                     FILTER_FILTER, LAMBDA_PROD, subst_Var, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
             \\ rename1 ‘v_rel (Closure h (Lams vL1 _)) _’
             \\ ‘¬MEM v2 (h::vL1)’ by (strip_tac \\ dxrule_then mp_tac $ iffLR MEM_EL \\ gvs [])
             \\ gvs []
-            \\ ‘MAP (λx. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ h) list) (Var x)) vL1
+            \\ ‘MAP (λx. subst (FILTER (λ(v,e). ¬MEM v vL1 ∧ v ≠ h) list') (Var x)) vL1
                 = MAP Var vL1’
               by (irule LIST_EQ \\ rw [EL_MAP, subst_def]
                   \\ gvs [GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM])
@@ -4200,11 +4200,11 @@ Proof
                         ‘subst1 s2 val1 (subst1 s3 v1 x2)’, ‘{s2}’] assume_tac subst_remove
         \\ gvs [freevars_subst] \\ pop_assum kall_tac
         \\ qpat_x_assum ‘∀i. eval_to _ g = INR (Recclosure (SNOC _ _) _)’ mp_tac
-        \\ qmatch_goalsub_abbrev_tac ‘eval_to _ _ = INR (Recclosure list _)’ \\ strip_tac
+        \\ qmatch_goalsub_abbrev_tac ‘eval_to _ _ = INR (Recclosure list' _)’ \\ strip_tac
         \\ last_x_assum $ qspecl_then [‘MAP (λ(g,x).(g, Recclosure xs g)) xs’, ‘s2’, ‘val1’,
                                        ‘subst1 s3 v1 (Tick x2)’,
                                        ‘subst1 s2 val2
-                                        (subst (FILTER (λ(n,x). n ≠ s2) (MAP (λ(g,x).(g,Recclosure list g)) list))
+                                        (subst (FILTER (λ(n,x). n ≠ s2) (MAP (λ(g,x).(g,Recclosure list' g)) list'))
                                          (subst1 s3 w1 (Tick y2)))’] mp_tac
         \\ impl_tac
         >- (‘∀l e. subst1 s2 val2 (subst (FILTER (λ(v,x). v ≠ s2) l) e)
@@ -4563,8 +4563,8 @@ Proof
             \\ rw [Once force_arg_rel_cases] \\ gs []
             \\ Cases_on ‘x0’ \\ gvs [])
         \\ gvs [alookup_distinct_reverse]
-        \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP (REVERSE list) s’
-        \\ ‘ALL_DISTINCT (MAP FST list)’
+        \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP (REVERSE list') s’
+        \\ ‘ALL_DISTINCT (MAP FST list')’
           by (unabbrev_all_tac \\ gvs [LUPDATE_MAP, ALL_DISTINCT_APPEND]
               \\ ‘FST (EL i xs) = EL i (MAP FST xs)’ by gvs [EL_MAP] \\ gvs []
               \\ gvs [LUPDATE_ID])
@@ -4572,22 +4572,22 @@ Proof
         \\ gvs [MEM_EL, EL_MAP]
         \\ rename1 ‘ALOOKUP _ (FST (EL n ys))’
         \\ qspecl_then [‘xs’, ‘n’] assume_tac ALOOKUP_ALL_DISTINCT_EL
-        \\ qspecl_then [‘list’, ‘n’] assume_tac ALOOKUP_ALL_DISTINCT_EL
+        \\ qspecl_then [‘list'’, ‘n’] assume_tac ALOOKUP_ALL_DISTINCT_EL
         \\ gvs [LIST_REL_EL_EQN]
         \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
-        \\ ‘LENGTH list = SUC (LENGTH ys)’ by (unabbrev_all_tac \\ gvs [LENGTH_LUPDATE])
+        \\ ‘LENGTH list' = SUC (LENGTH ys)’ by (unabbrev_all_tac \\ gvs [LENGTH_LUPDATE])
         \\ gvs []
-        \\ ‘FST (EL n list) = FST (EL n ys)’
+        \\ ‘FST (EL n list') = FST (EL n ys)’
           by (unabbrev_all_tac \\ gvs [EL_LUPDATE, EL_APPEND_EQN]
               \\ IF_CASES_TAC \\ gvs [])
         \\ gvs []
         \\ Cases_on ‘i = n’ \\ gvs []
         >- (unabbrev_all_tac \\ gvs [EL_APPEND_EQN, EL_LUPDATE] \\ gvs [Lams_split])
-        >- (‘EL n list = EL n ys’ by (unabbrev_all_tac \\ gvs [EL_APPEND_EQN, EL_LUPDATE])
+        >- (‘EL n list' = EL n ys’ by (unabbrev_all_tac \\ gvs [EL_APPEND_EQN, EL_LUPDATE])
             \\ first_x_assum $ qspec_then ‘n’ assume_tac
             \\ Cases_on ‘SND (EL n xs)’ \\ gvs [force_arg_rel_def])
         >- (unabbrev_all_tac \\ gvs [EL_APPEND_EQN, EL_LUPDATE] \\ gvs [Lams_split])
-        >- (‘EL n list = EL n ys’ by (unabbrev_all_tac \\ gvs [EL_APPEND_EQN, EL_LUPDATE])
+        >- (‘EL n list' = EL n ys’ by (unabbrev_all_tac \\ gvs [EL_APPEND_EQN, EL_LUPDATE])
             \\ first_x_assum $ qspec_then ‘n’ assume_tac
             \\ Cases_on ‘SND (EL n xs)’ \\ gvs [force_arg_rel_def]))
       \\ pairarg_tac \\ gvs []

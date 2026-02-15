@@ -46,14 +46,6 @@ Proof
    (gen_tac \\ gvs [extract_names_def,exp_of_def,SF ETA_ss,AllCaseEqs()]
     \\ strip_tac \\ gvs []
     \\ gvs [MAP_MAP_o,o_DEF]
-    \\ ‘BIGUNION (set (MAP (λx. set (MAP explode (FST (SND x)))) ys)) =
-        set (MAP explode (FLAT (MAP (λx. FST (SND x)) ys)))’ by
-     (fs [EXTENSION,MEM_MAP,MEM_FLAT,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]
-      \\ rw [] \\ eq_tac \\ strip_tac
-      \\ qpat_x_assum ‘MEM _ _’ $ irule_at Any
-      >- metis_tac []
-      \\ rw []
-      \\ qexists_tac ‘IMAGE explode $ set l’ \\ fs [])
     \\ asm_rewrite_tac []
     \\ fs [EXTENSION,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
     \\ rw [] \\ eq_tac \\ rw [] \\ fs []

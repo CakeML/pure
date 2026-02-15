@@ -1896,18 +1896,6 @@ Proof
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs []
-      \\ pairarg_tac \\ gs []
-      \\ qpat_x_assum ‘MAP (explode ## I) _ = _’ assume_tac
-      \\ dxrule_then assume_tac EQ_SYM
-      \\ qpat_x_assum ‘MAP (explode ## I) _ = _’ assume_tac
-      \\ dxrule_then assume_tac EQ_SYM
-      \\ gs [EL_MAP]
-      \\ rw []
-      \\ first_x_assum $ dxrule_then assume_tac
-      \\ gs []
-      \\ pairarg_tac \\ gs []
-      \\ pairarg_tac \\ gs []
-      \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs [])
   >- (irule LIST_EQ \\ gs [EL_MAP]
       \\ rw []

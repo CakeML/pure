@@ -54,55 +54,10 @@ Proof
     \\ metis_tac [LESS_EQ_REFL,PAIR])
 QED
 
-Theorem isStringThere_aux_lemma[local]:
-  ∀xs ts ys.
-    LENGTH xs ≤ LENGTH ys ⇒
-    (isStringThere_aux (implode (ts ++ xs)) (implode (ts ++ ys))
-        (LENGTH ts) (LENGTH ts) (STRLEN xs) ⇔
-     isStringThere_aux (implode xs) (implode ys) 0 0 (STRLEN xs))
-Proof
-  Induct \\ fs [isStringThere_aux_def, implode_def]
-  \\ gen_tac \\ gen_tac
-  \\ Cases \\ fs []
-  \\ strip_tac \\ fs [EL_LENGTH_APPEND]
-  \\ rename [‘LENGTH xs ≤ LENGTH ys’]
-  \\ last_x_assum drule \\ strip_tac
-  \\ last_assum $ qspec_then ‘[h]’ mp_tac
-  \\ last_x_assum $ qspec_then ‘ts ++ [h]’ mp_tac
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ fs [] \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
-  \\ Cases_on ‘h = h'’ \\ fs []
-QED
-
-Theorem isPrefix_thm:
-  isPrefix s t ⇔ isPREFIX (explode s) (explode t)
-Proof
-  fs [isPrefix_def]
-  \\ Cases_on ‘s’ \\ Cases_on ‘t’ \\ fs []
-  \\ rename [‘LENGTH xs ≤ LENGTH ys’]
-  \\ Cases_on ‘LENGTH ys < LENGTH xs’ \\ fs []
-  >-
-   (CCONTR_TAC \\ fs []
-    \\ imp_res_tac rich_listTheory.IS_PREFIX_LENGTH \\ fs [])
-  \\ fs [NOT_LESS]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘ys’
-  \\ qid_spec_tac ‘xs’
-  \\ Induct
-  \\ fs [isStringThere_aux_def]
-  \\ strip_tac \\ Cases \\ fs []
-  \\ Cases_on ‘h = h'’ \\ fs []
-  \\ gvs [] \\ rw []
-  \\ last_x_assum $ drule_then $ rewrite_tac o single o GSYM
-  \\ drule isStringThere_aux_lemma \\ gvs [implode_def]
-  \\ disch_then $ qspec_then ‘[h]’ mp_tac
-  \\ fs []
-QED
-
 Theorem max_name_make_name:
   n < max_name (make_name n)
 Proof
-  fs [make_name_def,max_name_def,isPrefix_thm]
+  fs [make_name_def,max_name_def,isprefix_strcat]
   \\ fs [concat_def]
 QED
 

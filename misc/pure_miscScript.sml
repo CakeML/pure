@@ -1,10 +1,10 @@
-
 Theory pure_misc
 Ancestors
-  string option pair list alist llist finite_map pred_set
+  string mlstring option pair list alist llist finite_map pred_set
   arithmetic rich_list sptree ltree fixedPoint sorting logroot
+  cardinal[qualified]
 Libs
-  term_tactic BasicProvers dep_rewrite
+  term_tactic BasicProvers dep_rewrite intLib[qualified]
 
 (******************** Numbers ********************)
 
@@ -596,6 +596,36 @@ Theorem wf_difference:
 Proof
   Induct >> rw[difference_def] >>
   CASE_TAC >> gvs[wf_def] >> metis_tac[wf_mk_BN, wf_mk_BS]
+QED
+
+(******************** mlstring ********************)
+
+Theorem INFINITE_mlstring:
+  INFINITE 𝕌(:mlstring)
+Proof
+  strip_assume_tac explode_BIJ
+  \\ strip_tac
+  \\ drule_all pred_setTheory.FINITE_BIJ
+  \\ simp [INFINITE_LIST_UNIV]
+QED
+
+Theorem COUNTABLE_char:
+  COUNTABLE 𝕌(:char)
+Proof
+  rw [countable_def]
+  \\ qexists_tac ‘ORD’
+  \\ rw [INJ_DEF, ORD_11]
+QED
+
+Theorem COUNTABLE_mlstring:
+  COUNTABLE 𝕌(:mlstring)
+Proof
+  ‘COUNTABLE 𝕌(:string)’
+     by metis_tac [cardinalTheory.COUNTABLE_LIST_UNIV, COUNTABLE_char]
+  \\ gvs [countable_def, INJ_DEF]
+  \\ qexists ‘f o explode’ \\ gvs [] \\ rw []
+  \\ gvs [oneline explode_thm]
+  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs []
 QED
 
 (****************************************)

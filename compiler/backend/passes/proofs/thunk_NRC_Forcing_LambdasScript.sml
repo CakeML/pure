@@ -386,15 +386,6 @@ Proof
   gs [ALL_DISTINCT_APPEND]
 QED
 
-Theorem INFINITE_mlstring[local]:
-  INFINITE 𝕌(:mlstring)
-Proof
-  strip_assume_tac explode_BIJ
-  \\ strip_tac
-  \\ drule_all pred_setTheory.FINITE_BIJ
-  \\ simp [INFINITE_LIST_UNIV]
-QED
-
 Theorem exp_rel_Force_Let_induction:
   ∀vLs vLf bLs bLf bL2s bL2f vL2s vL2f s x y v1 v2.
     MEM T bLs ∧

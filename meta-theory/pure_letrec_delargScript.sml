@@ -2095,15 +2095,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem INFINITE_mlstring[local]:
-  INFINITE 𝕌(:mlstring)
-Proof
-  strip_assume_tac explode_BIJ
-  \\ strip_tac
-  \\ drule_all pred_setTheory.FINITE_BIJ
-  \\ simp [INFINITE_LIST_UNIV]
-QED
-
 Theorem letrec_spec_delarg_lemma:
   can_spec_arg f vs v ws rhs1 rhs2 ∧
   (vs = [] ⇒ ws ≠ []) ∧

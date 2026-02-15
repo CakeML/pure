@@ -803,15 +803,6 @@ Proof
   \\ gvs [Let_Let]
 QED
 
-Theorem INFINITE_mlstring[local]:
-  INFINITE 𝕌(:mlstring)
-Proof
-  strip_assume_tac explode_BIJ
-  \\ strip_tac
-  \\ drule_all pred_setTheory.FINITE_BIJ
-  \\ simp [INFINITE_LIST_UNIV]
-QED
-
 Theorem exp_eq_in_ctxt_Lam:
   ∀c s e1 e2. exp_eq_in_ctxt (IsFree s c) e1 e2
               ⇒ exp_eq_in_ctxt c (Lam s e1) (Lam s e2)

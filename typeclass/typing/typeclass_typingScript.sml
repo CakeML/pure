@@ -4,7 +4,7 @@ Theory typeclass_typing
 Ancestors
   pair arithmetic integer mlstring option misc list alist relation
   set_relation pred_set typeclass_types pure_cexp typeclass_texp
-  typeclass_kindCheck pure_config
+  typeclass_kindCheck pure_config pure_misc
 Libs
   BasicProvers dep_rewrite monadsyntax
 
@@ -1014,15 +1014,6 @@ End
 (********************)
 (* Prove that if we can type_elaborate, then we can do dictionary
 * construction on the output *)
-
-Theorem INFINITE_mlstring[local]:
-  INFINITE 𝕌(:mlstring)
-Proof
-  strip_assume_tac mlstringTheory.explode_BIJ >>
-  strip_tac >>
-  drule_all pred_setTheory.FINITE_BIJ >>
-  simp[INFINITE_LIST_UNIV]
-QED
 
 Theorem DISTINCT_SUBSET[local]:
   s ∩ u = {} ∧ v ⊆ u ⇒ s ∩ v = {}

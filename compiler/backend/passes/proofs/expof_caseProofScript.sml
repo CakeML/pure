@@ -191,21 +191,6 @@ Proof
   \\ gs [MEM_EL]
 QED
 
-Theorem implodeEQ:
-  ((x = implode y) ⇔ (y = explode x)) /\
-  ((implode y = x) ⇔ (explode x = y))
-Proof
-  rw[EQ_IMP_THM] >> simp[]
-QED
-
-Theorem MAP_implodeEQ:
-  ∀x y.
-    ((x = MAP implode y) ⇔ (y = MAP explode x)) ∧
-    ((MAP implode y = x) ⇔ (MAP explode x = y))
-Proof
-  simp[EQ_IMP_THM, MAP_MAP_o, combinTheory.o_DEF, FORALL_AND_THM]
-QED
-
 Theorem exp_of_exp_eq:
   ∀x. NestedCase_free x ⇒ exp_of' x ≅ exp_of x
 Proof
@@ -256,11 +241,7 @@ Proof
     \\ irule exp_eq_Let_cong \\ gs []
     \\ irule exp_eq_rows_of_cong
     \\ conj_tac
-    >- (gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-        qx_gen_tac ‘l’ >> rename [‘MEM (explode y) l’] >>
-        Cases_on ‘MEM (explode y) l’ >> gvs[] >>
-        first_x_assum $ qspec_then ‘MAP implode l’ mp_tac >>
-        simp[MEM_MAP, implodeEQ, GSYM MAP_implodeEQ])
+    >- gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS, FORALL_PROD]
     \\ reverse conj_tac
     >- (Cases_on ‘eopt’ >> gs[exp_eq_refl] \\ CASE_TAC \\ fs []
         \\ fs [IfDisj_def] \\ irule exp_eq_If_cong \\ fs [exp_eq_refl])

@@ -627,12 +627,6 @@ Definition monad_cn_mlstrings_def:
     [«Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
 End
 
-Theorem implodeEQ[local]:
-  y = implode x ⇔ (explode y = x)
-Proof
-  rw[EQ_IMP_THM] >> simp[]
-QED
-
 Theorem MEM_monad_cn_mlstrings[local]:
   MEM x monad_cn_mlstrings ⇔ x ∈ monad_cns
 Proof
