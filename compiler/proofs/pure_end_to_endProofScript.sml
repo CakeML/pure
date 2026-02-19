@@ -8,7 +8,10 @@ Ancestors
 Overload cake_compile = ``backend$compile``;
 
 Overload target_configs_ok =
-  ``λconf (mc,ms).  backend_config_ok conf ∧ mc_conf_ok mc ∧ mc_init_ok conf mc``
+  ``λasm_conf conf (mc,ms).
+      backend_config_ok asm_conf conf ∧
+      mc_conf_ok mc ∧
+      mc_init_ok asm_conf conf mc``
 
 Overload code_in_memory =
   ``λconf (bytes,bitmaps,c') (mc,ms).
@@ -21,8 +24,8 @@ Overload prunes = ``λpt mt. ∃ct. itree_rel pt ct ∧ prune ffi_convention F c
 
 Theorem end_to_end_correctness:
   compile_to_ast c s = SOME cake ∧
-  cake_compile conf cake = SOME code ∧
-  target_configs_ok conf m ∧
+  cake_compile asm_conf conf cake = SOME code ∧
+  target_configs_ok asm_conf conf m ∧
   code_in_memory conf code m
   ⇒ ∃ce ns. string_to_cexp s = SOME (ce,ns) ∧
             prunes (pure_semantics$itree_of (exp_of ce)) (machine_sem_itree m)
