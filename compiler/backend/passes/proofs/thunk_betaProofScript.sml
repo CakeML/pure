@@ -1,12 +1,13 @@
 (*
   Define a restricted form of beta reduction
  *)
+
 Theory thunk_betaProof
 Ancestors
   string option sum pair list alist thunkLang_primitives pure_misc
   finite_map pred_set rich_list thunkLang wellorder
   thunkLangProps
-Libs
+libs
   term_tactic monadsyntax dep_rewrite
 
 val _ = numLib.prefer_num ();
@@ -35,6 +36,7 @@ End
   e.g.,
   compile A = B
 *)
+
 Inductive exp_rel:
 (* Restricted beta rule *)
 [beta:]
@@ -144,6 +146,23 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;
 
+Theorem freevars_lets:
+  (∀body. freevars (Lets [] body) = freevars body) ∧
+  (∀v x xs body. freevars (Lets ((v, x)::xs) body) =
+    freevars (Let v x (Lets xs body)))
+Proof
+  simp[Lets_def, freevars_def]
+QED
+
+Theorem apps_map_var:
+  ∀f h vs.
+    freevars (Apps (App f ((λ(b,v). optional_force b v) h)) (MAP (λ(b,v). optional_force b v) vs)) =
+    freevars (Apps f (MAP (λ(b,v). optional_force b v) vs)) DIFF { (FST (SND h)) }
+Proof
+  cheat
+QED
+
+
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
 Proof
@@ -155,7 +174,11 @@ Proof
   \\ simp [freevars_def]
   \\ rw []
   >- (
-    cheat)
+      Induct_on `vs`
+      \\ rw[optional_force_def, Lets_def]
+      \\ `Apps (App x (Var (FST (SND h)))) (MAP (Var o FST o SND) vs) =
+          Apps x (MAP (Var o FST o SND) (h::vs)) ` by simp[]
+    )
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
     \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
@@ -213,6 +236,14 @@ Proof
   \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
   \\ rpt strip_tac
   \\ rgs [Once exp_rel_cases]
+  >- (
+    `ALOOKUP (REVERSE f) n = SOME (thunkLang$Var s)` by fs[]
+    `ALOOKUP (REVERSE g) n = SOME (thunkLang$Delay e)` by fs[]
+    `(exp_rel (Var s) (Delay e))` by (
+      simp[exp_rel_rules]
+    )
+
+  )
 QED
 
 Theorem exp_rel_subst:
