@@ -6,8 +6,8 @@ Theory thunk_betaProof
 Ancestors
   string option sum pair list alist thunkLang_primitives pure_misc
   finite_map pred_set rich_list thunkLang wellorder
-  thunkLangProps
-libs
+  thunkLangProps pred_set
+Libs
   term_tactic monadsyntax dep_rewrite
 
 val _ = numLib.prefer_num ();
@@ -146,20 +146,48 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;
 
-Theorem freevars_lets:
-  (∀body. freevars (Lets [] body) = freevars body) ∧
-  (∀v x xs body. freevars (Lets ((v, x)::xs) body) =
-    freevars (Let v x (Lets xs body)))
+Definition freshvars_def:
+  (* boundvars can be freshvars; but need to rename *)
+  freshvars (expr: exp) = COMPL ((freevars expr) ∪ (boundvars expr))
+End
+
+Theorem mem_freshvars:
+  ∀vname expr. vname ∈ freshvars expr ⇔ (vname ∉ freevars expr ∧ vname ∉ boundvars expr)
 Proof
-  simp[Lets_def, freevars_def]
+  rpt strip_tac
+  \\ rw[freshvars_def]
 QED
 
-Theorem apps_map_var:
-  ∀f h vs.
-    freevars (Apps (App f ((λ(b,v). optional_force b v) h)) (MAP (λ(b,v). optional_force b v) vs)) =
-    freevars (Apps f (MAP (λ(b,v). optional_force b v) vs)) DIFF { (FST (SND h)) }
+(*
+Theorem freshvars_let_none_some:
+  ∀vname e1 e2.
+  (vname ∈ freshvars e2) ⇒
+    (Let NONE e1 e2 = Let (SOME vname) e1 e2)
 Proof
   cheat
+QED
+*)
+
+Theorem apps_map_var:
+  ∀xs.
+    Lets (xs )
+Proof
+  cheat
+QED
+
+
+Theorem map_optional_force_apps:
+  !x y vs.
+  ALL_DISTINCT (MAP (FST ∘ SND) vs) ∧ (freevars x = freevars y) ∧ (x = y) ==>
+  Lets
+    (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs))
+    (Apps x (MAP (Var ∘ FST ∘ SND) vs)) =
+    (Apps y (MAP (λ(b,v). optional_force b v) vs))
+Proof
+  rpt strip_tac
+  \\ Induct_on `vs`
+  \\ rw[Lets_def]
+  \\ cheat
 QED
 
 
@@ -178,6 +206,7 @@ Proof
       \\ rw[optional_force_def, Lets_def]
       \\ `Apps (App x (Var (FST (SND h)))) (MAP (Var o FST o SND) vs) =
           Apps x (MAP (Var o FST o SND) (h::vs)) ` by simp[]
+      \\ Cases_on `h` \\ simp[]
     )
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
