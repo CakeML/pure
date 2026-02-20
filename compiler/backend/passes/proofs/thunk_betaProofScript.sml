@@ -42,6 +42,7 @@ Inductive exp_rel:
 [beta:]
   (∀f g vs.
   ALL_DISTINCT (MAP (FST o SND) vs) ∧
+  DISJOINT (freevars f) (set (MAP (FST o SND) vs)) ∧
   exp_rel f g ⇒
   exp_rel
     (Lets
@@ -146,6 +147,74 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;
 
+Theorem freevars_Lets_cong:
+  ∀ls.
+  freevars e1 = freevars e2 ⇒
+  freevars (Lets ls e1) = freevars (Lets ls e2)
+Proof
+  Induct>-rw[Lets_def]>>
+  Cases>>
+  rw[Lets_def,freevars_def]>>
+  Cases_on`q`>>rw[freevars_def]
+QED
+
+Theorem freevars_Lets_free:
+  ∀ls.
+  v ∉ set (MAP (FST o SND) ls) ⇒
+  freevars
+    (Lets (MAP (λ(b,v). (SOME (FST v),optional_force b v)) ls)
+       (Apps x (xs ++ [Var v])))
+   =
+  freevars
+    (Lets (MAP (λ(b,v). (SOME (FST v),optional_force b v)) ls)
+       (Apps x xs)) ∪ {v}
+Proof
+  Induct>>rw[Lets_def,freevars_Apps,freevars_def,EXTENSION]
+  >- metis_tac[]>>
+  pairarg_tac>>fs[Lets_def,freevars_def]>>
+  metis_tac[]
+QED
+
+Theorem exp_rel_freevars:
+  exp_rel x y ⇒ freevars x = freevars y
+Proof
+  qsuff_tac ‘
+    (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
+    (∀v w. v_rel v w ⇒ T)’
+  >- rw []
+  \\ ho_match_mp_tac exp_rel_strongind
+  \\ simp [freevars_def]
+  \\ rw []
+  >- (
+    qabbrev_tac`ls = REVERSE vs`>>
+    qpat_x_assum`ALL_DISTINCT _` mp_tac>>
+    qpat_x_assum`DISJOINT _ _` mp_tac>>
+    `vs = REVERSE ls` by fs[Abbr`ls`]>>
+    pop_assum SUBST1_TAC>>
+    pop_assum kall_tac>>
+    simp[ALL_DISTINCT_REVERSE,MAP_REVERSE]>>
+    Induct_on`ls`>>rw[Lets_def]>>
+    pairarg_tac>>fs[Lets_def,freevars_def]>>
+    DEP_REWRITE_TAC[freevars_Lets_free]>>
+    simp[freevars_Apps]>>
+    cheat)
+  >- (
+    rw [EXTENSION, EQ_IMP_THM] \\ gs []
+    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
+           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss, SF SFY_ss])
+  >- (
+    Cases_on ‘bv’ \\ gs [freevars_def])
+  >- (
+    ‘MAP freevars xs = MAP freevars ys’
+      suffices_by rw [SF ETA_ss]
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+QED
+
+
+
+
 Definition freshvars_def:
   (* boundvars can be freshvars; but need to rename *)
   freshvars (expr: exp) = COMPL ((freevars expr) ∪ (boundvars expr))
@@ -190,37 +259,6 @@ Proof
   \\ cheat
 QED
 
-
-Theorem exp_rel_freevars:
-  exp_rel x y ⇒ freevars x = freevars y
-Proof
-  qsuff_tac ‘
-    (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
-    (∀v w. v_rel v w ⇒ T)’
-  >- rw []
-  \\ ho_match_mp_tac exp_rel_strongind
-  \\ simp [freevars_def]
-  \\ rw []
-  >- (
-      Induct_on `vs`
-      \\ rw[optional_force_def, Lets_def]
-      \\ `Apps (App x (Var (FST (SND h)))) (MAP (Var o FST o SND) vs) =
-          Apps x (MAP (Var o FST o SND) (h::vs)) ` by simp[]
-      \\ Cases_on `h` \\ simp[]
-    )
-  >- (
-    rw [EXTENSION, EQ_IMP_THM] \\ gs []
-    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
-           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss, SF SFY_ss])
-  >- (
-    Cases_on ‘bv’ \\ gs [freevars_def])
-  >- (
-    ‘MAP freevars xs = MAP freevars ys’
-      suffices_by rw [SF ETA_ss]
-    \\ irule LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
-QED
 
 Theorem LIST_REL_split:
   ∀l l'.
