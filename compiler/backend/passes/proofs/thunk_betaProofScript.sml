@@ -175,6 +175,29 @@ Proof
   metis_tac[]
 QED
 
+Theorem idempotent_diff:
+  ∀S. x ∉ S ⇒ S DIFF {x} = S
+Proof
+  SET_TAC []
+QED
+
+Theorem in_bigunion_freevars_optional_force:
+  ∀xs. BIGUNION (set (MAP (freevars o (λ(b,v). optional_force b v)) xs))
+    SUBSET set (MAP (FST o SND) xs)
+Proof
+  strip_tac >>
+  simp[BIGUNION_SUBSET] >>
+  rpt strip_tac >>
+  fs[MEM_MAP, SUBSET_DEF] >> rw[] >>
+  qexists `y` >>
+  Cases_on `((λ(b,v). optional_force b v) y)` >>
+  fs[UNCURRY_EQ, freevars_def] >>
+  Cases_on `v` >>
+  Cases_on `b` >> Cases_on `q` >> Cases_on `r` >>
+  fs[optional_force_def, freevars_def] >>
+  pop_assum (fn h => assume_tac (GSYM h)) >> fs[freevars_def]
+QED
+
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
 Proof
@@ -196,8 +219,27 @@ Proof
     Induct_on`ls`>>rw[Lets_def]>>
     pairarg_tac>>fs[Lets_def,freevars_def]>>
     DEP_REWRITE_TAC[freevars_Lets_free]>>
-    simp[freevars_Apps]>>
-    cheat)
+    simp[freevars_Apps, UNION_DIFF_DISTRIBUTE]>>
+    `FST v ∉ BIGUNION (set
+      (MAP freevars (REVERSE (MAP (λ(b,v). optional_force b v) ls))))` by (
+        once_rewrite_tac [GSYM MAP_REVERSE] >>
+        qsuff_tac `FST v ∉ set (MAP (FST o SND) ls)`
+        >- (
+          once_rewrite_tac [MAP_COMPOSE] >>
+          CCONTR_TAC >> fs[] >>
+          qpat_x_assum `¬ MEM _ _` mp_tac >> simp[] >>
+          qspec_then `ls` assume_tac in_bigunion_freevars_optional_force >>
+          `FST v ∈ BIGUNION (set (MAP (freevars ∘ (λ(b,v). optional_force b v)) ls))` by (
+            simp [IN_BIGUNION] >>
+            qexists `s` >>
+            metis_tac [MAP_REVERSE, MEM_REVERSE]
+          ) >>
+          `FST v ∈ set (MAP (FST o SND) ls)` by metis_tac[SUBSET_THM]
+        ) >>
+        fs[]
+    ) >>
+    metis_tac[idempotent_diff, UNION_COMM, UNION_ASSOC]
+  )
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
     \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
@@ -210,53 +252,6 @@ Proof
       suffices_by rw [SF ETA_ss]
     \\ irule LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
-QED
-
-
-
-
-Definition freshvars_def:
-  (* boundvars can be freshvars; but need to rename *)
-  freshvars (expr: exp) = COMPL ((freevars expr) ∪ (boundvars expr))
-End
-
-Theorem mem_freshvars:
-  ∀vname expr. vname ∈ freshvars expr ⇔ (vname ∉ freevars expr ∧ vname ∉ boundvars expr)
-Proof
-  rpt strip_tac
-  \\ rw[freshvars_def]
-QED
-
-(*
-Theorem freshvars_let_none_some:
-  ∀vname e1 e2.
-  (vname ∈ freshvars e2) ⇒
-    (Let NONE e1 e2 = Let (SOME vname) e1 e2)
-Proof
-  cheat
-QED
-*)
-
-Theorem apps_map_var:
-  ∀xs.
-    Lets (xs )
-Proof
-  cheat
-QED
-
-
-Theorem map_optional_force_apps:
-  !x y vs.
-  ALL_DISTINCT (MAP (FST ∘ SND) vs) ∧ (freevars x = freevars y) ∧ (x = y) ==>
-  Lets
-    (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs))
-    (Apps x (MAP (Var ∘ FST ∘ SND) vs)) =
-    (Apps y (MAP (λ(b,v). optional_force b v) vs))
-Proof
-  rpt strip_tac
-  \\ Induct_on `vs`
-  \\ rw[Lets_def]
-  \\ cheat
 QED
 
 
@@ -304,12 +299,12 @@ Proof
   \\ rpt strip_tac
   \\ rgs [Once exp_rel_cases]
   >- (
-    `ALOOKUP (REVERSE f) n = SOME (thunkLang$Var s)` by fs[]
-    `ALOOKUP (REVERSE g) n = SOME (thunkLang$Delay e)` by fs[]
-    `(exp_rel (Var s) (Delay e))` by (
-      simp[exp_rel_rules]
-    )
-
+    `exp_rel (Var s) (Delay e)` by gvs[exp_rel_rules] >>
+    simp[]
+    `freevars (Delay e) = {s}` by metis_tac[freevars_def, exp_rel_freevars] >>
+    qpat_x_assum `freevars (Delay e) = _` mp_tac >> simp [freevars_Apps] >>
+    simp[MAP_COMPOSE] >>
+    cheat
   )
 QED
 
