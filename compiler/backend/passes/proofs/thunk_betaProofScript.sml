@@ -43,6 +43,7 @@ Inductive exp_rel:
   (∀f g vs.
   ALL_DISTINCT (MAP (FST o SND) vs) ∧
   DISJOINT (freevars f) (set (MAP (FST o SND) vs)) ∧
+  (vs ≠ []) ∧
   exp_rel f g ⇒
   exp_rel
     (Lets
@@ -285,6 +286,57 @@ Proof
   \\ first_x_assum drule \\ rw []
 QED
 
+Theorem Lets_distinct:
+  ∀vs b. vs ≠ [] ⇒
+    (∀e.Lets vs b ≠ Delay e) ∧
+    (∀s. Lets vs b ≠ Var s) ∧
+    (∀op xs. Lets vs b ≠ Prim op xs) ∧
+    (∀mop xs. Lets vs b ≠ Monad mop xs) ∧
+    (∀x1 x2 x3. Lets vs b ≠ If x1 x2 x3) ∧
+    (∀x1 x2. Lets vs b ≠ App x1 x2) ∧
+    (∀s x. Lets vs b ≠ Lam s x)
+Proof
+  strip_tac \\ strip_tac \\ strip_tac
+  \\ rpt conj_tac
+  \\ Induct_on `vs`
+  \\ fs[exp_distinct]
+  \\ rpt gen_tac
+  \\ Cases_on `vs` \\ Cases_on `h`
+  \\ simp[Lets_def]
+QED
+
+
+Theorem Lets_map_seq:
+  ∀vs b x1 x2.
+    vs ≠ [] ∧
+    (∀t. MEM t vs ⇒ FST t ≠ NONE) ⇒
+    Lets vs b ≠ Seq x1 x2
+Proof
+  rpt gen_tac \\ strip_tac \\
+  Induct_on `vs` \\ fs[Lets_def] \\
+  gen_tac \\ strip_tac \\
+  Cases_on `h` \\
+  last_x_assum (qspec_then `(q,r)` assume_tac) \\
+  gvs[Lets_def]
+QED
+
+
+Theorem Apps_distinct:
+  (∀vs f s. vs ≠ [] ⇒ Apps f vs ≠ Var s) ∧
+  (∀vs f e. vs ≠ [] ⇒ Apps f vs ≠ Delay e) ∧
+  (∀vs f x y. vs ≠ [] ⇒ Apps f vs ≠ Prim x y) ∧
+  (∀vs f m l. vs ≠ [] ⇒ Apps f vs ≠ Monad m l) ∧
+  (∀vs f m l. vs ≠ [] ⇒ Apps f vs ≠ Monad m l) ∧
+  (∀vs f l e. vs ≠ [] ⇒ Apps f vs ≠ Letrec l e)
+Proof
+  rpt conj_tac
+  \\ Induct_on `vs`
+  \\ fs[exp_distinct]
+  \\ rpt gen_tac
+  \\ pop_assum (fn x => qspec_then `(App f h)` assume_tac x)
+  \\ Cases_on `vs` \\ simp[]
+QED
+
 Theorem v_rel_anyThunk:
   ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
 Proof
@@ -298,14 +350,7 @@ Proof
   \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
   \\ rpt strip_tac
   \\ rgs [Once exp_rel_cases]
-  >- (
-    `exp_rel (Var s) (Delay e)` by gvs[exp_rel_rules] >>
-    simp[]
-    `freevars (Delay e) = {s}` by metis_tac[freevars_def, exp_rel_freevars] >>
-    qpat_x_assum `freevars (Delay e) = _` mp_tac >> simp [freevars_Apps] >>
-    simp[MAP_COMPOSE] >>
-    cheat
-  )
+  \\ gvs[Apps_distinct, Lets_distinct]
 QED
 
 Theorem exp_rel_subst:
@@ -319,39 +364,51 @@ Proof
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Var *)
     rw [Once exp_rel_cases, subst_def] \\ gs []
-    \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
+    >- (‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
       by (irule LIST_REL_OPTREL
           \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
           \\ pop_assum mp_tac
           \\ qid_spec_tac ‘ws’
           \\ qid_spec_tac ‘vs’
           \\ Induct \\ simp []
-          \\ gen_tac \\ Cases \\ simp [])
-    \\ gs [OPTREL_def]
-    \\ rw [Once exp_rel_cases])
+          \\ gen_tac \\ CCONTR_TAC
+          \\ fs[Lets_distinct])
+      \\ CCONTR_TAC \\ fs[Lets_distinct])
+    >- (
+      ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
+        by (irule LIST_REL_OPTREL
+            \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
+            \\ pop_assum mp_tac
+            \\ qid_spec_tac ‘ws’
+            \\ qid_spec_tac ‘vs’
+            \\ Induct \\ simp []
+            \\ gen_tac \\ Cases \\ simp[])
+      \\ gs [OPTREL_def, subst_def]
+      \\ rw [Once exp_rel_cases, v_rel_def]))
   >- ((* Prim *)
-    rw [Once exp_rel_cases] \\ gs []
+    rw [Once exp_rel_cases] \\ gs [Lets_distinct]
     \\ simp [subst_def]
     \\ irule exp_rel_Prim
     \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
     \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any) \\ rw [])
   >- ((* Monad *)
-    rw[Once exp_rel_cases] >> gvs[subst_def] >>
+    rw[Once exp_rel_cases] >> gvs[subst_def, Lets_distinct] >>
     rw[Once exp_rel_cases] >>
-    gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS]
-    )
+    gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS])
   >- ((* If *)
     rw [Once exp_rel_cases]
+    \\ fs[Lets_distinct]
     \\ simp [subst_def]
     \\ irule exp_rel_If \\ fs [])
   >- ((* App *)
     rw [Once exp_rel_cases]
+    \\ fs[Lets_distinct]
     \\ simp [subst_def]
     \\ irule exp_rel_App \\ fs [])
   >- ((* Lam *)
     rw [Once exp_rel_cases]
-    \\ gvs [subst_def]
+    \\ gvs [subst_def, Lets_distinct]
     \\ irule exp_rel_Lam
     \\ first_x_assum irule
     \\ fs [MAP_FST_FILTER, EVERY2_MAP]
@@ -362,7 +419,28 @@ Proof
   >- ((* Let NONE *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
+    >- (CCONTR_TAC \\
+      qpat_x_assum `Seq x x' = _` mp_tac \\ fs[] \\
+      qspecl_then [`(MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))`,
+                   `(Apps f (MAP (Var ∘ FST ∘ SND) vs'))`,
+                   `x`, `x'`] assume_tac Lets_map_seq
+      last_x_assum (fn thm => irule (GSYM thm)) \\
+      conj_tac
+      >- (
+        rpt strip_tac \\
+        metis_tac[MEM_FST, MEM_MAP, MEM_MAP_f]
+        cheat
+
+        MEM_FST
+        ALOOKUP_SOME
+        ALOOKUP_NONE
+        MEM_MAP_f
+        MEM_MAP
+      )
+      >- ()
+    )
     \\ irule exp_rel_Let \\ fs [])
+
   >- ((* Let SOME *)
     rw [Once exp_rel_cases] \\ gs []
     >- (
