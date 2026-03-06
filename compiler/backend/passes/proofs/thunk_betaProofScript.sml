@@ -356,6 +356,17 @@ Proof
   \\ gvs[Apps_distinct, Lets_distinct]
 QED
 
+Theorem subst_Lets:
+  ∀vs body.
+  ALL_DISTINCT (MAP (FST o SND) vs) ⇒ 
+  subst m 
+  (Lets (MAP (λ(b,v). (SOME (FST v), optional_force b v)) vs) body)
+    = Lets (MAP (λ(b,v). (SOME (FST v), subst m (optional_force b v))) vs)
+      (subst (FILTER (λ(n,x). n ∉ set (MAP (FST o SND) vs)) m) body)
+Proof
+  cheat
+QED
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
@@ -439,14 +450,20 @@ Proof
 
   >- ((* Let SOME *)
     rw [Once exp_rel_cases] \\ gs []
-    >- (
-      `exp_rel (subst vs (Let (SOME s) x x'))
-        (subst ws (Apps g (MAP (λ(b,v). optional_force b v) vs')))`
-        suffices_by fs[] \\
-      res_tac \\
+
+    >- ((*beta*)
       cheat
     )
-    >- (cheat))
+
+    >- ((*let*)
+      simp [subst_def]
+      \\ irule exp_rel_Let \\ gs []
+      \\ first_x_assum irule
+      \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+      \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+      \\ irule LIST_REL_FILTER \\ fs []
+      \\ irule LIST_REL_mono
+      \\ first_assum (irule_at Any) \\ gs []))
 
     (*
     >- (
