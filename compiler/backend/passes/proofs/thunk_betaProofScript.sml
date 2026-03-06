@@ -294,7 +294,11 @@ Theorem Lets_distinct:
     (∀mop xs. Lets vs b ≠ Monad mop xs) ∧
     (∀x1 x2 x3. Lets vs b ≠ If x1 x2 x3) ∧
     (∀x1 x2. Lets vs b ≠ App x1 x2) ∧
-    (∀s x. Lets vs b ≠ Lam s x)
+    (∀s x. Lets vs b ≠ Lam s x) ∧
+    (∀f x. Lets vs b ≠ Letrec f x) ∧
+    (∀x. Lets vs b ≠ Force x) ∧
+    (∀v. Lets vs b ≠ Value v) ∧
+    (∀x. Lets vs b ≠ MkTick x)
 Proof
   strip_tac \\ strip_tac \\ strip_tac
   \\ rpt conj_tac
@@ -304,7 +308,6 @@ Proof
   \\ Cases_on `vs` \\ Cases_on `h`
   \\ simp[Lets_def]
 QED
-
 
 Theorem Lets_map_seq:
   ∀vs b x1 x2.
@@ -417,32 +420,35 @@ Proof
     \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any) \\ gs [])
   >- ((* Let NONE *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
+    rw [Once exp_rel_cases] \\ simp [subst_def]
     >- (CCONTR_TAC \\
       qpat_x_assum `Seq x x' = _` mp_tac \\ fs[] \\
       qspecl_then [`(MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))`,
                    `(Apps f (MAP (Var ∘ FST ∘ SND) vs'))`,
-                   `x`, `x'`] assume_tac Lets_map_seq
+                   `x`, `x'`] assume_tac Lets_map_seq \\
       last_x_assum (fn thm => irule (GSYM thm)) \\
       conj_tac
-      >- (
-        rpt strip_tac \\
-        metis_tac[MEM_FST, MEM_MAP, MEM_MAP_f]
-        cheat
-
-        MEM_FST
-        ALOOKUP_SOME
-        ALOOKUP_NONE
-        MEM_MAP_f
-        MEM_MAP
-      )
-      >- ()
-    )
+      >- (rpt strip_tac \\ Cases_on `t` \\
+        first_assum mp_tac \\
+        `(q,r) = (SOME (FST v'), optional_force b' v')` by (
+          fs[MEM_MAP] \\
+          qpat_x_assum `(NONE, r) = _` mp_tac \\ Cases_on `y` \\ fs[]
+        ) \\ fs[])
+      >- gvs[])
     \\ irule exp_rel_Let \\ fs [])
 
   >- ((* Let SOME *)
     rw [Once exp_rel_cases] \\ gs []
+    >- (
+      `exp_rel (subst vs (Let (SOME s) x x'))
+        (subst ws (Apps g (MAP (λ(b,v). optional_force b v) vs')))`
+        suffices_by fs[] \\
+      res_tac \\
+      cheat
+    )
+    >- (cheat))
+
+    (*
     >- (
       last_x_assum (drule_then (qspec_then ‘Delay x2’ mp_tac))
       \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def]
@@ -475,7 +481,7 @@ Proof
             \\ gen_tac \\ Cases \\ simp [])
       \\ gs [OPTREL_def, FILTER_FILTER, LAMBDA_PROD]
       \\ rw [] \\ gs []
-      \\ irule exp_rel_D2B
+      \\ irule exp_rel_d2b
       \\ gs [AC CONJ_COMM CONJ_ASSOC])
     \\ simp [subst_def]
     \\ irule exp_rel_Let \\ gs []
@@ -485,8 +491,10 @@ Proof
     \\ irule LIST_REL_FILTER \\ fs []
     \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any) \\ gs [])
+    *)
+
   >- ((* Letrec *)
-    rw [Once exp_rel_cases] \\ gs []
+    rw [Once exp_rel_cases] \\ gs [Lets_distinct]
     \\ simp [subst_def]
     \\ irule exp_rel_Letrec
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
@@ -510,7 +518,7 @@ Proof
     \\ first_assum (irule_at Any)
     \\ simp [FORALL_PROD])
   >- ((* Delay *)
-    rw [Once exp_rel_cases]
+    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
     \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
     \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R _ _’
     \\ ‘OPTREL R (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
@@ -521,15 +529,15 @@ Proof
           \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
     \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_Var, exp_rel_Value])
   >- ((* Force *)
-    rw [Once exp_rel_cases]
+    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
     \\ simp [subst_def]
     \\ irule exp_rel_Force \\ fs [])
   >- ((* Value *)
-    rw [Once exp_rel_cases]
+    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
     \\ simp [subst_def]
     \\ rw [Once exp_rel_cases])
   >- ((* MkTick *)
-    rw [Once exp_rel_cases]
+    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
     \\ simp [subst_def]
     \\ irule exp_rel_MkTick
     \\ first_x_assum irule \\ gs [])
