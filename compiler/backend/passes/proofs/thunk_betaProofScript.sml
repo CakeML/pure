@@ -36,18 +36,21 @@ End
   e.g.,
   compile A = B
 *)
-
 Inductive exp_rel:
 (* Restricted beta rule *)
 [beta:]
-  (∀f g vs.
+  (∀f g vs vs'.
   ALL_DISTINCT (MAP (FST o SND) vs) ∧
   DISJOINT (freevars f) (set (MAP (FST o SND) vs)) ∧
+  MAP FST vs = MAP FST vs' ∧
+  MAP (FST o SND) vs = MAP (FST o SND) vs' ∧
+  LIST_REL (OPTREL v_rel)
+    (MAP (SND o SND) vs) (MAP (SND o SND) vs') ∧
   (vs ≠ []) ∧
   exp_rel f g ⇒
   exp_rel
     (Lets
-      (MAP (λ(b,v). (SOME (FST v), optional_force b v)) (REVERSE vs))
+      (MAP (λ(b,v). (SOME (FST v), optional_force b v)) (REVERSE vs'))
       (Apps f (MAP (Var o FST o SND) vs)))
     (Apps g (MAP (λ(b,v). (optional_force b v)) vs)))
 (* Boilerplate: *)
@@ -367,6 +370,42 @@ Proof
   cheat
 QED
 
+Definition pre_force_subst_def:
+  pre_force_subst m v =
+    case v of
+      (n,NONE) =>
+      (case ALOOKUP (REVERSE m) n of
+        NONE => (n,NONE) | SOME x => (n,SOME x))
+    | _ => v
+End
+
+Theorem FST_pre_force_subst[simp]:
+  FST (pre_force_subst ws v) = FST v
+Proof
+  rw[pre_force_subst_def]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[]
+QED
+
+Theorem subst_optional_force_eq:
+  subst ws (optional_force b v) =
+  optional_force b (pre_force_subst ws v)
+Proof
+  simp[oneline optional_force_def,pre_force_subst_def]>>
+  rw[]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[subst_def]
+QED
+
+Theorem MAP_subst_optional_force:
+  ∀vs.
+  MAP (subst ws) (MAP (λ(b,v). optional_force b v) vs) =
+  MAP (λ(b,v). optional_force b v)
+    (MAP (λ(b,v). (b,pre_force_subst ws v)) vs)
+Proof
+  Induct>>rw[]>>
+  pairarg_tac>>fs[]>>
+  simp[subst_optional_force_eq]
+QED
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
@@ -452,18 +491,32 @@ Proof
     rw [Once exp_rel_cases] \\ gs []
 
     >- ((*beta*)
-      qspecl_then [
-        `vs`, `REVERSE vs'`, `Apps f (MAP (Var o FST o SND) vs')`
-      ] assume_tac subst_Lets \\
-      `ALL_DISTINCT (MAP (FST o SND) (REVERSE vs'))` by (
-        metis_tac[MAP_REVERSE, ALL_DISTINCT_REVERSE]) \\
-      fs[subst_Apps] \\
-
-      (* stuck *)
-
-      irule beta
-    )
-
+      DEP_REWRITE_TAC[subst_Lets]>>
+      conj_tac
+      >- metis_tac[MAP_REVERSE, ALL_DISTINCT_REVERSE]>>
+      simp[subst_Apps,MAP_subst_optional_force]>>
+      qmatch_goalsub_abbrev_tac`Apps (subst ws g) (MAP _ vss)`>>
+      rename1`REVERSE vs''`>>
+      `MAP (λ(b,v). (SOME (FST v),subst vs (optional_force b v)))
+        (REVERSE vs'') =
+        MAP (λ(b,v). (SOME (FST v),(optional_force b v)))
+          (REVERSE (MAP (λ(b,v). (b,pre_force_subst vs v)) vs''))` by
+          (simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
+          rw[]>>pairarg_tac>>fs[subst_optional_force_eq])>>
+       simp[]>>
+       `subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs''))) vs) f
+          = subst vs f` by cheat>>
+       simp[]>>
+       qmatch_goalsub_abbrev_tac`Apps _ vsss`>>
+       `vsss = MAP (Var ∘ FST ∘ SND) vss` by (
+         unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
+         simp[FORALL_PROD,subst_def]>>
+         (* impossible since already cancelled out *)
+         cheat)>>
+       simp[]>>
+       irule beta>>
+       unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF]>>
+       cheat)
     >- ((*let*)
       simp [subst_def]
       \\ irule exp_rel_Let \\ gs []
