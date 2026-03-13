@@ -357,9 +357,9 @@ Proof
 QED
 
 Theorem subst_Lets:
-  ∀vs body.
-  ALL_DISTINCT (MAP (FST o SND) vs) ⇒ 
-  subst m 
+  ∀m vs body.
+  ALL_DISTINCT (MAP (FST o SND) vs) ⇒
+  subst m
   (Lets (MAP (λ(b,v). (SOME (FST v), optional_force b v)) vs) body)
     = Lets (MAP (λ(b,v). (SOME (FST v), subst m (optional_force b v))) vs)
       (subst (FILTER (λ(n,x). n ∉ set (MAP (FST o SND) vs)) m) body)
@@ -452,7 +452,16 @@ Proof
     rw [Once exp_rel_cases] \\ gs []
 
     >- ((*beta*)
-      cheat
+      qspecl_then [
+        `vs`, `REVERSE vs'`, `Apps f (MAP (Var o FST o SND) vs')`
+      ] assume_tac subst_Lets \\
+      `ALL_DISTINCT (MAP (FST o SND) (REVERSE vs'))` by (
+        metis_tac[MAP_REVERSE, ALL_DISTINCT_REVERSE]) \\
+      fs[subst_Apps] \\
+
+      (* stuck *)
+
+      irule beta
     )
 
     >- ((*let*)
