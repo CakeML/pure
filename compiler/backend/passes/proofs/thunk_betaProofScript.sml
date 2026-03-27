@@ -221,9 +221,19 @@ Proof
     pop_assum kall_tac>>
     simp[ALL_DISTINCT_REVERSE,MAP_REVERSE]>>
     Induct_on`ls`>>rw[Lets_def]>>
-    pairarg_tac>>fs[Lets_def,freevars_def]>>
+    >- (
+      Cases_on `vs'`>>simp[Lets_def]>>
+      pairarg_tac>>fs[Lets_def,freevars_def]>>
+      cheat
+    )
+    >- (
+      cheat
+    )
+
     DEP_REWRITE_TAC[freevars_Lets_free]>>
     simp[freevars_Apps, UNION_DIFF_DISTRIBUTE]>>
+
+
     `FST v ∉ BIGUNION (set
       (MAP freevars (REVERSE (MAP (λ(b,v). optional_force b v) ls))))` by (
         once_rewrite_tac [GSYM MAP_REVERSE] >>
@@ -242,6 +252,7 @@ Proof
         ) >>
         fs[]
     ) >>
+
     metis_tac[idempotent_diff, UNION_COMM, UNION_ASSOC]
   )
   >- (
@@ -356,6 +367,10 @@ Proof
   \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
   \\ rpt strip_tac
   \\ rgs [Once exp_rel_cases]
+  \\ `REVERSE vs' ≠ []` by (
+    `vs' ≠ []` suffices_by simp[]
+    \\ CCONTR_TAC
+    \\ qpat_x_assum `MAP (FST o SND) _ = _` mp_tac \\ fs[])
   \\ gvs[Apps_distinct, Lets_distinct]
 QED
 
@@ -417,15 +432,20 @@ Proof
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Var *)
     rw [Once exp_rel_cases, subst_def] \\ gs []
-    >- (‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
-      by (irule LIST_REL_OPTREL
-          \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
-          \\ pop_assum mp_tac
-          \\ qid_spec_tac ‘ws’
-          \\ qid_spec_tac ‘vs’
-          \\ Induct \\ simp []
-          \\ gen_tac \\ CCONTR_TAC
-          \\ fs[Lets_distinct])
+    >- (
+      `vs'' ≠ []` by (
+        CCONTR_TAC \\
+        qpat_x_assum `MAP FST vs = _` mp_tac \\ fs[])
+      \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’ by (
+        irule LIST_REL_OPTREL
+        \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
+        \\ pop_assum mp_tac
+        \\ qid_spec_tac ‘ws’
+        \\ qid_spec_tac ‘vs’
+        \\ Induct \\ simp []
+        \\ gen_tac \\ CCONTR_TAC
+        \\ fs[Lets_distinct]
+        \\ fs[Lets_distinct])
       \\ CCONTR_TAC \\ fs[Lets_distinct])
     >- (
       ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
@@ -438,29 +458,53 @@ Proof
             \\ gen_tac \\ Cases \\ simp[])
       \\ gs [OPTREL_def, subst_def]
       \\ rw [Once exp_rel_cases, v_rel_def]))
+
   >- ((* Prim *)
     rw [Once exp_rel_cases] \\ gs [Lets_distinct]
-    \\ simp [subst_def]
+    >- (
+      `REVERSE vs'' ≠ []` by (
+      CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+      \\ fs[Lets_distinct])
+    >- (
+    simp [subst_def]
     \\ irule exp_rel_Prim
     \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
     \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ rw [])
+    \\ first_assum (irule_at Any) \\ rw []))
   >- ((* Monad *)
-    rw[Once exp_rel_cases] >> gvs[subst_def, Lets_distinct] >>
-    rw[Once exp_rel_cases] >>
-    gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS])
+    rw[Once exp_rel_cases] >> gvs[subst_def, Lets_distinct]
+    >- (
+    `REVERSE vs'' ≠ []` by (
+      CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+      \\ fs[Lets_distinct])
+    \\ rw[Once exp_rel_cases]
+    \\ gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS])
   >- ((* If *)
     rw [Once exp_rel_cases]
-    \\ fs[Lets_distinct]
+    >- (
+      `REVERSE vs'' ≠ []` by (
+        CCONTR_TAC
+        \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def]
     \\ irule exp_rel_If \\ fs [])
   >- ((* App *)
     rw [Once exp_rel_cases]
-    \\ fs[Lets_distinct]
+    >- (
+    `REVERSE vs'' ≠ []` by (
+      CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def]
     \\ irule exp_rel_App \\ fs [])
   >- ((* Lam *)
     rw [Once exp_rel_cases]
+    >- (`REVERSE vs'' ≠ []` by (
+       CCONTR_TAC
+       \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ gvs [subst_def, Lets_distinct]
     \\ irule exp_rel_Lam
     \\ first_x_assum irule
@@ -471,25 +515,22 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   >- ((* Let NONE *)
     rw [Once exp_rel_cases] \\ simp [subst_def]
-    >- (CCONTR_TAC \\
-      qpat_x_assum `Seq x x' = _` mp_tac \\ fs[] \\
-      qspecl_then [`(MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))`,
-                   `(Apps f (MAP (Var ∘ FST ∘ SND) vs'))`,
-                   `x`, `x'`] assume_tac Lets_map_seq \\
-      last_x_assum (fn thm => irule (GSYM thm)) \\
-      conj_tac
-      >- (rpt strip_tac \\ Cases_on `t` \\
-        first_assum mp_tac \\
-        `(q,r) = (SOME (FST v'), optional_force b' v')` by (
-          fs[MEM_MAP] \\
-          qpat_x_assum `(NONE, r) = _` mp_tac \\ Cases_on `y` \\ fs[]
-        ) \\ fs[])
-      >- gvs[])
-    \\ irule exp_rel_Let \\ fs [])
+    >- (CCONTR_TAC
+      \\ qpat_x_assum `Seq x x' = _` mp_tac \\ fs[]
+      \\  DEP_REWRITE_TAC [GSYM Lets_map_seq]
+      \\ `REVERSE vs'' ≠ []` by (CCONTR_TAC
+        \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+      \\ fs[]
+      \\ rpt strip_tac \\ Cases_on `t`
+      \\ first_assum mp_tac \\
+      `(q,r) = (SOME (FST v'), optional_force b' v')` by (
+        fs[MEM_MAP] \\
+        qpat_x_assum `(NONE, r) = _` mp_tac \\ Cases_on `y` \\ fs[]
+      ) \\ fs[])
+      \\ irule exp_rel_Let \\ fs [])
 
   >- ((* Let SOME *)
     rw [Once exp_rel_cases] \\ gs []
-
     >- ((*beta*)
       DEP_REWRITE_TAC[subst_Lets]>>
       conj_tac
@@ -574,6 +615,9 @@ Proof
 
   >- ((* Letrec *)
     rw [Once exp_rel_cases] \\ gs [Lets_distinct]
+    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def]
     \\ irule exp_rel_Letrec
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
@@ -598,6 +642,9 @@ Proof
     \\ simp [FORALL_PROD])
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ fs[Lets_distinct]
+    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
     \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R _ _’
     \\ ‘OPTREL R (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
@@ -609,14 +656,23 @@ Proof
     \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_Var, exp_rel_Value])
   >- ((* Force *)
     rw [Once exp_rel_cases] \\ fs[Lets_distinct]
+    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def]
     \\ irule exp_rel_Force \\ fs [])
   >- ((* Value *)
     rw [Once exp_rel_cases] \\ fs[Lets_distinct]
+    >- (`REVERSE vs''' ≠ []` by (CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs'' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def]
     \\ rw [Once exp_rel_cases])
   >- ((* MkTick *)
     rw [Once exp_rel_cases] \\ fs[Lets_distinct]
+    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
+      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
+    \\ fs[Lets_distinct])
     \\ simp [subst_def]
     \\ irule exp_rel_MkTick
     \\ first_x_assum irule \\ gs [])
