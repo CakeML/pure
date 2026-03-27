@@ -425,16 +425,6 @@ Theorem exp_rel_subst:
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
 Proof
-  qsuff_tac `
-    (∀x y. exp_rel x y ==> ∀vs ws. 
-    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
-    MAP FST vs = MAP FST ws ⇒
-      exp_rel (subst vs x) (subst ws y)) ∧ ∀v w. v_rel v w ⇒ T`
-  >- (rpt strip_tac \\ res_tac)
-  \\ ho_match_mp_tac exp_rel_ind \\ rpt strip_tac \\ simp[]
-  (*push in subst first*)
-
-
   ho_match_mp_tac subst_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Var *)
@@ -538,6 +528,7 @@ Proof
 
   >- ((* Let SOME *)
     rw [Once exp_rel_cases] \\ gs []
+
     >- ((*beta*)
       DEP_REWRITE_TAC[subst_Lets]>>
       conj_tac
@@ -553,9 +544,7 @@ Proof
           rw[]>>pairarg_tac>>fs[subst_optional_force_eq])>>
        simp[]>>
        `subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs''))) vs) f
-          = subst vs f` by (
-          cheat
-        )>>
+          = subst vs f` by cheat>>
        simp[]>>
        qmatch_goalsub_abbrev_tac`Apps _ vsss`>>
        `vsss = MAP (Var ∘ FST ∘ SND) vss` by (
@@ -568,16 +557,7 @@ Proof
        simp[]>>
        irule beta>>
        unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF]>>
-       fs[UNCURRY, SF ETA_ss]>>
-       simp[freevars_subst]>>
-       conj_tac
-        >-(
-          fs[IN_DISJOINT] >>
-          CCONTR_TAC >> fs[] >>
-          metis_tac[])
-        >-(
-          
-        )
+        
        cheat)
     >- ((*let*)
       simp [subst_def]
