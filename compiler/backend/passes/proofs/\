@@ -202,14 +202,6 @@ Proof
   pop_assum (fn h => assume_tac (GSYM h)) >> fs[freevars_def]
 QED
 
-Theorem Lets_append:
-  Lets (a ++ b) y = Lets a (Lets b y)
-Proof
-  (*induct*)
-  cheat
-QED
-
-
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
 Proof
@@ -221,44 +213,6 @@ Proof
   \\ simp [freevars_def]
   \\ rw []
   >- (
-    qpat_x_assum `vs≠[]` kall_tac \\
-    qpat_x_assum `exp_rel x y` kall_tac \\
-    rpt (pop_assum mp_tac) \\
-    simp[freevars_Apps] \\
-    qid_spec_tac `vs'` \\ Induct_on `vs` \\ simp[Lets_def] \\
-    rw[] \\ gvs[] \\ 
-    Cases_on `vs'` \\ gvs[] \\
-    simp[Lets_append]
-    PairCases_on `h`\\
-    PairCases_on `h'`\\
-    gvs[] \\
-    rename1 `optional_force a (b, c)` \\
-    Cases_on `c` \\ gvs[OPTREL_def, OPTREL_NONE, OPTREL_SOME]
-    >-(
-      Cases_on `a` \\ gvs[]
-
-(*
-- freevasr Lets (some b) Apps --> use freevars_Lets_free (similar shape )
-
-*)
-    )
-    >-(
-      Cases_on `a` \\ gvs[optional_force_def, freevars_def] \\
-      first_x_assum (qspec_then `t` mp_tac) \\ simp[] \\
-      >- ()
-      >- ()
-    )
-    >-(cheat)
-    >-(cheat)
-EVERY_CASE_TAC
-    
-    Apps_def
-    beta
-    freevars_Lets_free
-    optional_force_def
-    
-
-
     qabbrev_tac`ls = REVERSE vs`>>
     qpat_x_assum`ALL_DISTINCT _` mp_tac>>
     qpat_x_assum`DISJOINT _ _` mp_tac>>
@@ -268,7 +222,7 @@ EVERY_CASE_TAC
     simp[ALL_DISTINCT_REVERSE,MAP_REVERSE]>>
     Induct_on`ls`>>rw[Lets_def]>>
     >- (
-      
+      Cases_on `vs'`>>simp[Lets_def]>>
     )
     >- (
       pairarg_tac>>simp[GSYM MAP_REVERSE] >>
@@ -293,16 +247,8 @@ EVERY_CASE_TAC
           ) >>
           fs[]
       ) >>
-      strip_tac
-      >- (
-        cheat >>
-        (* ALL_DISTINCT (MAP (FST o SND) (REVERSE ls ++ vs)) ?? *)
-        CCONTR_TAC >> fs[]
-        `MEM (FST v) (MAP (FST o SND) vs')` by fs[MAP_REVERSE, MEM_REVERSE]
-      )
-      >- (
-      cheat >>
-      metis_tac[idempotent_diff, UNION_COMM, UNION_ASSOC, freevars_Lets_free])
+      (* broken *)
+      metis_tac[idempotent_diff, UNION_COMM, UNION_ASSOC]
     )
   )
   >- (
@@ -478,71 +424,6 @@ Theorem exp_rel_subst:
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
 Proof
-  qsuff_tac `
-    (∀x y. exp_rel x y ==> ∀vs ws. 
-    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
-    MAP FST vs = MAP FST ws ⇒
-      exp_rel (subst vs x) (subst ws y)) ∧ ∀v w. v_rel v w ⇒ T`
-  >- (rpt strip_tac \\ res_tac)
-  \\ ho_match_mp_tac exp_rel_ind \\ rpt strip_tac \\ simp[]
-  >-((*beta*))
-  >-((*App*)
-    rw [Once exp_rel_cases] \\
-    disj2_tac \\ disj1_tac \\
-    simp[subst_def])
-  >-((*Lam*)
-    rw [Once exp_rel_cases] \\
-    disj2_tac\\ disj2_tac \\ disj1_tac \\
-    simp[subst_def] \\
-    first_x_assum irule \\ conj_tac
-    >-(
-      simp[MAP_FILTER] \\
-      cheat)
-    >-(cheat)
-  )
-  >-((*Letrec*)
-    rw[Once exp_rel_cases]
-    disj2_tac\\disj2_tac\\disj2_tac\\disj1_tac\\
-    simp[subst_def]\\
-cheat
-
-    rw [Once exp_rel_cases] \\ gs [Lets_distinct]
-    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_Letrec
-    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-    \\ first_assum (irule_at Any)
-    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ `MAP FST f = MAP FST g`
-      by (irule LIST_EQ
-          \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
-    \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [MAP_FST_FILTER, SF ETA_ss]
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD] \\ rw []
-    \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER, SF ETA_ss, SF SFY_ss]
-    \\ irule_at Any LIST_REL_FILTER \\ gs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD]
-  )
-
-  >-((*Let*)
-    rw [Once exp_rel_cases]\\
-    disj2_tac
-  )
-  >-((*beta*))
-
-
-
-
   ho_match_mp_tac subst_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Var *)
