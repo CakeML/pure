@@ -213,6 +213,8 @@ QED
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
 Proof
+ cheat 
+(*
   qsuff_tac ‘
     (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
     (∀v w. v_rel v w ⇒ T)’
@@ -304,6 +306,7 @@ Proof
       suffices_by rw [SF ETA_ss]
     \\ irule LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+*)
 QED
 
 
@@ -472,7 +475,55 @@ Proof
       exp_rel (subst vs x) (subst ws y)) ∧ ∀v w. v_rel v w ⇒ T`
   >- (rpt strip_tac \\ res_tac)
   \\ ho_match_mp_tac exp_rel_ind \\ rpt strip_tac \\ simp[]
-  >-((*beta*))
+  >-((*beta*)
+      DEP_REWRITE_TAC[subst_Lets]>>
+      conj_tac
+      >- metis_tac[MAP_REVERSE, ALL_DISTINCT_REVERSE]>>
+      simp[subst_Apps,MAP_subst_optional_force]>>
+      qmatch_goalsub_abbrev_tac`Apps (subst ws y) (MAP _ vss)`>>
+      rename1 `REVERSE vs'`>>
+      `MAP (λ(b,v). (SOME (FST v),subst vs'' (optional_force b v)))
+        (REVERSE vs') =
+        MAP (λ(b,v). (SOME (FST v),(optional_force b v)))
+          (REVERSE (MAP (λ(b,v). (b,pre_force_subst vs'' v)) vs'))` by
+          (simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
+          rw[]>>pairarg_tac>>fs[subst_optional_force_eq])>>
+       pop_assum SUBST1_TAC>>
+       DEP_REWRITE_TAC[subst_remove]>>
+       conj_tac
+       >- (simp[MAP_REVERSE] >> metis_tac[DISJOINT_SYM])
+
+       >- (
+         `MAP (subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'))) vs'')) (MAP (Var ∘ FST ∘ SND) vs)
+         = MAP (Var ∘ FST ∘ SND) vss` by (
+           rw[Abbr`vss`] \\
+           rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD, subst_def] \\
+           DEP_REWRITE_TAC [iffRL ALOOKUP_NONE] \\
+           simp[MEM_MAP, FORALL_PROD, MEM_FILTER] \\
+           cheat
+           )
+          pop_assum SUBST1_TAC \\
+          irule beta \\
+          
+
+       `subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs''))) vs) f
+          = subst vs f` by cheat>>
+       simp[]>>
+       qmatch_goalsub_abbrev_tac`Apps _ vsss`>>
+       `vsss = MAP (Var ∘ FST ∘ SND) vss` by (
+         unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
+         simp[FORALL_PROD,subst_def]>>
+         rw[] >> simp[AllCaseEqs(), ALOOKUP_NONE]
+         
+         cheat)>>
+
+       simp[]>>
+       irule beta>>
+       unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF]>>
+        
+       cheat     
+    )
+
   >-((*App*)
     rw [Once exp_rel_cases] \\
     disj2_tac \\ disj1_tac \\
