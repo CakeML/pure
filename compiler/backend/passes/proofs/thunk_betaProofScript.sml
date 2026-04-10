@@ -228,36 +228,25 @@ Proof
     qid_spec_tac `vs'` \\ Induct_on `vs` \\ simp[Lets_def] \\
     rw[] \\ gvs[] \\ 
     Cases_on `vs'` \\ gvs[] \\
-    simp[Lets_append]
+    simp[Lets_append] \\
     PairCases_on `h`\\
     PairCases_on `h'`\\
     gvs[] \\
     rename1 `optional_force a (b, c)` \\
     Cases_on `c` \\ gvs[OPTREL_def, OPTREL_NONE, OPTREL_SOME]
-    >-(
-      Cases_on `a` \\ gvs[]
-
-(*
-- freevasr Lets (some b) Apps --> use freevars_Lets_free (similar shape )
-
-*)
-    )
-    >-(
+    >- (
       Cases_on `a` \\ gvs[optional_force_def, freevars_def] \\
-      first_x_assum (qspec_then `t` mp_tac) \\ simp[] \\
       >- ()
       >- ()
     )
-    >-(cheat)
-    >-(cheat)
-EVERY_CASE_TAC
-    
-    Apps_def
-    beta
-    freevars_Lets_free
-    optional_force_def
-    
+    >- (
+        Cases_on `a` \\ gvs[optional_force_def, freevars_def] \\
+        first_x_assum (qspec_then `t` mp_tac) \\ simp[] \\
+        >- ()
+        >- ()
+    )
 
+    
 
     qabbrev_tac`ls = REVERSE vs`>>
     qpat_x_assum`ALL_DISTINCT _` mp_tac>>
@@ -267,9 +256,7 @@ EVERY_CASE_TAC
     pop_assum kall_tac>>
     simp[ALL_DISTINCT_REVERSE,MAP_REVERSE]>>
     Induct_on`ls`>>rw[Lets_def]>>
-    >- (
-      
-    )
+    >- ()
     >- (
       pairarg_tac>>simp[GSYM MAP_REVERSE] >>
       fs[Lets_def,freevars_def]>>
