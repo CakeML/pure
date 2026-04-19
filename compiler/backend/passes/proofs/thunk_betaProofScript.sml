@@ -203,10 +203,18 @@ Proof
 QED
 
 Theorem Lets_append:
-  Lets (a ++ b) y = Lets a (Lets b y)
+  ∀a b y. Lets (a ++ b) y = Lets a (Lets b y)
 Proof
-  (*induct*)
-  cheat
+  Induct_on `a` \\ rw[Lets_def] \\
+  PairCases_on `h` \\ simp[Lets_def]
+QED
+
+Theorem freevars_Lets:
+  ∀ (v:string) (x:exp) xs body. freevars (Lets (SOME v, x)::xs body) =
+
+    freevars x ∪ (freevars (Lets xs body) DIFF {v})
+Proof
+  freevars (Let (SOME s) x y) = freevars x ∪ (freevars y DIFF {s}))
 QED
 
 
@@ -236,7 +244,11 @@ Proof
     Cases_on `c` \\ gvs[OPTREL_def, OPTREL_NONE, OPTREL_SOME]
     >- (
       Cases_on `a` \\ gvs[optional_force_def, freevars_def] \\
-      >- ()
+      >- (
+        
+        freevars_Lets_free
+        first_x_assum irule
+      )
       >- ()
     )
     >- (
