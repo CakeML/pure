@@ -213,8 +213,6 @@ QED
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
 Proof
- cheat 
-(*
   qsuff_tac ‘
     (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
     (∀v w. v_rel v w ⇒ T)’
@@ -306,7 +304,6 @@ Proof
       suffices_by rw [SF ETA_ss]
     \\ irule LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
-*)
 QED
 
 
@@ -492,16 +489,16 @@ Proof
        DEP_REWRITE_TAC[subst_remove]>>
        conj_tac
        >- (simp[MAP_REVERSE] >> metis_tac[DISJOINT_SYM])
-
        >- (
          `MAP (subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'))) vs'')) (MAP (Var ∘ FST ∘ SND) vs)
          = MAP (Var ∘ FST ∘ SND) vss` by (
-           rw[Abbr`vss`] \\
-           rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD, subst_def] \\
-           DEP_REWRITE_TAC [iffRL ALOOKUP_NONE] \\
-           simp[MEM_MAP, FORALL_PROD, MEM_FILTER] \\
-           cheat
-           )
+         rw[Abbr`vss`] \\
+         rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD, subst_def] \\
+         DEP_REWRITE_TAC [iffRL ALOOKUP_NONE] \\
+         simp[MEM_MAP, FORALL_PROD, MEM_FILTER] \\
+         gen_tac \\ disj1_tac \\
+         
+         )
           pop_assum SUBST1_TAC \\
           irule beta \\
           
