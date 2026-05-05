@@ -2,7 +2,7 @@ Theory pure_misc
 Ancestors
   string mlstring option pair list alist llist finite_map pred_set
   arithmetic rich_list sptree ltree fixedPoint sorting logroot
-  cardinal[qualified]
+  listCardinality[qualified]
 Libs
   term_tactic BasicProvers dep_rewrite intLib[qualified]
 
@@ -621,7 +621,7 @@ Theorem COUNTABLE_mlstring:
   COUNTABLE 𝕌(:mlstring)
 Proof
   ‘COUNTABLE 𝕌(:string)’
-     by metis_tac [cardinalTheory.COUNTABLE_LIST_UNIV, COUNTABLE_char]
+     by metis_tac [listCardinalityTheory.COUNTABLE_LIST_UNIV, COUNTABLE_char]
   \\ gvs [countable_def, INJ_DEF]
   \\ qexists ‘f o explode’ \\ gvs [] \\ rw []
   \\ gvs [oneline explode_thm]
