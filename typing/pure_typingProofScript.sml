@@ -3,7 +3,7 @@ Ancestors
   pair arithmetic integer mlstring option list rich_list alist
   finite_map pred_set pure_misc pure_config pure_exp
   pure_exp_lemmas pure_semantics pure_eval pure_tcexp
-  pure_tcexp_lemmas pure_typing pure_typingProps
+  pure_tcexp_lemmas pure_typing pure_typingProps pure_obs_sem_equal
 Libs
   BasicProvers dep_rewrite
 
@@ -66,7 +66,7 @@ Theorem type_wh_PrimTy_Bool_eq_wh_Constructor[local]:
     wh = wh_Diverge ∨ wh = wh_Constructor «True» [] ∨
     wh = wh_Constructor «False» []
 Proof
-  rw[type_wh_cases] >> gvs[Once type_tcexp_cases, mlstringTheory.implode_def]
+  rw[type_wh_cases] >> gvs[Once type_tcexp_cases]
   >- (Cases_on `arg_tys` >> gvs[Functions_def])
   >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
 QED
@@ -99,7 +99,7 @@ Theorem type_wh_Tuple_eq_wh_Constructor[local]:
     wh = wh_Diverge ∨ ∃es. wh = wh_Constructor «» es
 Proof
   rw[type_wh_cases] >>
-  gvs[Once type_tcexp_cases, exp_of_def, mlstringTheory.implode_def] >>
+  gvs[Once type_tcexp_cases, exp_of_def] >>
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
@@ -392,7 +392,7 @@ Proof
           assume_tac $ GEN_ALL eval_op_type_safe >> gvs[] >>
         Cases_on `pt = Bool` >> gvs[]
         >- (IF_CASES_TAC >> simp[type_wh_cases] >>
-            simp[Once type_tcexp_cases, mlstringTheory.implode_def]) >>
+            simp[Once type_tcexp_cases]) >>
         simp[type_wh_cases] >> simp[Once type_tcexp_cases, get_PrimTys_def] >>
         simp[type_atom_op_cases]
         ) >>
@@ -422,8 +422,7 @@ Proof
         assume_tac $ GEN_ALL eval_op_type_safe >> gvs[] >>
       Cases_on `pt = Bool` >> gvs[]
       >- (IF_CASES_TAC >>
-          simp[type_wh_cases, Once type_tcexp_cases,
-               mlstringTheory.implode_def]) >>
+          simp[type_wh_cases, Once type_tcexp_cases]) >>
       simp[type_wh_cases] >>
       simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases]
       )
@@ -1362,7 +1361,7 @@ Proof
   rw[] >>
   `itree_of (exp_of ce) = itree_of (exp_of $ tcexp_of ce)` by (
     rw[itree_of_def] >>
-    irule pure_obs_sem_equalTheory.bisimilarity_IMP_semantics_eq >>
+    irule bisimilarity_IMP_semantics_eq >>
     simp[pure_exp_relTheory.app_bisimilarity_eq] >>
     irule_at Any $ iffLR pure_congruenceTheory.exp_eq_sym >>
     irule_at Any exp_of_tcexp_of_exp_eq >>

@@ -550,7 +550,7 @@ Proof
               (Constructor' (implode $ REPLICATE (LENGTH path) #"a"), 1))` >>
   qexists_tac `λn. implode $ REPLICATE n #"a"` >> reverse (rw[])
   >- (
-    gvs [implode_def] >> drule REPLICATE_11 >> simp[]) >>
+    drule REPLICATE_11 >> simp[]) >>
   simp[cons_names_v_def, DISJ_EQ_IMP, PULL_EXISTS] >>
   rename1 `_ ⇒ false` >> rw[] >>
   CCONTR_TAC >> last_x_assum mp_tac >> simp[] >>

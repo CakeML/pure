@@ -2391,7 +2391,7 @@ Proof
         simp[do_app_def, copy_array_def, IMPLODE_EXPLODE_I] >>
         qexists0 >> simp[step_rel_cases] >>
         gvs [oneline strlen_def, AllCaseEqs()] >>
-        TOP_CASE_TAC >> gvs [mlstringTheory.implode_def] >> simp [SF SFY_ss]) >>
+        TOP_CASE_TAC >> gvs [] >> simp [SF SFY_ss]) >>
       ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
       simp[do_app_def, do_test_def] >>
       reverse $ Cases_on `idx < &strlen s''` >> gvs[] >>
@@ -2399,7 +2399,7 @@ Proof
       >- (
         `DROP (Num idx) (explode s'') = []` by (simp[] >> ARITH_TAC) >>
         simp[] >> qexists0 >>
-        simp[step_rel_cases, mlstringTheory.implode_def, SF SFY_ss]) >>
+        simp[step_rel_cases, SF SFY_ss]) >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
       simp[do_app_def, check_type_def, do_arith_def] >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
@@ -2407,7 +2407,7 @@ Proof
       `¬ (&strlen s'' − idx < 0)` by ARITH_TAC >> simp[] >>
       qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
       `ABS idx = idx` by ARITH_TAC >> simp[] >>
-      Cases_on ‘s''’ >> gvs [mlstringTheory.implode_def] >>
+      Cases_on ‘s''’ >> gvs [] >>
       ARITH_TAC)
     >- ( (* StrLeq *)
       gvs[eval_op_SOME] >>
@@ -2606,7 +2606,7 @@ Proof
       ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
       >- (
         qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
-        Cases_on ‘s’ >> gvs [mlstringTheory.implode_def, SF SFY_ss]) >>
+        Cases_on ‘s’ >> gvs [SF SFY_ss]) >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
       simp[do_app_def, check_type_def, do_arith_def] >>
       ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
@@ -2623,7 +2623,7 @@ Proof
         )
       >- (
         qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-        Cases_on ‘s’ >> gvs [mlstringTheory.implode_def] >>
+        Cases_on ‘s’ >> gvs [] >>
         ARITH_TAC
         )
       )
@@ -2635,7 +2635,7 @@ Proof
       ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
       >- (
         qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-        Cases_on ‘s’ >> gvs [mlstringTheory.implode_def] >>
+        Cases_on ‘s’ >> gvs [] >>
         ARITH_TAC
         ) >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
@@ -2839,7 +2839,7 @@ Proof
     simp[dstep, cstep, do_app_def, check_type_def, do_conversion_def,
          do_arith_def, do_test_def]) >>
   simp[do_if_def] >>
-  `&(256 * (strlen s DIV 256) MOD dimword (:8)) + &(strlen s MOD dimword (:8)) =
+  `&(256 * (strlen s DIV 256 MOD dimword (:8))) + &(strlen s MOD dimword (:8)) =
     &(strlen s) : int` by (
       simp[wordsTheory.dimword_def, wordsTheory.dimindex_8] >>
       gvs[max_FFI_return_size_def] >> ARITH_TAC) >>
@@ -2850,7 +2850,7 @@ Proof
   `str1 = s` by (
     unabbrev_all_tac >> simp[TAKE_APPEND, GSYM MAP_TAKE] >>
     simp[ws_to_chars_def, MAP_MAP_o, combinTheory.o_DEF] >>
-    Cases_on ‘s’ >> gvs [mlstringTheory.implode_def]) >>
+    Cases_on ‘s’ >> gvs []) >>
   pop_assum SUBST_ALL_TAC >>
   Cases_on `ck'` >> gvs[]
   >- (
