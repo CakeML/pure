@@ -93,6 +93,13 @@ Definition store_same_type_def:
     | _ => F
 End
 
+Definition store_assign_def:
+  store_assign n v st =
+    if n < LENGTH st ∧ store_same_type (EL n st) v then
+      SOME (LUPDATE v n st)
+    else NONE
+End
+
 Type state[pp] = ``:store_v list``; (* state *)
 
 Datatype:
@@ -247,21 +254,19 @@ Definition dest_anyThunk_def:
         | _ => NONE
 End
 
-Datatype:
-  dest_thunk_ptr_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
+Definition thunk_or_thunk_loc_def:
+  thunk_or_thunk_loc v =
+    case dest_anyThunk v of
+    | NONE =>
+      (case v of
+       | ThunkLoc _ => T
+       | _ => F)
+    | SOME _ => T
 End
 
-Definition dest_thunk_ptr_def:
-  dest_thunk_ptr (Atom (Loc n)) st =
-    (case oEL n st of
-     | NONE => BadRef
-     | SOME (ThunkMem Evaluated v) => IsThunk Evaluated v
-     | SOME (ThunkMem NotEvaluated f) => IsThunk NotEvaluated f
-     | SOME _ => NotThunk) ∧
-  dest_thunk_ptr _ _ = NotThunk
+Definition bad_thunk_update_def:
+  bad_thunk_update m v ⇔
+    m = Evaluated ∧ thunk_or_thunk_loc v
 End
 
 (******************** Semantics functions ********************)
@@ -342,20 +347,18 @@ Definition application_def:
   application (AllocMutThunk mode) vs st k = (
     case HD vs, st of
       v, SOME stores =>
+        if bad_thunk_update mode v then error st k else
         value (ThunkLoc $ LENGTH stores)
               (SOME (SNOC (ThunkMem mode v) stores))
               k
     | _ => error st k) ∧
   application (UpdateMutThunk mode) vs st k = (
-    case HD vs, st of
-      (ThunkLoc n, SOME stores) => (
-        case oEL n stores of
-          SOME (ThunkMem NotEvaluated _) =>
-          value
-            (Constructor «» [])
-            (SOME (LUPDATE (ThunkMem mode (EL 1 vs)) n stores))
-            k
-        | _ => error st k)
+    case (EL 0 vs, EL 1 vs, st) of
+      (ThunkLoc n, v, SOME stores) => (
+        if bad_thunk_update mode v then error st k else
+        case store_assign n (ThunkMem mode v) stores of
+          SOME stores' => value (Constructor «» []) (SOME stores') k
+        | NONE => error st k)
     | _ => error st k) ∧
   application ForceMutThunk vs st k = (
     case HD vs, st of
@@ -373,16 +376,6 @@ Definition application_def:
     case HD vs, st of
       (Atom $ Str content, SOME _) => (Action channel content, st, k)
     | _ => error st k)
-End
-
-Definition thunk_or_thunk_loc_def:
-  thunk_or_thunk_loc v =
-    case dest_anyThunk v of
-    | NONE =>
-      (case v of
-       | ThunkLoc _ => T
-       | _ => F)
-    | SOME _ => T
 End
 
 (* Return a value and handle a continuation *)
@@ -1099,7 +1092,7 @@ Proof
   Cases >> rw[step] >>
   gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
         rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
-        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),store_assign_def]
 QED
 
 Theorem step_weaken:
@@ -1121,8 +1114,8 @@ Proof
     Cases_on ‘k’ >> gvs[return_def, value_def] >>
     gvs[oneline return_def, AllCaseEqs(), error_def, continue_def, value_def] >>
     Cases_on ‘sop’ >> gvs[num_args_ok_def, LENGTH_EQ_NUM_compute] >>
-    gvs[application_def, AllCaseEqs(), error_def, value_def, continue_def]
-    )
+    gvs[application_def, AllCaseEqs(), error_def, value_def, continue_def,
+        store_assign_def])
   >- (
     Cases_on ‘k’ >> gvs[step_def] >>
     gvs[AllCaseEqs(), push_def, continue_def]
@@ -1163,8 +1156,8 @@ Proof
     Cases_on ‘k’ >> gvs[return_def, value_def] >>
     gvs[oneline return_def, AllCaseEqs(), error_def, continue_def, value_def] >>
     Cases_on ‘sop’ >> gvs[num_args_ok_def, LENGTH_EQ_NUM_compute] >>
-    gvs[application_def, AllCaseEqs(), error_def, value_def, continue_def]
-    )
+    gvs[application_def, AllCaseEqs(), error_def, value_def, continue_def,
+        store_assign_def])
   >- (
     Cases_on ‘k’ >> gvs[step_def] >>
     gvs[AllCaseEqs(), push_def, continue_def]
@@ -1243,7 +1236,7 @@ Proof
   >>~- ([‘AppK’],
     Cases_on ‘l1’ \\ gvs [step]
     \\ IF_CASES_TAC \\ gvs [step]
-    \\ Cases_on ‘s’ \\ gvs [step, AllCaseEqs()])
+    \\ Cases_on ‘s’ \\ gvs [step, AllCaseEqs(), store_assign_def])
   >>~- ([‘LetK’], Cases_on ‘o'’ \\ gvs [step])
 QED
 
@@ -1490,7 +1483,7 @@ Proof
   >~ [‘AppK’] >- (
     Cases_on ‘l1’ \\ gvs [step]
     \\ IF_CASES_TAC \\ gvs [step]
-    \\ Cases_on ‘s’ \\ gvs [step, AllCaseEqs()])
+    \\ Cases_on ‘s’ \\ gvs [step, AllCaseEqs(), store_assign_def])
   >~ [‘LetK’] >- (Cases_on ‘o'’ \\ gvs [step])
 QED
 

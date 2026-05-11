@@ -438,7 +438,7 @@ Inductive v_rel:
    ⇒ v_rel cnenv st (Atom $ Loc n) (Loc b (n + 1))) (* leave space for FFI array *)
 
 [~ThunkLoc:]
-  v_rel cnenv st (ThunkLoc n) (Loc b (n + 1))
+  v_rel cnenv st (ThunkLoc n) (Loc F (n + 1))
 
 [~env_rel:]
   (cnenv_rel cnenv cenv.c ∧
@@ -738,14 +738,15 @@ Theorem capplication_thm:
       | SOME (env,e) => Estep (env,s,Exp e,c)
     else if op = ThunkOp ForceThunk then
       (case vs of
-         [Loc _ n] => (
-           case store_lookup n s of
-             SOME (Thunk Evaluated v) =>
-               return env s v c
-           | SOME (Thunk NotEvaluated f) =>
-               return env s f ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c)
-           | _ => Etype_error)
-       | _ => Etype_error)
+         [Loc b n] => (
+            case dest_thunk [Loc b n] s of
+            | BadRef => Etype_error
+            | NotThunk => Etype_error
+            | IsThunk Evaluated v => return env s v c
+            | IsThunk NotEvaluated f =>
+                return env s f
+                  ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
+        | _ => Etype_error)
     else case get_ffi_ch op of
     | SOME n => (
       case get_ffi_args vs of
@@ -764,9 +765,8 @@ Theorem capplication_thm:
 Proof
   rw[application_thm] >> gvs[]
   >- gvs[AllCaseEqs()]
-  >- rpt (TOP_CASE_TAC >> gvs[])
-  >- (rpt (TOP_CASE_TAC >> gvs[]) >> gvs [dest_thunk_def]) >>
-  Cases_on `op` >> gvs[]
+  >- rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on ‘op’ >> gvs[]
 QED
 
 val creturn_def       = itree_semanticsTheory.return_def;
@@ -936,7 +936,8 @@ Theorem store_lookup_assign_Varray:
   store_assign n (Varray (LUPDATE e i vs)) st =
   SOME $ LUPDATE (Varray (LUPDATE e i vs)) n st
 Proof
-  rw[store_lookup_def, store_assign_def, store_v_same_type_def]
+  rw[store_lookup_def, semanticPrimitivesTheory.store_assign_def,
+     store_v_same_type_def]
 QED
 
 Theorem store_lookup_assign_Thunk:
@@ -944,7 +945,8 @@ Theorem store_lookup_assign_Thunk:
   store_assign n (Thunk m y) st =
   SOME $ LUPDATE (Thunk m y) n st
 Proof
-  rw[store_lookup_def, store_assign_def, store_v_same_type_def]
+  rw[store_lookup_def, semanticPrimitivesTheory.store_assign_def,
+     store_v_same_type_def]
 QED
 
 Theorem step_until_halt_no_err_step_n[local]:
@@ -1763,6 +1765,27 @@ Proof
     \\ Cases_on ‘EL n sst’ \\ gvs [])
 QED
 
+Theorem bad_thunk_update_rel:
+  state_rel cnenv sst cst ∧
+  v_rel cnenv sst sv cv ∧
+  ¬bad_thunk_update Evaluated sv ⇒
+    ¬bad_thunk_update Evaluated cv cst
+Proof
+  rw []
+  \\ gvs [bad_thunk_update_def, semanticPrimitivesTheory.bad_thunk_update_def]
+  \\ gvs [oneline dest_thunk_def]
+  \\ TOP_CASE_TAC \\ gvs []
+  \\ qpat_x_assum ‘v_rel _ _ _ (Loc _ _)’ mp_tac
+  \\ rw [Once v_rel_cases] \\ gvs []
+  \\ gvs [thunk_or_thunk_loc_def, dest_anyThunk_def]
+  \\ TOP_CASE_TAC \\ gvs []
+  >- gvs [store_lookup_def, NOT_LESS, state_rel, ADD1, LIST_REL_EL_EQN]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ drule_then (qspec_then ‘n'’ assume_tac) state_rel_store_lookup \\ gvs []
+  \\ gvs [oneline store_rel_def]
+  \\ Cases_on ‘z’ \\ gvs [oEL_THM]
+QED
+
 Theorem mlstring_gt_le:
   ∀s1 s2. mlstring_gt s1 s2 ⇔ ¬mlstring_le s1 s2
 Proof
@@ -2055,7 +2078,7 @@ Proof
     ntac 2 (TOP_CASE_TAC >> gvs[]) >>
     drule_all_then assume_tac dest_thunk_rel >> gvs[] >>
     qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
-    reverse $ rw[store_assign_def]
+    reverse $ rw[store_assign_def,semanticPrimitivesTheory.store_assign_def]
     >- gvs[state_rel, store_lookup_def, LUPDATE_DEF]
     >- (
       Cases_on `EL n sst` >> gvs[store_same_type_def] >>
@@ -2155,37 +2178,87 @@ Proof
       CCONTR_TAC >> Cases_on `cop` >> gvs[op_rel_cases, atom_op_rel_cases]) >>
     simp[] >> first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
     IF_CASES_TAC >> gvs[] >> reverse $ gvs[op_rel_cases, ADD1, cstep]
-    >>~- ([`AllocMutThunk`],
-        gvs[application_def, sstep] >>
-        ntac 2 (TOP_CASE_TAC >> gvs[]) >>
-        gvs[do_app_def, thunk_op_def] >>
-        pairarg_tac >> gvs[store_alloc_def] >>
-        qexists0 >> reverse $ rw[step_rel_cases]
-        >- gvs[state_rel, store_lookup_def] >>
-        qexists `cnenv` >> gvs[state_rel, SNOC_APPEND] >>
-        rw []
-        >- (simp [Once v_rel_cases] >> gvs [LIST_REL_EL_EQN])
-        >- gvs [cont_rel_APPEND]
-        >- (
-          gvs [LIST_REL_EL_EQN] >> rw [] >>
-          irule store_rel_APPEND >> gvs [])
-        >- gvs [store_rel_def, v_rel_APPEND])
-    >>~- ([`UpdateMutThunk`],
-      `LENGTH l0 = 1` by gvs [] >> gvs[LENGTH_EQ_NUM_compute] >>
+    >>~ [‘AllocMutThunk’]
+    >- (
+      gvs[application_def, sstep] >>
+      gvs[bad_thunk_update_def] >>
+      simp[do_app_def, thunk_op_def,
+           semanticPrimitivesTheory.bad_thunk_update_def] >>
+      pairarg_tac >> gvs[store_alloc_def] >>
+      qexists0 >> reverse $ rw[step_rel_cases]
+      >- gvs[state_rel, store_lookup_def] >>
+      qexists ‘cnenv’ >> gvs[state_rel, SNOC_APPEND] >>
+      rw []
+      >- (simp [Once v_rel_cases] >> gvs [LIST_REL_EL_EQN])
+      >- gvs [cont_rel_APPEND]
+      >- (
+        gvs [LIST_REL_EL_EQN] >> rw [] >>
+        irule store_rel_APPEND >> gvs [])
+      >- gvs [store_rel_def, v_rel_APPEND])
+    >- (
+      gvs[application_def, sstep] >>
+      IF_CASES_TAC >> gvs[] >>
+      simp[do_app_def, thunk_op_def] >>
+      imp_res_tac bad_thunk_update_rel >> gvs[] >>
+      pairarg_tac >> gvs[store_alloc_def] >>
+      qexists0 >> reverse $ rw[step_rel_cases]
+      >- gvs[state_rel, store_lookup_def] >>
+      qexists ‘cnenv’ >> gvs[state_rel, SNOC_APPEND] >>
+      rw []
+      >- (simp [Once v_rel_cases] >> gvs [LIST_REL_EL_EQN])
+      >- gvs [cont_rel_APPEND]
+      >- (
+        gvs [LIST_REL_EL_EQN] >> rw [] >>
+        irule store_rel_APPEND >> gvs [])
+      >- gvs [store_rel_def, v_rel_APPEND])
+    >>~ [‘UpdateMutThunk’]
+    >- (
+      ‘LENGTH l0 = 1’ by gvs [] >> gvs[LENGTH_EQ_NUM_compute] >>
       gvs [application_def, sstep] >>
-      Cases_on `sv` >> gvs[] >>
-      ntac 3 (TOP_CASE_TAC >> gvs[]) >>
-      simp[do_app_def] >> drule state_rel_store_lookup >>
-      disch_then $ qspec_then `n` assume_tac >> gvs[] >>
-      simp [thunk_op_def] >> gvs[] >>
-      Cases_on `z` >> gvs[store_rel_def] >>
-      Cases_on `t'` >> gvs[store_rel_def] >>
+      Cases_on ‘sv’ >> gvs[] >>
+      gvs[bad_thunk_update_def] >>
+      TOP_CASE_TAC >> gvs[] >>
+      qpat_x_assum ‘store_assign _ _ _ = SOME _’ mp_tac >>
+      simp[store_assign_def, store_same_type_def] >>
+      ntac 2 (TOP_CASE_TAC >> simp[]) >> strip_tac >> gvs[EL_LUPDATE] >>
+      simp[do_app_def, thunk_op_def,
+           semanticPrimitivesTheory.bad_thunk_update_def] >>
+      qpat_x_assum ‘v_rel _ _ (ThunkLoc _) _’ mp_tac >>
+      simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
+      drule state_rel_store_lookup >>
+      disch_then $ qspec_then ‘n’ mp_tac >> simp[oEL_THM] >>
+      simp[oneline store_rel_def] >> strip_tac >> gvs[] >>
+      Cases_on ‘z’ >> gvs[] >>
+      Cases_on ‘t'’ >> gvs[] >>
       drule store_lookup_assign_Thunk >> rw[] >>
-      qexists0 >> reverse $ rw[step_rel_cases] >>
-      qpat_x_assum `v_rel _ _ (ThunkLoc _) _` mp_tac >>
-      rw [Once v_rel_cases] >> simp [] >>
-      gvs [oEL_THM, store_lookup_def]
-      >- gvs [state_rel, LUPDATE_DEF] >>
+      qexists0 >> reverse $ rw[step_rel_cases]
+      >- gvs [store_lookup_def, state_rel, LUPDATE_DEF] >>
+      drule_all_then (irule_at $ Pos hd) cont_rel_LUPDATE_ThunkMem >>
+      qmatch_goalsub_abbrev_tac ‘state_rel _ (LUPDATE (_ smode _) _ _)
+                                             (LUPDATE (_ cmode _) _ _)’ >>
+      ‘thunk_mode_rel smode cmode’ by gvs [Abbr ‘smode’, Abbr ‘cmode’] >>
+      drule_all_then (irule_at $ Pos hd) state_rel_LUPDATE_ThunkMem)
+    >- (
+      ‘LENGTH l0 = 1’ by gvs [] >> gvs[LENGTH_EQ_NUM_compute] >>
+      gvs [application_def, sstep] >>
+      Cases_on ‘sv’ >> gvs[] >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+      qpat_x_assum ‘store_assign _ _ _ = SOME _’ mp_tac >>
+      simp[store_assign_def, store_same_type_def] >>
+      ntac 2 (TOP_CASE_TAC >> simp[]) >> strip_tac >> gvs[EL_LUPDATE] >>
+      simp[do_app_def, thunk_op_def] >>
+      drule_all bad_thunk_update_rel >> gvs[] >>
+      strip_tac >> gvs[] >>
+      qpat_x_assum ‘v_rel _ _ (ThunkLoc _) _’ mp_tac >>
+      simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
+      drule state_rel_store_lookup >>
+      disch_then $ qspec_then ‘n’ mp_tac >> simp[oEL_THM] >>
+      simp[oneline store_rel_def] >> strip_tac >> gvs[] >>
+      Cases_on ‘z’ >> gvs[] >>
+      Cases_on ‘t'’ >> gvs[] >>
+      drule store_lookup_assign_Thunk >> rw[] >>
+      qexists0 >> reverse $ rw[step_rel_cases]
+      >- gvs [store_lookup_def, state_rel, LUPDATE_DEF] >>
       drule_all_then (irule_at $ Pos hd) cont_rel_LUPDATE_ThunkMem >>
       qmatch_goalsub_abbrev_tac ‘state_rel _ (LUPDATE (_ smode _) _ _)
                                              (LUPDATE (_ cmode _) _ _)’ >>
@@ -2202,11 +2275,14 @@ Proof
       rw[EL_CONS, PRE_SUB1] >>
       qexists0 >> reverse $ rw[step_rel_cases, store_lookup_def] >>
       qpat_x_assum `v_rel _ _ (ThunkLoc _) _` mp_tac >>
-      rw [Once v_rel_cases] >> simp [EL_CONS, PRE_SUB1]
-      >- gvs [state_rel, EL_CONS, PRE_SUB1, store_lookup_def]
-      >- (goal_assum drule >> gvs [state_rel, LIST_REL_EL_EQN])
-      >- gvs [state_rel, EL_CONS, PRE_SUB1, store_lookup_def]
+      rw[Once v_rel_cases] >> simp[EL_CONS, PRE_SUB1]
+      >- gvs[state_rel, EL_CONS, PRE_SUB1, store_lookup_def, dest_thunk_def]
       >- (
+        gvs[dest_thunk_def, store_lookup_def, EL_CONS, PRE_SUB1] >>
+        goal_assum drule >> gvs [state_rel, LIST_REL_EL_EQN])
+      >- gvs [state_rel, EL_CONS, PRE_SUB1, store_lookup_def, dest_thunk_def]
+      >- (
+        gvs[dest_thunk_def, store_lookup_def, EL_CONS, PRE_SUB1] >>
         goal_assum drule >> gvs [state_rel, LIST_REL_EL_EQN] >>
         irule cont_rel_AppK >> simp [op_rel_cases] >>
         irule_at Any cont_rel_ForceMutK >> gvs [env_rel_def]))
@@ -2391,7 +2467,7 @@ Proof
         simp[do_app_def, copy_array_def, IMPLODE_EXPLODE_I] >>
         qexists0 >> simp[step_rel_cases] >>
         gvs [oneline strlen_def, AllCaseEqs()] >>
-        TOP_CASE_TAC >> gvs [mlstringTheory.implode_def] >> simp [SF SFY_ss]) >>
+        TOP_CASE_TAC >> gvs [implode_def] >> simp [SF SFY_ss]) >>
       ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
       simp[do_app_def, do_test_def] >>
       reverse $ Cases_on `idx < &strlen s''` >> gvs[] >>
@@ -2399,7 +2475,7 @@ Proof
       >- (
         `DROP (Num idx) (explode s'') = []` by (simp[] >> ARITH_TAC) >>
         simp[] >> qexists0 >>
-        simp[step_rel_cases, mlstringTheory.implode_def, SF SFY_ss]) >>
+        simp[step_rel_cases, implode_def, SF SFY_ss]) >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
       simp[do_app_def, check_type_def, do_arith_def] >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
@@ -2407,7 +2483,7 @@ Proof
       `¬ (&strlen s'' − idx < 0)` by ARITH_TAC >> simp[] >>
       qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
       `ABS idx = idx` by ARITH_TAC >> simp[] >>
-      Cases_on ‘s''’ >> gvs [mlstringTheory.implode_def] >>
+      Cases_on ‘s''’ >> gvs [implode_def] >>
       ARITH_TAC)
     >- ( (* StrLeq *)
       gvs[eval_op_SOME] >>
@@ -2606,7 +2682,7 @@ Proof
       ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
       >- (
         qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
-        Cases_on ‘s’ >> gvs [mlstringTheory.implode_def, SF SFY_ss]) >>
+        Cases_on ‘s’ >> gvs [implode_def, SF SFY_ss]) >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
       simp[do_app_def, check_type_def, do_arith_def] >>
       ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
@@ -2623,7 +2699,7 @@ Proof
         )
       >- (
         qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-        Cases_on ‘s’ >> gvs [mlstringTheory.implode_def] >>
+        Cases_on ‘s’ >> gvs [implode_def] >>
         ARITH_TAC
         )
       )
@@ -2635,7 +2711,7 @@ Proof
       ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
       >- (
         qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-        Cases_on ‘s’ >> gvs [mlstringTheory.implode_def] >>
+        Cases_on ‘s’ >> gvs [implode_def] >>
         ARITH_TAC
         ) >>
       ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
@@ -2839,7 +2915,7 @@ Proof
     simp[dstep, cstep, do_app_def, check_type_def, do_conversion_def,
          do_arith_def, do_test_def]) >>
   simp[do_if_def] >>
-  `&(256 * (strlen s DIV 256) MOD dimword (:8)) + &(strlen s MOD dimword (:8)) =
+  `&(256 * (strlen s DIV 256 MOD dimword (:8))) + &(strlen s MOD dimword (:8)) =
     &(strlen s) : int` by (
       simp[wordsTheory.dimword_def, wordsTheory.dimindex_8] >>
       gvs[max_FFI_return_size_def] >> ARITH_TAC) >>
@@ -2850,7 +2926,7 @@ Proof
   `str1 = s` by (
     unabbrev_all_tac >> simp[TAKE_APPEND, GSYM MAP_TAKE] >>
     simp[ws_to_chars_def, MAP_MAP_o, combinTheory.o_DEF] >>
-    Cases_on ‘s’ >> gvs [mlstringTheory.implode_def]) >>
+    Cases_on ‘s’ >> gvs [implode_def]) >>
   pop_assum SUBST_ALL_TAC >>
   Cases_on `ck'` >> gvs[]
   >- (

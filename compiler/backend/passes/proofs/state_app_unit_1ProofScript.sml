@@ -253,6 +253,66 @@ Proof
   rw [Once compile_rel_cases]
 QED
 
+Theorem bad_thunk_update_rel:
+  v_rel x h ⇒
+    bad_thunk_update t x = bad_thunk_update t h
+Proof
+  rw []
+  \\ gvs [bad_thunk_update_def] \\ rw []
+  \\ iff_tac \\ gvs [] \\ rw []
+  \\ gvs [thunk_or_thunk_loc_def, dest_anyThunk_def, oneline dest_Thunk_def,
+          oneline dest_Recclosure_def, AllCaseEqs()]
+  \\ Cases_on ‘h’ \\ Cases_on ‘x’ \\ gvs []
+  \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+  \\ rw [Once v_rel_cases]
+  >- (
+    TOP_CASE_TAC \\ gvs []
+    \\ Cases_on ‘ALOOKUP l0' m’ \\ gvs []
+    \\ Cases_on ‘x’ \\ gvs []
+    \\ drule_all_then assume_tac ALOOKUP_SOME_EL_2 \\ gvs []
+    \\ gvs [EVERY_EL]
+    \\ last_x_assum $ drule_then assume_tac \\ gvs [])
+  \\ TOP_CASE_TAC \\ gvs []
+  \\ Cases_on ‘ALOOKUP l0 m’ \\ gvs []
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ qpat_x_assum ‘MAP FST _ = MAP FST _’ (assume_tac o GSYM)
+  \\ drule_at (Pos $ el 2) ALOOKUP_SOME_EL_2
+  \\ disch_then drule \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘MAP FST _ = MAP FST _’ (assume_tac o GSYM)
+  \\ drule_all ALOOKUP_list_rel \\ strip_tac \\ gvs []
+  \\ rgs [Once compile_rel_cases] \\ gvs []
+  \\ drule_all_then assume_tac ALOOKUP_SOME_EL_2 \\ gvs []
+  \\ gvs [EVERY_EL]
+  \\ last_x_assum $ drule_then assume_tac \\ gvs []
+QED
+
+Theorem store_assign_rel:
+  state_rel s1 s2 ∧
+  store_rel v w ⇒
+    OPTREL (LIST_REL store_rel)
+      (store_assign n v s1)
+      (store_assign n w s2)
+Proof
+  rw []
+  \\ gvs [state_rel_def, OPTREL_def]
+  \\ Cases_on ‘store_assign n v s1’ \\ Cases_on ‘store_assign n w s2’ \\ gvs []
+  >- (
+    gvs [store_assign_def, LIST_REL_EL_EQN, EL_LUPDATE]
+    \\ last_x_assum $ drule_then assume_tac \\ gvs []
+    \\ gvs [oneline store_rel_def]
+    \\ rpt (FULL_CASE_TAC \\ gvs [])
+    \\ gvs [store_same_type_def])
+  >- (
+    gvs [store_assign_def, LIST_REL_EL_EQN, EL_LUPDATE]
+    \\ last_x_assum $ drule_then assume_tac \\ gvs []
+    \\ gvs [oneline store_rel_def]
+    \\ rpt (FULL_CASE_TAC \\ gvs [])
+    \\ gvs [store_same_type_def])
+  \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ gvs [store_assign_def, EL_LUPDATE]
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
 Theorem application_thm:
   ∀op tvs ts tk tr1 ts1 tk1 ss sk svs.
     application op tvs ts tk = (tr1,ts1,tk1) ∧
@@ -397,27 +457,28 @@ Proof
     >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
   >~ [‘AllocMutThunk’] >-
    (gvs [application_def,step,step_res_rel_cases]
-    \\ qpat_x_assum ‘v_rel x h’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ss’ \\ gvs []
-    \\ fs [state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ TOP_CASE_TAC \\ gvs [OPTREL_def]
+    \\ Cases_on ‘bad_thunk_update t x’ \\ gvs []
+    \\ imp_res_tac bad_thunk_update_rel \\ gvs []
     \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_SNOC,store_rel_def]
-    \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,EL_REPLICATE]
-    \\ gvs [LIST_REL_EL_EQN])
+    \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [LIST_REL_SNOC,store_rel_def])
   >~ [‘UpdateMutThunk’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
-    \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
-    \\ Cases_on ‘EL n x''’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
-    \\ simp [Once v_rel_cases] \\ strip_tac
-    \\ gvs [EL_LUPDATE]
-    \\ IF_CASES_TAC \\ rw [store_rel_def])
+    \\ TOP_CASE_TAC \\ gvs [OPTREL_def]
+    \\ Cases_on ‘bad_thunk_update t x'’ \\ gvs []
+    \\ imp_res_tac bad_thunk_update_rel \\ gvs []
+    \\ Cases_on ‘store_assign n (ThunkMem t x') x0’ \\ gvs []
+    \\ imp_res_tac store_assign_rel \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘ThunkMem t h'’, ‘ThunkMem t x'’] mp_tac
+    \\ simp [store_rel_def]
+    \\ disch_then $ qspec_then ‘n’ assume_tac \\ gvs []
+    \\ qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ gvs [OPTREL_def]
+    \\ simp [Once v_rel_cases]
+    \\ gvs [state_rel_def,LIST_REL_EL_EQN] \\ rw [])
   >~ [‘ForceMutThunk’] >-
    (once_rewrite_tac [application_def]
     \\ rgs [Once application_def]
