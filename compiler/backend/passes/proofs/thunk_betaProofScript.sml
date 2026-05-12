@@ -8,7 +8,7 @@ Ancestors
   finite_map pred_set rich_list thunkLang wellorder
   thunkLangProps pred_set
 Libs
-  term_tactic monadsyntax dep_rewrite
+  term_tactic monadsyntax dep_rewrite BasicProvers
 
 val _ = numLib.prefer_num ();
 
@@ -30,7 +30,7 @@ End
 
 (*
 [opt:]
-  exp_rel A B
+  exp_re A B
 
   means compiler is allowed to optimize A to B
   e.g.,
@@ -45,7 +45,7 @@ Inductive exp_rel:
   MAP FST vs = MAP FST vs' ∧
   MAP (FST o SND) vs = MAP (FST o SND) vs' ∧
   LIST_REL (OPTREL v_rel)
-    (MAP (SND o SND) vs) (MAP (SND o SND) vs') ∧
+    (MAP (SND o SND) vs') (MAP (SND o SND) vs) ∧
   (vs ≠ []) ∧
   exp_rel f g ⇒
   exp_rel
@@ -209,14 +209,55 @@ Proof
   PairCases_on `h` \\ simp[Lets_def]
 QED
 
-Theorem freevars_Lets:
-  ∀ (v:string) (x:exp) xs body. freevars (Lets (SOME v, x)::xs body) =
-
-    freevars x ∪ (freevars (Lets xs body) DIFF {v})
+Theorem freevars_opt_force_eq:
+  !b n c c'. OPTREL v_rel c c' ⇒
+    freevars (optional_force b (n,c)) = freevars (optional_force b (n, c'))
 Proof
-  freevars (Let (SOME s) x y) = freevars x ∪ (freevars y DIFF {s}))
+  rw [] \\ Cases_on `c` \\ Cases_on `c'` \\
+  gvs[OPTREL_def] \\ Cases_on `b` \\ simp[optional_force_def, freevars_def]
 QED
 
+
+Theorem freevars_Lets_SOME:
+  ∀ls body. 
+    ALL_DISTINCT (MAP FST ls) ∧ 
+    DISJOINT (set (MAP FST ls)) (BIGUNION (set (MAP (freevars o SND) ls))) ⇒
+      freevars (Lets (MAP (λ(n, e). (SOME n, e)) ls) body) =
+      (BIGUNION (set (MAP (freevars o SND) ls))) ∪ 
+      (freevars body DIFF (set (MAP FST ls)))
+Proof
+  Induct >> rw[Lets_def, freevars_def, MAP_o] >>
+  PairCases_on `h` >> rw[Lets_def, freevars_def] >>
+  fs[EXTENSION, MEM_MAP, PULL_EXISTS, DISJOINT_DEF, BIGUNION_IMAGE] >>
+  metis_tac[]
+QED
+
+
+Theorem freevars_Apps_Vars:
+  ∀f vs. freevars (Apps f (MAP (Var ∘ FST ∘ SND) vs)) =
+         freevars f ∪ set (MAP (FST ∘ SND) vs)
+Proof
+  Induct_on `vs` >> rw[freevars_def] >>
+  Cases_on `h` >> rename1 `(a, b)` >>
+  Cases_on `b` >> rename1 `(s, v)` >>
+  SET_TAC [MEM_MAP]
+QED
+
+Theorem freevars_Lets:
+  ∀body. freevars (Lets ((SOME v, x)::xs) body)
+    = freevars x ∪ (freevars (Lets xs body) DIFF {v})
+Proof
+  Induct \\ simp[freevars_def, Lets_def]
+QED
+
+Theorem freevars_optional_force:
+  freevars (optional_force a (n, opt)) =
+    if opt = NONE then {n}
+    else {}
+Proof
+  rw[oneline optional_force_def, freevars_def] \\
+  Cases_on `opt` \\ rw[freevars_def]
+QED
 
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
@@ -224,11 +265,11 @@ Proof
   qsuff_tac ‘
     (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
     (∀v w. v_rel v w ⇒ T)’
-  >- rw []
+  >- (rw [])
   \\ ho_match_mp_tac exp_rel_strongind
   \\ simp [freevars_def]
   \\ rw []
-  >- (
+  >- ((* Beta Case *)
     qpat_x_assum `vs≠[]` kall_tac \\
     qpat_x_assum `exp_rel x y` kall_tac \\
     rpt (pop_assum mp_tac) \\
@@ -243,81 +284,57 @@ Proof
     rename1 `optional_force a (b, c)` \\
     Cases_on `c` \\ gvs[OPTREL_def, OPTREL_NONE, OPTREL_SOME]
     >- (
-      Cases_on `a` \\ gvs[optional_force_def, freevars_def] \\
-      >- (
-        
-        freevars_Lets_free
-        first_x_assum irule
-      )
-      >- ()
-    )
+      qabbrev_tac `L = (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE t))` \\
+      `freevars
+         (Lets L (Lets [(SOME b, optional_force a (b, NONE))]
+         (Apps (App x (Var b)) (MAP (Var ∘ FST ∘ SND) vs)))) = 
+       freevars (Lets L (Apps x (MAP (Var ∘ FST ∘ SND) vs ++ [Var b])))` by (
+        irule freevars_Lets_cong \\
+        simp[Lets_def,freevars_Apps,freevars_def,freevars_optional_force]\\
+        rw[EXTENSION] \\ metis_tac[]) \\
+      unabbrev_all_tac \\  pop_assum SUBST1_TAC \\ simp[freevars_optional_force] \\
+      DEP_REWRITE_TAC [freevars_Lets_free] \\ fs[MEM_MAP] \\
+      rw[EXTENSION] \\ metis_tac [])
     >- (
-        Cases_on `a` \\ gvs[optional_force_def, freevars_def] \\
-        first_x_assum (qspec_then `t` mp_tac) \\ simp[] \\
-        >- ()
-        >- ()
-    )
-
-    
-
-    qabbrev_tac`ls = REVERSE vs`>>
-    qpat_x_assum`ALL_DISTINCT _` mp_tac>>
-    qpat_x_assum`DISJOINT _ _` mp_tac>>
-    `vs = REVERSE ls` by fs[Abbr`ls`]>>
-    pop_assum SUBST1_TAC>>
-    pop_assum kall_tac>>
-    simp[ALL_DISTINCT_REVERSE,MAP_REVERSE]>>
-    Induct_on`ls`>>rw[Lets_def]>>
-    >- ()
-    >- (
-      pairarg_tac>>simp[GSYM MAP_REVERSE] >>
-      fs[Lets_def,freevars_def]>>
-      DEP_REWRITE_TAC[freevars_Lets_free]>>
-      simp[freevars_Apps, UNION_DIFF_DISTRIBUTE]>>
-      `FST v ∉ BIGUNION (set
-        (MAP freevars (REVERSE (MAP (λ(b,v). optional_force b v) ls))))` by (
-          once_rewrite_tac [GSYM MAP_REVERSE] >>
-          qsuff_tac `FST v ∉ set (MAP (FST o SND) ls)`
+      qabbrev_tac `L = (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE t))` \\
+      `freevars (Lets L (Lets [(SOME b, optional_force a (b, SOME x'))]
+         (Apps (App x (Var b)) (MAP (Var ∘ FST ∘ SND) vs)))) = 
+       freevars (Lets L (Apps x (MAP (Var ∘ FST ∘ SND) vs)))` by (
+        irule freevars_Lets_cong \\
+        simp[Lets_def,freevars_Apps,freevars_def,freevars_optional_force]\\
+        rw[EXTENSION] \\ eq_tac
+        >- (metis_tac[] \\ gvs[MEM_MAP])
+        >- (
+          rw[] \\ gvs[MEM_MAP] \\ gvs[freevars_def, optional_force_def]
+          >- (metis_tac [])
           >- (
-            once_rewrite_tac [MAP_COMPOSE] >>
-            CCONTR_TAC >> fs[] >>
-            qpat_x_assum `¬ MEM _ _` mp_tac >> simp[] >>
-            qspec_then `ls` assume_tac in_bigunion_freevars_optional_force >>
-            `FST v ∈ BIGUNION (set (MAP (freevars ∘ (λ(b,v). optional_force b v)) ls))` by (
-              simp [IN_BIGUNION] >>
-              qexists `s` >>
-              metis_tac [MAP_REVERSE, MEM_REVERSE]
-            ) >>
-            `FST v ∈ set (MAP (FST o SND) ls)` by metis_tac[SUBSET_THM]
-          ) >>
-          fs[]
-      ) >>
-      strip_tac
-      >- (
-        cheat >>
-        (* ALL_DISTINCT (MAP (FST o SND) (REVERSE ls ++ vs)) ?? *)
-        CCONTR_TAC >> fs[]
-        `MEM (FST v) (MAP (FST o SND) vs')` by fs[MAP_REVERSE, MEM_REVERSE]
-      )
-      >- (
-      cheat >>
-      metis_tac[idempotent_diff, UNION_COMM, UNION_ASSOC, freevars_Lets_free])
-    )
-  )
+            `MEM (FST (SND y'')) (MAP (FST o SND) vs)` by (
+              simp[MEM_MAP] \\ qexists `y''` \\ fs[]) \\
+            disj2_tac \\ qexists `freevars (Var (FST (SND y'')))` \\
+            fs[freevars_def] \\ qexists `Var (FST (SND y''))` \\
+            fs[freevars_def] \\ qexists `y''` \\ simp[])
+          >- (
+            `MEM (FST (SND y'')) (MAP (FST o SND) t)` by (
+              `b ∉ set (MAP (FST o SND) t)` by (
+                simp[MEM_MAP] \\ metis_tac[]) \\
+              fs[MEM_MAP] \\
+              ‘MEM (FST (SND y'')) (MAP (FST ∘ SND) vs)’ by (
+                simp [MEM_MAP] \\ metis_tac []) \\
+              ‘MEM (FST (SND y'')) (MAP (FST ∘ SND) t)’ by metis_tac [] \\
+              gvs[MEM_MAP] \\ metis_tac[]) \\
+              gvs[MEM_MAP] \\ metis_tac[]))) \\
+      pop_assum SUBST1_TAC \\ simp[freevars_optional_force] \\
+      DEP_REWRITE_TAC [freevars_Lets_free] \\ fs[MEM_MAP] \\
+      unabbrev_all_tac \\ rw[EXTENSION] \\ metis_tac[]))
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
-    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
-           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN, Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
     \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss, SF SFY_ss])
+  >- (Cases_on ‘bv’ \\ gs [freevars_def])
   >- (
-    Cases_on ‘bv’ \\ gs [freevars_def])
-  >- (
-    ‘MAP freevars xs = MAP freevars ys’
-      suffices_by rw [SF ETA_ss]
-    \\ irule LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+    ‘MAP freevars xs = MAP freevars ys’ suffices_by rw [SF ETA_ss]
+    \\ irule LIST_EQ \\ gvs [LIST_REL_EL_EQN, EL_MAP])
 QED
-
 
 Theorem LIST_REL_split:
   ∀l l'.
@@ -431,7 +448,42 @@ Theorem subst_Lets:
     = Lets (MAP (λ(b,v). (SOME (FST v), subst m (optional_force b v))) vs)
       (subst (FILTER (λ(n,x). n ∉ set (MAP (FST o SND) vs)) m) body)
 Proof
-  cheat
+  Induct_on `vs`
+  >- (
+    rw[Lets_def, FILTER_EQ_ID, EVERY_MEM, FORALL_PROD] \\
+    `(FILTER (λ(n,x). T) m) = (FILTER (λn. T) m)` by (
+      irule (iffLR (GSYM FILTER_EQ)) \\ SET_TAC []) \\
+    pop_assum SUBST1_TAC \\ simp [FILTER_T])
+  >- (
+    PairCases \\ rw [Lets_def, subst_def] \\
+    last_x_assum (qspecl_then [`FILTER (λ(n,x). n ≠ h1) m`, `body`] mp_tac) \\
+    impl_tac \\ fs[] \\
+    disch_then SUBST1_TAC \\
+    `∀b q r. MEM (b,q,r) vs ⇒
+      subst (FILTER (λ(n,x). n ≠ h1) m) (optional_force b (q,r))
+      = subst m (optional_force b (q,r))` by (
+      rw[] \\
+      qspecl_then [`m`, `optional_force b (q,r)`, `{h1}`] mp_tac subst_remove \\
+      impl_tac
+      >- (
+          Cases_on ‘r’ \\ gvs [freevars_optional_force] \\
+          `MEM q (MAP (FST ∘ SND) vs)` by (
+            simp [MEM_MAP] \\
+            qexists_tac ‘(b, q, NONE)’ \\
+            simp []) \\ metis_tac [])
+      >- (simp[])) \\
+    `MAP (λ(b,v). (SOME (FST v),
+    subst (FILTER (λ(n,x). n ≠ h1) m) (optional_force b v))) vs
+    = MAP (λ(b,v). (SOME (FST v), subst m (optional_force b v))) vs` by (
+      irule LIST_EQ \\ simp[EL_MAP] \\ rw [] \\
+      rpt (pairarg_tac \\ gvs[]) \\
+      PairCases_on `v` \\ gvs[] \\
+      first_x_assum irule \\ metis_tac[MEM_EL]) \\
+    `FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) vs))
+    (FILTER (λ(n,x). n ≠ h1) m)
+    = FILTER (λ(n,x). n ≠ h1 ∧ ¬MEM n (MAP (FST ∘ SND) vs)) m` by (
+     simp [FILTER_FILTER, LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]) \\
+    metis_tac[])
 QED
 
 Definition pre_force_subst_def:
@@ -470,6 +522,84 @@ Proof
   simp[subst_optional_force_eq]
 QED
 
+
+Theorem freevars_subst_SUBSET:
+  ∀m x. freevars (subst m x) ⊆ freevars x
+Proof
+  ho_match_mp_tac subst_ind \\ rw [subst_def, freevars_def]
+  >- (CASE_TAC \\ simp [freevars_def])
+  >~[`set (MAP FST xs)`] >- (
+    `MAP FST (MAP (λ(n,x').
+      (n, subst (FILTER (λ(n,v). ¬MEM n (MAP FST f)) m) x')) f)
+      = MAP FST f`
+      by simp [MAP_MAP_o, combinTheory.o_DEF,
+               MAP_EQ_f, FORALL_PROD] \\
+    pop_assum SUBST1_TAC \\
+    rw [SUBSET_DEF, IN_DIFF, IN_BIGUNION,
+        MEM_MAP, PULL_EXISTS,
+        FORALL_PROD, EXISTS_PROD] \\
+     (qpat_x_assum `∀n x. _ ⇒ freevars (subst _ _) ⊆ _` mp_tac \\
+      qpat_x_assum `freevars (subst _ x) ⊆ _` mp_tac \\
+      rw [MEM_MAP, EXISTS_PROD] \\
+      gs [SUBSET_DEF] \\ metis_tac[]))
+    \\ (gs [SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FILTER] \\
+    rw [] \\ res_tac \\ gs [] \\
+    metis_tac [freevars_def, subst_def, SUBSET_DEF])
+QED
+
+
+Theorem LIST_REL_OPTREL_ALOOKUP:
+  ∀xs ys k R.
+    LIST_REL R (MAP SND xs) (MAP SND ys) ∧
+    MAP FST xs = MAP FST ys ⇒
+    OPTREL R (ALOOKUP xs k) (ALOOKUP ys k)
+Proof
+  Induct \\ rw [] \\
+  Cases_on `ys` \\ gvs [] \\
+  PairCases_on `h` \\ PairCases_on `h'` \\ gvs [] \\
+  IF_CASES_TAC \\ gvs []
+QED
+
+
+Theorem v_rel_pre_force_subst:
+  ∀p q vs ws.
+    FST p = FST q ∧
+    OPTREL v_rel (SND p) (SND q) ∧
+    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ⇒
+    OPTREL v_rel (SND (pre_force_subst vs p)) (SND (pre_force_subst ws q))
+Proof
+  rw [] \\ PairCases_on `p` \\ PairCases_on `q` \\
+  Cases_on `p1` \\ Cases_on `q1` \\
+  gvs [pre_force_subst_def, OPTREL_def] \\
+  qsuff_tac `OPTREL v_rel (ALOOKUP (REVERSE vs) p0) (ALOOKUP (REVERSE ws) p0)`
+  >- (
+    Cases_on `ALOOKUP (REVERSE vs) p0` \\
+    Cases_on `ALOOKUP (REVERSE ws) p0` \\
+    rw [] \\ gvs [OPTREL_def])
+  >- (
+    irule LIST_REL_OPTREL_ALOOKUP \\
+    gvs [MAP_REVERSE])
+QED
+
+
+Theorem OPTREL_v_rel_pre_force_subst:
+  ∀xs ys vs ws.
+    LIST_REL (OPTREL v_rel) (MAP (SND ∘ SND) xs) (MAP (SND ∘ SND) ys) ∧
+    MAP (FST ∘ SND) xs = MAP (FST ∘ SND) ys ∧
+    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ⇒
+    LIST_REL (OPTREL v_rel)
+      (MAP (SND ∘ SND) (MAP (λ(b,v). (b, pre_force_subst vs v)) xs))
+      (MAP (SND ∘ SND) (MAP (λ(b,v). (b, pre_force_subst ws v)) ys))
+Proof
+  Induct \\ rw [] \\
+  Cases_on `ys` \\ gvs [] \\
+  PairCases_on `h` \\ PairCases_on `h'` \\ gvs [] \\
+  irule v_rel_pre_force_subst \\ gvs []
+QED
+
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
@@ -477,14 +607,13 @@ Theorem exp_rel_subst:
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
 Proof
-  qsuff_tac `
-    (∀x y. exp_rel x y ==> ∀vs ws. 
+  qsuff_tac `(∀x y. exp_rel x y ==> ∀vs ws. 
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ⇒
       exp_rel (subst vs x) (subst ws y)) ∧ ∀v w. v_rel v w ⇒ T`
-  >- (rpt strip_tac \\ res_tac)
-  \\ ho_match_mp_tac exp_rel_ind \\ rpt strip_tac \\ simp[]
-  >-((*beta*)
+  >- (rpt strip_tac \\ res_tac) \\
+  ho_match_mp_tac exp_rel_strongind \\ rpt strip_tac \\ simp[]
+  >- ((*beta*)
       DEP_REWRITE_TAC[subst_Lets]>>
       conj_tac
       >- metis_tac[MAP_REVERSE, ALL_DISTINCT_REVERSE]>>
@@ -502,346 +631,126 @@ Proof
        conj_tac
        >- (simp[MAP_REVERSE] >> metis_tac[DISJOINT_SYM])
        >- (
-         `MAP (subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'))) vs'')) (MAP (Var ∘ FST ∘ SND) vs)
-         = MAP (Var ∘ FST ∘ SND) vss` by (
-         rw[Abbr`vss`] \\
-         rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD, subst_def] \\
-         DEP_REWRITE_TAC [iffRL ALOOKUP_NONE] \\
-         simp[MEM_MAP, FORALL_PROD, MEM_FILTER] \\
-         gen_tac \\ disj1_tac \\
-         
-         )
+         ‘MAP (subst (
+          FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'))) vs''))
+          (MAP (Var ∘ FST ∘ SND) vs) = MAP (Var ∘ FST ∘ SND) vs’ by (
+          rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f, FORALL_PROD,
+              subst_def, AllCaseEqs(), ALOOKUP_NONE,
+              MAP_REVERSE, MAP_FST_FILTER, MEM_FILTER] \\
+          ‘MEM (FST (SND (p_1, p_1', p_2))) (MAP (FST ∘ SND) vs)’ by (
+            simp [MEM_MAP] \\ qexists `(p_1, p_1', p_2)` \\ fs[]) \\
+          gvs[] \\ metis_tac[]) \\
+          ‘MAP (Var ∘ FST ∘ SND) vs = MAP (Var ∘ FST ∘ SND) vss’ by (
+            simp [Abbr ‘vss’, MAP_MAP_o,
+                  combinTheory.o_DEF, MAP_EQ_f,
+                  FORALL_PROD]) \\
+          pop_assum SUBST1_TAC \\
+          ‘MAP (subst (FILTER (λ(n,x).
+          ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'))) vs''))
+          (MAP (Var ∘ FST ∘ SND) vss) = MAP (Var ∘ FST ∘ SND) vss’ by (
+            ‘MAP (Var ∘ FST ∘ SND) vss = MAP (Var ∘ FST ∘ SND) vs’ by (
+              simp [Abbr ‘vss’, MAP_MAP_o,
+              combinTheory.o_DEF, MAP_EQ_f,
+              FORALL_PROD])
+            \\ simp []) \\
           pop_assum SUBST1_TAC \\
           irule beta \\
-          
+          ‘∀(m: (string # v) list) (xs: (bool # string # v option) list).
+            MAP FST (MAP (λ(b,v). (b, pre_force_subst m v)) xs) =
+            MAP FST xs ∧
+            MAP (FST ∘ SND) (MAP (λ(b,v). (b, pre_force_subst m v)) xs)
+            = MAP (FST ∘ SND) xs’ by (
+              rw [MAP_MAP_o, combinTheory.o_DEF,
+                  MAP_EQ_f, FORALL_PROD]) \\
+          gvs [] \\
+          rpt conj_tac \\ simp [Abbr `vss`]
+          >- ( (*DISJOINT*)
+            qpat_x_assum `MAP FST vs = _` (SUBST1_TAC o GSYM) \\
+            metis_tac [DISJOINT_SUBSET, DISJOINT_SYM, freevars_subst_SUBSET])
+          >- ((*LIST_REL*)
+            irule OPTREL_v_rel_pre_force_subst \\
+            ‘(λv w. v_rel v w) = v_rel’ by rw [FUN_EQ_THM] \\
+            gs [UNCURRY])))
 
-       `subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs''))) vs) f
-          = subst vs f` by cheat>>
-       simp[]>>
-       qmatch_goalsub_abbrev_tac`Apps _ vsss`>>
-       `vsss = MAP (Var ∘ FST ∘ SND) vss` by (
-         unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
-         simp[FORALL_PROD,subst_def]>>
-         rw[] >> simp[AllCaseEqs(), ALOOKUP_NONE]
-         
-         cheat)>>
+  >- ((*App*)
+      rw [Once exp_rel_cases] \\
+      disj2_tac \\ disj1_tac \\
+      simp[subst_def])
 
-       simp[]>>
-       irule beta>>
-       unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF]>>
-        
-       cheat     
-    )
+  >- ((*Lam*)
+      simp [subst_def] \\
+      irule exp_rel_Lam \\
+      first_x_assum irule \\
+      fs [MAP_FST_FILTER, EVERY2_MAP] \\
+      qabbrev_tac `P = λx. x ≠ s` \\ fs [] \\
+      irule LIST_REL_FILTER \\ fs [] \\
+      irule LIST_REL_mono \\
+      first_assum (irule_at Any) \\ gs [])
 
-  >-((*App*)
-    rw [Once exp_rel_cases] \\
-    disj2_tac \\ disj1_tac \\
-    simp[subst_def])
-  >-((*Lam*)
-    rw [Once exp_rel_cases] \\
-    disj2_tac\\ disj2_tac \\ disj1_tac \\
-    simp[subst_def] \\
-    first_x_assum irule \\ conj_tac
-    >-(
-      simp[MAP_FILTER] \\
-      cheat)
-    >-(cheat)
-  )
-  >-((*Letrec*)
-    rw[Once exp_rel_cases]
-    disj2_tac\\disj2_tac\\disj2_tac\\disj1_tac\\
-    simp[subst_def]\\
-cheat
+  >- ((*Letrec*)
+      simp [subst_def] \\
+      irule exp_rel_Letrec \\
+      `MAP FST f = MAP FST g` by (
+        irule LIST_EQ \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY]) \\
+      qabbrev_tac `vs1 = FILTER (λ(n,v). ¬MEM n (MAP FST g)) vs` \\
+      qabbrev_tac `ws1 = FILTER (λ(n,v). ¬MEM n (MAP FST g)) ws` \\
+      `LIST_REL v_rel (MAP SND vs1) (MAP SND ws1) ∧ MAP FST vs1 =
+      MAP FST ws1` by (
+        unabbrev_all_tac \\
+        fs [MAP_FST_FILTER, EVERY2_MAP] \\
+        qabbrev_tac `P = λx. ¬MEM x (MAP FST g)` \\ fs [] \\
+        irule LIST_REL_FILTER \\ fs [] \\
+        irule LIST_REL_mono \\
+        first_assum (irule_at Any) \\ gs []) \\ conj_tac \\
+        qpat_x_assum `LIST_REL _ f g` mp_tac \\ rw [LIST_REL_EL_EQN] \\
+        first_x_assum drule \\ rpt (pairarg_tac \\ gvs []) \\ strip_tac \\
+        gvs [EL_MAP] \\ first_x_assum drule \\
+        rpt (pairarg_tac \\ gvs []) \\ rw [] \\
+        first_x_assum irule \\ gvs[LIST_REL_EL_EQN, EL_MAP])
 
-    rw [Once exp_rel_cases] \\ gs [Lets_distinct]
-    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_Letrec
-    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-    \\ first_assum (irule_at Any)
-    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ `MAP FST f = MAP FST g`
-      by (irule LIST_EQ
-          \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
-    \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [MAP_FST_FILTER, SF ETA_ss]
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD] \\ rw []
-    \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER, SF ETA_ss, SF SFY_ss]
-    \\ irule_at Any LIST_REL_FILTER \\ gs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD]
-  )
+  >- ((*Let NONE and SOME*)
+      simp [subst_def] \\ Cases_on ‘bv’ \\ simp [subst_def] \\
+      irule exp_rel_Let \\ conj_tac \\
+      first_x_assum irule \\ gs [] \\ conj_tac
+      >- (metis_tac [MAP_FST_FILTER])
+      >- (
+        fs [MAP_FST_FILTER, EVERY2_MAP]
+        \\ qabbrev_tac ‘P = λn. n ≠ x''’ \\ fs []
+        \\ irule LIST_REL_FILTER \\ fs []
+        \\ irule LIST_REL_mono
+        \\ first_assum (irule_at Any) \\ gs []))
 
-  >-((*Let*)
-    rw [Once exp_rel_cases]\\
-    disj2_tac
-  )
-  >-((*beta*))
+  >- ((*If*)
+      simp[subst_def] \\ irule exp_rel_If \\ gvs[])
 
+  >- ((*Prim*)
+      simp[subst_def] \\ irule exp_rel_Prim \\ gvs[EVERY2_MAP] \\
+      irule LIST_REL_mono \\ first_assum (irule_at Any) \\ rw[])
 
+  >- ((*Monad*)
+      simp[subst_def] \\ irule exp_rel_Monad \\ gvs[EVERY2_MAP] \\
+      irule LIST_REL_mono \\ first_assum (irule_at Any) \\ rw[])
 
+  >- ((*Delay*)
+      simp[subst_def] \\ irule exp_rel_Delay \\ gvs[EVERY2_MAP] \\
+      irule LIST_REL_mono \\ first_assum (irule_at Any) \\ rw[])
 
-  ho_match_mp_tac subst_ind \\ rw []
-  \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
-  >- ((* Var *)
-    rw [Once exp_rel_cases, subst_def] \\ gs []
-    >- (
-      `vs'' ≠ []` by (
-        CCONTR_TAC \\
-        qpat_x_assum `MAP FST vs = _` mp_tac \\ fs[])
-      \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’ by (
-        irule LIST_REL_OPTREL
-        \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
-        \\ pop_assum mp_tac
-        \\ qid_spec_tac ‘ws’
-        \\ qid_spec_tac ‘vs’
-        \\ Induct \\ simp []
-        \\ gen_tac \\ CCONTR_TAC
-        \\ fs[Lets_distinct]
-        \\ fs[Lets_distinct])
-      \\ CCONTR_TAC \\ fs[Lets_distinct])
-    >- (
-      ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
-        by (irule LIST_REL_OPTREL
-            \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
-            \\ pop_assum mp_tac
-            \\ qid_spec_tac ‘ws’
-            \\ qid_spec_tac ‘vs’
-            \\ Induct \\ simp []
-            \\ gen_tac \\ Cases \\ simp[])
-      \\ gs [OPTREL_def, subst_def]
-      \\ rw [Once exp_rel_cases, v_rel_def]))
+  >- ((*Force*)
+      simp[subst_def] \\ irule exp_rel_Force \\ gvs[EVERY2_MAP] \\
+      irule LIST_REL_mono \\ first_assum (irule_at Any) \\ rw[])
 
-  >- ((* Prim *)
-    rw [Once exp_rel_cases] \\ gs [Lets_distinct]
-    >- (
-      `REVERSE vs'' ≠ []` by (
-      CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-      \\ fs[Lets_distinct])
-    >- (
-    simp [subst_def]
-    \\ irule exp_rel_Prim
-    \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ rw []))
-  >- ((* Monad *)
-    rw[Once exp_rel_cases] >> gvs[subst_def, Lets_distinct]
-    >- (
-    `REVERSE vs'' ≠ []` by (
-      CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-      \\ fs[Lets_distinct])
-    \\ rw[Once exp_rel_cases]
-    \\ gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS])
-  >- ((* If *)
-    rw [Once exp_rel_cases]
-    >- (
-      `REVERSE vs'' ≠ []` by (
-        CCONTR_TAC
-        \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_If \\ fs [])
-  >- ((* App *)
-    rw [Once exp_rel_cases]
-    >- (
-    `REVERSE vs'' ≠ []` by (
-      CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_App \\ fs [])
-  >- ((* Lam *)
-    rw [Once exp_rel_cases]
-    >- (`REVERSE vs'' ≠ []` by (
-       CCONTR_TAC
-       \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ gvs [subst_def, Lets_distinct]
-    \\ irule exp_rel_Lam
-    \\ first_x_assum irule
-    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs []
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ gs [])
-  >- ((* Let NONE *)
-    rw [Once exp_rel_cases] \\ simp [subst_def]
-    >- (CCONTR_TAC
-      \\ qpat_x_assum `Seq x x' = _` mp_tac \\ fs[]
-      \\  DEP_REWRITE_TAC [GSYM Lets_map_seq]
-      \\ `REVERSE vs'' ≠ []` by (CCONTR_TAC
-        \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-      \\ fs[]
-      \\ rpt strip_tac \\ Cases_on `t`
-      \\ first_assum mp_tac \\
-      `(q,r) = (SOME (FST v'), optional_force b' v')` by (
-        fs[MEM_MAP] \\
-        qpat_x_assum `(NONE, r) = _` mp_tac \\ Cases_on `y` \\ fs[]
-      ) \\ fs[])
-      \\ irule exp_rel_Let \\ fs [])
+  >- ((*MkTick*)
+      simp[subst_def] \\ irule exp_rel_MkTick \\ gvs[EVERY2_MAP] \\
+      irule LIST_REL_mono \\ first_assum (irule_at Any) \\ rw[])
 
-  >- ((* Let SOME *)
-    rw [Once exp_rel_cases] \\ gs []
+  >- ((*Var*)
+      simp [subst_def] \\
+      `OPTREL v_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)` by (
+        irule LIST_REL_OPTREL_ALOOKUP \\ gvs [MAP_REVERSE]) \\ 
+      every_case_tac \\ gs[OPTREL_def, exp_rel_Var, exp_rel_Value])
 
-    >- ((*beta*)
-      DEP_REWRITE_TAC[subst_Lets]>>
-      conj_tac
-      >- metis_tac[MAP_REVERSE, ALL_DISTINCT_REVERSE]>>
-      simp[subst_Apps,MAP_subst_optional_force]>>
-      qmatch_goalsub_abbrev_tac`Apps (subst ws g) (MAP _ vss)`>>
-      rename1`REVERSE vs''`>>
-      `MAP (λ(b,v). (SOME (FST v),subst vs (optional_force b v)))
-        (REVERSE vs'') =
-        MAP (λ(b,v). (SOME (FST v),(optional_force b v)))
-          (REVERSE (MAP (λ(b,v). (b,pre_force_subst vs v)) vs''))` by
-          (simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
-          rw[]>>pairarg_tac>>fs[subst_optional_force_eq])>>
-       simp[]>>
-       `subst (FILTER (λ(n,x). ¬MEM n (MAP (FST ∘ SND) (REVERSE vs''))) vs) f
-          = subst vs f` by cheat>>
-       simp[]>>
-       qmatch_goalsub_abbrev_tac`Apps _ vsss`>>
-       `vsss = MAP (Var ∘ FST ∘ SND) vss` by (
-         unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]>>
-         simp[FORALL_PROD,subst_def]>>
-         rw[] >> simp[AllCaseEqs(), ALOOKUP_NONE]
-         
-         cheat)>>
-
-       simp[]>>
-       irule beta>>
-       unabbrev_all_tac>>fs[MAP_MAP_o,combinTheory.o_DEF]>>
-        
-       cheat)
-    >- ((*let*)
-      simp [subst_def]
-      \\ irule exp_rel_Let \\ gs []
-      \\ first_x_assum irule
-      \\ fs [MAP_FST_FILTER, EVERY2_MAP]
-      \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-      \\ irule LIST_REL_FILTER \\ fs []
-      \\ irule LIST_REL_mono
-      \\ first_assum (irule_at Any) \\ gs []))
-
-    (*
-    >- (
-      last_x_assum (drule_then (qspec_then ‘Delay x2’ mp_tac))
-      \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def]
-      \\ simp [Once exp_rel_cases, PULL_EXISTS]
-      \\ strip_tac
-      \\ gs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
-      \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ gs []
-      \\ ‘LIST_REL v_rel (MAP SND (FILTER (λ(n,x). P n) vs))
-                             (MAP SND (FILTER (λ(n,x). P n) ws))’
-        by (gs [EVERY2_MAP]
-            \\ irule LIST_REL_FILTER \\ gs []
-            \\ gs [LIST_REL_EL_EQN])
-      \\ first_x_assum drule
-      \\ simp [MAP_FST_FILTER, ELIM_UNCURRY]
-      \\ disch_then (qspec_then ‘Let (SOME w) (Force (Var s)) y2’ mp_tac)
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def,
-               GSYM FILTER_REVERSE, ALOOKUP_FILTER, LAMBDA_PROD]
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases]
-      \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
-        by (irule LIST_REL_OPTREL
-            \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
-            \\ qpat_x_assum ‘MAP _ _ = _’ mp_tac
-            \\ qid_spec_tac ‘ws’
-            \\ qid_spec_tac ‘vs’
-            \\ Induct \\ simp []
-            \\ gen_tac \\ Cases \\ simp [])
-      \\ gs [OPTREL_def, FILTER_FILTER, LAMBDA_PROD]
-      \\ rw [] \\ gs []
-      \\ irule exp_rel_d2b
-      \\ gs [AC CONJ_COMM CONJ_ASSOC])
-    \\ simp [subst_def]
-    \\ irule exp_rel_Let \\ gs []
-    \\ first_x_assum irule
-    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs []
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ gs [])
-    *)
-
-  >- ((* Letrec *)
-    rw [Once exp_rel_cases] \\ gs [Lets_distinct]
-    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_Letrec
-    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-    \\ first_assum (irule_at Any)
-    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ `MAP FST f = MAP FST g`
-      by (irule LIST_EQ
-          \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
-    \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [MAP_FST_FILTER, SF ETA_ss]
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD] \\ rw []
-    \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER, SF ETA_ss, SF SFY_ss]
-    \\ irule_at Any LIST_REL_FILTER \\ gs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD])
-  >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
-    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
-    \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R _ _’
-    \\ ‘OPTREL R (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
-      by (irule LIST_REL_OPTREL
-          \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ, Abbr ‘R’]
-          \\ pop_assum mp_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
-    \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_Var, exp_rel_Value])
-  >- ((* Force *)
-    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
-    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_Force \\ fs [])
-  >- ((* Value *)
-    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
-    >- (`REVERSE vs''' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs'' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ rw [Once exp_rel_cases])
-  >- ((* MkTick *)
-    rw [Once exp_rel_cases] \\ fs[Lets_distinct]
-    >- (`REVERSE vs'' ≠ []` by (CCONTR_TAC
-      \\ qpat_x_assum `MAP FST vs' = _` mp_tac \\ fs[])
-    \\ fs[Lets_distinct])
-    \\ simp [subst_def]
-    \\ irule exp_rel_MkTick
-    \\ first_x_assum irule \\ gs [])
+  >- ((*Value*)
+      metis_tac [subst_def, exp_rel_Value])
 QED
 
 (* TODO: Try to get here *)
