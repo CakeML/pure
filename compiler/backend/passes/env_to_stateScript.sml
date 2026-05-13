@@ -13,17 +13,16 @@ Libs
 
 
 Definition Letrec_imm_def:
-  (Letrec_imm vs ((Var v):env_cexp$cexp) ⇔ MEM v vs) ∧
-  (Letrec_imm vs (Lam _ _) ⇔ T) ∧
-  (Letrec_imm vs _ ⇔ F)
+  (Letrec_imm (Lam _ _) ⇔ T) ∧
+  (Letrec_imm _ ⇔ F)
 End
 
 Definition Letrec_split_def:
-  Letrec_split vs [] = ([],[]) ∧
-  Letrec_split vs ((v:mlstring,x)::fns) =
-    let (xs,ys) = Letrec_split vs fns in
+  Letrec_split [] = ([],[]) ∧
+  Letrec_split ((v:mlstring,x)::fns) =
+    let (xs,ys) = Letrec_split fns in
       case dest_Delay x of
-      | SOME y => ((v,Letrec_imm vs y,y)::xs,ys)
+      | SOME y => ((v,Letrec_imm y,y)::xs,ys)
       | NONE =>
         case dest_Lam x of
         | SOME (n,z) => (xs,(v,n,z)::ys)
@@ -46,7 +45,7 @@ End
 
 Theorem Letrec_split_MEM_funs[local]:
   ∀xs delays funs m n x.
-    (delays,funs) = Letrec_split ns xs ∧ MEM (m,n,x) funs ⇒
+    (delays,funs) = Letrec_split xs ∧ MEM (m,n,x) funs ⇒
     cexp_size x ≤ list_size (pair_size mlstring_size cexp_size) xs
 Proof
   Induct \\ fs [Letrec_split_def]
@@ -60,7 +59,7 @@ QED
 
 Theorem Letrec_split_MEM_delays[local]:
   ∀xs delays funs m n x.
-    (delays,funs) = Letrec_split ns xs ∧ MEM (m,n,x) delays ⇒
+    (delays,funs) = Letrec_split xs ∧ MEM (m,n,x) delays ⇒
     cexp_size x ≤ list_size (pair_size mlstring_size cexp_size) xs
 Proof
   Induct \\ fs [Letrec_split_def]
@@ -108,7 +107,7 @@ Definition to_state_def:
   to_state (Force x) =
     App ForceMutThunk [to_state x] ∧
   to_state (Letrec xs y) =
-    (let (delays,funs) = Letrec_split (MAP FST xs) xs in
+    (let (delays,funs) = Letrec_split  xs in
      let delays = MAP (λ(m,n,x). (m,n,to_state x)) delays in
      let funs = MAP (λ(m,n,x). (m,n,to_state x)) funs in
        Lets (MAP some_alloc_thunk delays) $

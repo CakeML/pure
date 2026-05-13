@@ -45,18 +45,17 @@ Definition Lets_def:
 End
 
 Definition Letrec_imm_def:
-  (Letrec_imm vs (Var v) ⇔ MEM v vs) ∧
-  (Letrec_imm vs (Lam (SOME _) _) ⇔ T) ∧
-  (Letrec_imm vs _ ⇔ F)
+  (Letrec_imm (Lam (SOME _) _) ⇔ T) ∧
+  (Letrec_imm _ ⇔ F)
 End
 
 Definition Letrec_split_def:
-  Letrec_split vs [] = ([],[]) ∧
-  Letrec_split vs ((v :mlstring,x)::fns) =
-    let (xs,ys) = Letrec_split vs fns in
+  Letrec_split [] = ([],[]) ∧
+  Letrec_split ((v :mlstring,x)::fns) =
+    let (xs,ys) = Letrec_split fns in
       case dest_Delay x of
       | NONE => (xs,(v,x)::ys)
-      | SOME y => ((v,Letrec_imm vs y,y)::xs,ys)
+      | SOME y => ((v,Letrec_imm y,y)::xs,ys)
 End
 
 Definition some_alloc_thunk_def:
@@ -75,7 +74,7 @@ End
 
 Definition comp_Letrec_def:
   comp_Letrec xs y =
-    let (delays,funs) = Letrec_split (MAP FST xs) xs in
+    let (delays,funs) = Letrec_split xs in
       Lets (MAP some_alloc_thunk delays) $
       Letrec funs $
       Lets (MAP update_delay delays) y
@@ -1375,8 +1374,8 @@ QED
 
 Theorem Letrec_split_EVERY:
   ∀xs delays funs.
-    Letrec_split vs xs = (delays, funs) ⇒
-    EVERY (λ(v,b,x). b = Letrec_imm vs x) delays
+    Letrec_split xs = (delays, funs) ⇒
+    EVERY (λ(v,b,x). b = Letrec_imm x) delays
 Proof
   Induct \\ fs [Letrec_split_def]
   \\ Cases \\ fs [Letrec_split_def]
@@ -1386,7 +1385,7 @@ QED
 
 Theorem Letrec_split_ALL_DISTINCT:
   ∀xs delays funs.
-    Letrec_split vs xs = (delays, funs) ∧ ALL_DISTINCT (MAP FST xs) ⇒
+    Letrec_split xs = (delays, funs) ∧ ALL_DISTINCT (MAP FST xs) ⇒
     (set (MAP FST delays)) UNION (set (MAP FST funs)) = set (MAP FST xs) ∧
     ALL_DISTINCT (MAP FST delays) ∧
     ALL_DISTINCT (MAP FST funs) ∧
@@ -1413,19 +1412,18 @@ Definition Letrec_store_def:
   Letrec_store env (v,b,y) =
     if ~b then ThunkMem NotEvaluated (Closure NONE env y) else
       case y of
-      | Var w   => ThunkMem Evaluated (THE (ALOOKUP env w))
       | Lam w e => ThunkMem Evaluated (Closure w env e)
       | _       => ThunkMem NotEvaluated (Closure NONE env y)
 End
 
 Theorem Letrec_store_thm:
   ∀delays ss env2 n.
-    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns :(mlstring # exp) list)) x) delays ∧
+    EVERY (λ(v,b,x). b ⇔ Letrec_imm x) delays ∧
     ALL_DISTINCT (MAP FST delays) ∧ is_halt (sr1,ss1,sk1) ∧
     DISJOINT (set (MAP FST delays)) (set (MAP FST (funs :(mlstring # exp) list))) ∧
     EVERY (λ(n,x). ~MEM n (MAP FST env1)) delays ∧
     EVERY (λn. ALOOKUP (env1 ++ make_let_env delays (LENGTH ss) env2) n ≠ NONE)
-      (MAP FST sfns) ∧
+      (MAP FST (sfns: (mlstring # exp) list)) ∧
     step_n n (Exp (env1 ++ make_let_env delays (LENGTH ss) env2)
                 (Lets (MAP update_delay delays) se),
               SOME (ss ++ MAP (λ(v,b,y).
@@ -1490,33 +1488,6 @@ Proof
      \\ impl_tac >- fs []
      \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def])
   \\ Cases_on ‘h2’ \\ gvs [Letrec_imm_def]
-  \\ qpat_assum ‘EVERY _ _’ (fn th => drule (REWRITE_RULE [EVERY_MEM] th))
-  \\ simp []
-  \\ Cases_on ‘ALOOKUP (env1 ++
-           make_let_env delays (LENGTH ss + 1)
-             ((h0,ThunkLoc (LENGTH ss))::env2)) m’ \\ fs []
-  \\ ntac 4 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-  \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-  \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-  \\ gvs [oEL_THM,EL_APPEND2]
-  \\ IF_CASES_TAC >- cheat
-  \\ simp [bad_thunk_update_def, thunk_or_thunk_loc_def, store_assign_def,
-           store_same_type_def, EL_APPEND]
-  \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-  \\ gvs [ADD1,LUPDATE_DEF]
-  \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
-  \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
-  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ disch_then $ drule_at $ Pos last
-  \\ impl_tac >- fs []
-  \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def]
-  \\ gvs [ALOOKUP_APPEND]
 QED
 
 Theorem step_n_unwind[local]:
@@ -1527,12 +1498,12 @@ QED
 
 Theorem Letrec_store_forward:
   ∀delays ss env2 n k.
-    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns :(mlstring # exp) list)) x) delays ∧
+    EVERY (λ(v,b,x). b ⇔ Letrec_imm x) delays ∧
     ALL_DISTINCT (MAP FST delays) ∧ is_halt (sr1,ss1,sk1) ∧
     DISJOINT (set (MAP FST delays)) (set (MAP FST (funs :(mlstring # exp) list))) ∧
     EVERY (λ(n,x). ~MEM n (MAP FST env1)) delays ∧
     EVERY (λn. ALOOKUP (env1 ++ make_let_env delays (LENGTH ss) env2) n ≠ NONE)
-          (MAP FST sfns) ∧
+          (MAP FST (sfns: (mlstring # exp) list)) ∧
     (let env3 = env1 ++ make_let_env delays (LENGTH ss) env2 in
        step_n k (Exp env3 se, SOME (ss ++ MAP (Letrec_store env3) delays),sk) =
          (sr1,ss1,sk1)) ∧ n = k + 7 * LENGTH delays ⇒
@@ -1591,29 +1562,6 @@ Proof
     \\ impl_tac >- fs [Letrec_store_def]
     \\ strip_tac \\ fs [])
   \\ Cases_on ‘h2’ \\ gvs [Letrec_imm_def]
-  \\ qpat_assum ‘EVERY _ _’ (fn th => drule (REWRITE_RULE [EVERY_MEM] th))
-  \\ simp []
-  \\ Cases_on ‘ALOOKUP (env1 ++
-           make_let_env delays (LENGTH ss + 1)
-             ((h0,ThunkLoc (LENGTH ss))::env2)) m’ \\ fs []
-  \\ ntac 3 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step, get_atoms_def])
-  \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-  \\ ntac 1 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
-  \\ gvs [oEL_THM,EL_APPEND2]
-  \\ IF_CASES_TAC >- cheat
-  \\ simp [store_assign_def, store_same_type_def, EL_APPEND]
-  \\ ntac 1 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
-  \\ gvs [ADD1,LUPDATE_DEF]
-  \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
-  \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
-  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ simp [LEFT_ADD_DISTRIB] \\ simp_tac std_ss [ADD_ASSOC]
-  \\ disch_then $ qspecl_then [‘(h0,ThunkLoc (LENGTH ss))::env2’,‘k’] mp_tac
-  \\ disch_then irule
-  \\ gvs [Letrec_store_def,ALOOKUP_APPEND]
 QED
 
 Theorem MEM_make_let_env:
@@ -1667,9 +1615,9 @@ QED
 
 Theorem Letrec_split_compile_rel:
   ∀sfns tfns vs delays funs.
-    Letrec_split vs sfns = (delays,funs) ∧ MAP FST tfns = MAP FST sfns ∧
+    Letrec_split sfns = (delays,funs) ∧ MAP FST tfns = MAP FST sfns ∧
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
-    LIST_REL (λ(n,x) (m,b,y). n = m ∧  Letrec_imm vs y = b ∧
+    LIST_REL (λ(n,x) (m,b,y). n = m ∧  Letrec_imm y = b ∧
          ∃x'. x = Delay x' ∧ compile_rel x' y)
       (FILTER ((λx. is_Delay x) ∘ SND) tfns) delays
 Proof
@@ -1712,7 +1660,7 @@ QED
 
 Theorem Letrec_split_MAP_FST:
   ∀sfns delays funs.
-    Letrec_split vs sfns = (delays,funs) ⇒
+    Letrec_split sfns = (delays,funs) ⇒
     set (MAP FST sfns) = set (MAP FST funs) ∪ set (MAP FST delays)
 Proof
   Induct \\ fs [Letrec_split_def,FORALL_PROD]
@@ -1722,7 +1670,7 @@ QED
 
 Theorem Letrec_split_IMP_FILTER:
   ∀sfns delays funs tfns.
-    Letrec_split vs sfns = (delays,funs) ∧
+    Letrec_split sfns = (delays,funs) ∧
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
     funs = FILTER ((λx. is_Lam x) ∘ SND) sfns
 Proof
@@ -1784,7 +1732,7 @@ QED
 
 Theorem Letrec_split_FILTER:
   ∀sfns tfns delays funs vs f.
-    Letrec_split vs sfns = (delays,funs) ∧
+    Letrec_split sfns = (delays,funs) ∧
     MAP FST tfns = MAP FST sfns ∧
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
     MAPi (λi x. (FST x,ThunkLoc (f i))) delays =
@@ -1805,8 +1753,8 @@ Theorem state_rel_Letrec:
   MAP FST tfns = MAP FST sfns ∧
   ALL_DISTINCT (MAP FST sfns) ∧
   LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
-  Letrec_split (MAP FST sfns) sfns = (delays,funs) ∧
-  EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST sfns) x) delays ∧
+  Letrec_split  sfns = (delays,funs) ∧
+  EVERY (λ(v,b,x). b ⇔ Letrec_imm x) delays ∧
   set (MAP FST delays) ∪ set (MAP FST funs) = set (MAP FST sfns) ∧
   ALL_DISTINCT (MAP FST delays) ∧
   ALL_DISTINCT (MAP FST funs) ∧
@@ -1925,7 +1873,7 @@ Proof
   \\ rename [‘compile_rel e1 e2’]
   \\ simp [dest_anyThunk_def]
   \\ simp [thunk_rel_def,dest_anyThunk_def]
-  \\ reverse (Cases_on ‘Letrec_imm (MAP FST sfns) e2’) \\ gvs []
+  \\ reverse (Cases_on ‘Letrec_imm  e2’) \\ gvs []
   >- fs [Letrec_store_def]
   \\ Cases_on ‘∃x1 x2. e2 = Lam x1 x2’
   >-
@@ -1938,19 +1886,6 @@ Proof
     \\ irule v_rel_Closure \\ fs [])
   \\ ‘∃v. e2 = Var v’ by (Cases_on ‘e2’ \\ fs [Letrec_imm_def])
   \\ gvs [Letrec_imm_def,Letrec_store_def]
-  \\ qpat_x_assum ‘compile_rel e1 _’ mp_tac
-  \\ simp [Once compile_rel_cases,comp_Letrec_not]
-  \\ strip_tac \\ gvs []
-  \\ simp [Once SWAP_EXISTS_THM]
-  \\ qexists_tac ‘1’ \\ fs [step]
-  \\ CASE_TAC
-  >-
-   (qpat_x_assum ‘MAP FST tfns = MAP FST sfns’ (assume_tac o GSYM) \\ gvs []
-    \\ gvs [ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
-    \\ PairCases_on ‘y’ \\ fs [])
-  \\ fs [env_rel_def]
-  \\ first_x_assum drule
-  \\ strip_tac \\ fs []
 QED
 
 Theorem step_n_make_let_env:
@@ -2468,10 +2403,16 @@ Proof
   \\ simp [GSYM PULL_EXISTS]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ conj_tac
-  >-
-   (simp [EVERY_MEM,FORALL_PROD,MAP_MAP_o,combinTheory.o_DEF]
+  >- (
+    simp [EVERY_MEM,FORALL_PROD,MAP_MAP_o,combinTheory.o_DEF]
     \\ drule_all Letrec_split_ALL_DISTINCT \\ strip_tac
     \\ simp [LAMBDA_PROD,FST_INTRO]
+    \\ conj_tac
+    >- (
+      rw []
+      \\ gvs [IN_DISJOINT]
+      \\ first_x_assum $ qspec_then `p_1` assume_tac \\ gvs []
+      \\ gvs [MEM_MAP])
     \\ fs [ALOOKUP_NONE,MEM_make_let_env,MAP_MAP_o,combinTheory.o_DEF,IN_DISJOINT]
     \\ simp [LAMBDA_PROD,FST_INTRO]
     \\ qpat_x_assum ‘_ = set (MAP _ _)’ (assume_tac o GSYM)
@@ -2881,6 +2822,7 @@ Proof
   \\ drule_at (Pos last) Letrec_store_thm
   \\ simp []
   \\ rpt (disch_then drule)
+  \\ disch_then $ qspec_then `sfns` mp_tac \\ gvs []
   \\ impl_tac
   >-
    (simp [EVERY_LAM]

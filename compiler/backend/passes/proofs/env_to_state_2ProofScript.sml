@@ -228,15 +228,15 @@ Proof
 QED
 
 Theorem Letrec_imm_0[local]:
-  env_to_state$Letrec_imm ts m ⇒
-  (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam x y
+  env_to_state$Letrec_imm m ⇒
+    ∃x y. m = Lam x y
 Proof
   Cases_on ‘m’ \\ fs [Letrec_imm_def]
 QED
 
 Theorem Letrec_imm_1[local]:
-  state_unthunkProof$Letrec_imm ts m ⇒
-  (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam (SOME x) y
+  state_unthunkProof$Letrec_imm m ⇒
+    ∃x y. m = Lam (SOME x) y
 Proof
   Cases_on ‘m’ \\ fs [state_unthunkProofTheory.Letrec_imm_def]
   \\ rename [‘Lam oo’] \\ Cases_on ‘oo’
@@ -274,8 +274,8 @@ QED
 
 Theorem Letrec_split_names:
   ∀xs delays delays' funs funs' xs0 ys.
-    Letrec_split ts1 xs = (delays,funs) ∧
-    Letrec_split ts1 (ZIP (MAP FST xs,MAP inv_thunk ys)) =
+    Letrec_split xs = (delays,funs) ∧
+    Letrec_split (ZIP (MAP FST xs,MAP inv_thunk ys)) =
     (delays',funs') ∧
     LIST_REL unthunk xs0 ys ∧
     LIST_REL to_state (MAP (λx. exp_of (SND x)) xs) xs0 ∧
@@ -348,8 +348,8 @@ QED
 
 Theorem Letrec_split_case_clean:
   ∀xs delays delays' funs funs' xs0 ys xs1.
-    Letrec_split ts1 xs = (delays,funs) ∧
-    Letrec_split ts1 (ZIP (MAP FST xs,MAP inv_thunk ys)) =
+    Letrec_split xs = (delays,funs) ∧
+    Letrec_split (ZIP (MAP FST xs,MAP inv_thunk ys)) =
     (delays',funs') ∧
     LIST_REL unthunk xs0 ys ∧
     LIST_REL case_rel (MAP exp_of xs1) ys ∧
@@ -740,8 +740,7 @@ Proof
             ∃x1 x2 y1.
               to_state (exp_of x) x1 ∧ unthunk x1 x2 ∧
               case_rel (exp_of y1) x2 ∧ clean y1 (to_state x)’ by
-      (rename [‘Letrec_split ts’]
-       \\ rpt $ pop_assum mp_tac
+      (rpt $ pop_assum mp_tac
        \\ qid_spec_tac ‘delays’
        \\ qid_spec_tac ‘funs’
        \\ qid_spec_tac ‘xs’
@@ -750,7 +749,7 @@ Proof
        \\ simp_tac (srw_ss()) [Letrec_split_def,SF DNF_ss]
        \\ rpt conj_tac
        \\ qid_spec_tac ‘h1’ \\ simp_tac (srw_ss()) [dest_Delay_def,dest_Lam_def]
-       \\ Cases_on ‘Letrec_split ts xs’ \\ simp_tac (srw_ss()) [LET_THM]
+       \\ Cases_on ‘Letrec_split xs’ \\ simp_tac (srw_ss()) [LET_THM]
        \\ simp_tac (srw_ss()) [Letrec_split_def,SF DNF_ss]
        \\ rpt strip_tac
        THENL [all_tac, last_x_assum irule \\ metis_tac [],
@@ -973,8 +972,8 @@ Proof
 QED
 
 Theorem Letrec_split_1:
-  ∀l1 lnames funs delays p0 p1 p2.
-    env_to_state$Letrec_split lnames l1 = (delays, funs) ∧ MEM (p0, p1, p2) delays
+  ∀l1 funs delays p0 p1 p2.
+    env_to_state$Letrec_split l1 = (delays, funs) ∧ MEM (p0, p1, p2) delays
     ⇒ MEM (p0, Delay p2) l1
 Proof
   Induct \\ gs [FORALL_PROD, Letrec_split_def]
@@ -998,28 +997,19 @@ Proof
 QED
 
 Theorem Letrec_split_2:
-  ∀l1 lnames funs delays p0 p1 p2.
-    env_to_state$Letrec_split lnames l1 = (delays, funs) ∧ MEM (p0, p1, p2) funs
+  ∀l1 funs delays p0 p1 p2.
+    env_to_state$Letrec_split l1 = (delays, funs) ∧ MEM (p0, p1, p2) funs
     ⇒ MEM (p0, Lam p1 p2) l1
 Proof
   Induct \\ gs [FORALL_PROD, Letrec_split_def]
   \\ rpt gen_tac
   \\ pairarg_tac \\ fs []
   \\ TOP_CASE_TAC \\ fs []
-  >- (CASE_TAC \\ fs []
-      >- (rw []
-          \\ last_x_assum $ drule_all_then assume_tac
-          \\ fs [])
-      \\ CASE_TAC \\ fs []
-      \\ rw [] \\ fs []
-      >- (rename1 ‘dest_Lam p_2’
-          \\ Cases_on ‘p_2’
-          \\ fs [dest_Lam_def])
-      \\ last_x_assum $ drule_all_then assume_tac
-      \\ fs [])
-  \\ rw []
-  \\ last_x_assum $ drule_all_then assume_tac
-  \\ fs []
+  \\ ntac 2 (CASE_TAC \\ fs [])
+  \\ rw [] \\ fs []
+  \\ rename1 ‘dest_Lam p_2’
+  \\ Cases_on ‘p_2’
+  \\ fs [dest_Lam_def]
 QED
 
 Theorem to_state_cns_arities_lemma:
@@ -1156,7 +1146,7 @@ Proof
 QED
 
 Theorem Letrec_split_3:
-  ∀l lname delays funs. env_to_state$Letrec_split lname l = (delays, funs) ∧
+  ∀l delays funs. env_to_state$Letrec_split l = (delays, funs) ∧
                         ALL_DISTINCT (MAP FST l)
                         ⇒ ALL_DISTINCT (MAP FST funs)
 Proof
@@ -1169,8 +1159,6 @@ Proof
   >- (rw [] \\ last_x_assum $ drule_all_then irule)
   \\ CASE_TAC \\ fs []
   \\ rw [] \\ fs []
-  \\ last_x_assum $ drule_all_then assume_tac
-  \\ fs []
   \\ strip_tac
   \\ first_x_assum irule
   \\ fs [MEM_MAP, EXISTS_PROD]
