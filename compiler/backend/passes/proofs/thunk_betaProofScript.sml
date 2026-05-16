@@ -219,11 +219,11 @@ QED
 
 
 Theorem freevars_Lets_SOME:
-  ∀ls body. 
-    ALL_DISTINCT (MAP FST ls) ∧ 
+  ∀ls body.
+    ALL_DISTINCT (MAP FST ls) ∧
     DISJOINT (set (MAP FST ls)) (BIGUNION (set (MAP (freevars o SND) ls))) ⇒
       freevars (Lets (MAP (λ(n, e). (SOME n, e)) ls) body) =
-      (BIGUNION (set (MAP (freevars o SND) ls))) ∪ 
+      (BIGUNION (set (MAP (freevars o SND) ls))) ∪
       (freevars body DIFF (set (MAP FST ls)))
 Proof
   Induct >> rw[Lets_def, freevars_def, MAP_o] >>
@@ -275,7 +275,7 @@ Proof
     rpt (pop_assum mp_tac) \\
     simp[freevars_Apps] \\
     qid_spec_tac `vs'` \\ Induct_on `vs` \\ simp[Lets_def] \\
-    rw[] \\ gvs[] \\ 
+    rw[] \\ gvs[] \\
     Cases_on `vs'` \\ gvs[] \\
     simp[Lets_append] \\
     PairCases_on `h`\\
@@ -287,7 +287,7 @@ Proof
       qabbrev_tac `L = (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE t))` \\
       `freevars
          (Lets L (Lets [(SOME b, optional_force a (b, NONE))]
-         (Apps (App x (Var b)) (MAP (Var ∘ FST ∘ SND) vs)))) = 
+         (Apps (App x (Var b)) (MAP (Var ∘ FST ∘ SND) vs)))) =
        freevars (Lets L (Apps x (MAP (Var ∘ FST ∘ SND) vs ++ [Var b])))` by (
         irule freevars_Lets_cong \\
         simp[Lets_def,freevars_Apps,freevars_def,freevars_optional_force]\\
@@ -298,7 +298,7 @@ Proof
     >- (
       qabbrev_tac `L = (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE t))` \\
       `freevars (Lets L (Lets [(SOME b, optional_force a (b, SOME x'))]
-         (Apps (App x (Var b)) (MAP (Var ∘ FST ∘ SND) vs)))) = 
+         (Apps (App x (Var b)) (MAP (Var ∘ FST ∘ SND) vs)))) =
        freevars (Lets L (Apps x (MAP (Var ∘ FST ∘ SND) vs)))` by (
         irule freevars_Lets_cong \\
         simp[Lets_def,freevars_Apps,freevars_def,freevars_optional_force]\\
@@ -607,7 +607,7 @@ Theorem exp_rel_subst:
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
 Proof
-  qsuff_tac `(∀x y. exp_rel x y ==> ∀vs ws. 
+  qsuff_tac `(∀x y. exp_rel x y ==> ∀vs ws.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ⇒
       exp_rel (subst vs x) (subst ws y)) ∧ ∀v w. v_rel v w ⇒ T`
@@ -753,7 +753,6 @@ Proof
       metis_tac [subst_def, exp_rel_Value])
 QED
 
-(* TODO: Try to get here *)
 
 Definition d2b_goal_def:
   d2b_goal k x =
@@ -774,6 +773,7 @@ Theorem eval_to_WF_IND[local] =
   |> Q.SPEC ‘UNCURRY d2b_goal’
   |> SIMP_RULE std_ss [FORALL_PROD]
 
+
 Theorem exp_rel_eval_to:
   ∀k x. d2b_goal k x
 Proof
@@ -781,10 +781,256 @@ Proof
   \\ once_rewrite_tac [d2b_goal_def]
   \\ gen_tac
   \\ Cases \\ gs []
+  >~ [‘Let bv x1 y1’] >- (
+    Cases_on ‘bv’
+    >~ [`Seq x1 y1`] >- (cheat)
+    >~ [`Let (SOME s) x1 y1`] >- (
+      strip_tac \\
+      rw [Once exp_rel_cases]
+      >- ( (*stuck*)
+        cheat)
+
+      >- (
+        Cases_on `k=0` \\ simp[eval_to_def]
+        >- (qexists `0` \\ simp[])
+        >- (
+            last_assum (qspecl_then [`k-1`, `x1`] assume_tac) \\
+            `eval_to_wo (k-1, x1) (k, Let (SOME s) x1 y1)` by simp[eval_to_wo_def] \\
+            fs[] \\ first_x_assum (qspec_then `x2` assume_tac) \\ fs[] \\
+            `∀k. eval_to k x1 ≠ INL Type_error` by (
+              CCONTR_TAC \\ fs[] \\
+              `eval_to (k' + 1) (Let (SOME s) x1 y1) = INL Type_error` by (
+                fs[eval_to_def]) \\ metis_tac[]) \\
+              first_x_assum drule \\ strip_tac \\
+              Cases_on `eval_to (k-1) x2` \\ fs[eval_to_def]
+              >- (
+                gs[] \\ qexists `j` \\
+                `eval_to (j + k-1) x1 = INL x` by (
+                  Cases_on `eval_to (j + k-1) x1` \\ simp[SUM_REL_THM]
+                  >-(CCONTR_TAC \\ fs[SUM_REL_THM])
+                  >-(fs[SUM_REL_THM])) \\ gs[SUM_REL_THM])
+              >- (
+                `∃j. ($= +++ v_rel) (eval_to (j + (k-1)) x1) (INR y)` by simp[] \\
+                Cases_on `eval_to (j + k-1) x1`
+                >- (CCONTR_TAC \\ gs[SUM_REL_THM])
+                >- (
+                    `v_rel y' y` by (
+                      `eval_to (j+ (k-1)) x1 = INR y'` by fs[] \\
+                      fs[SUM_REL_THM]) \\
+                    last_x_assum (qspecl_then [`k-1`, `subst1 s y' y1`] mp_tac) \\
+                    impl_tac \\ simp[eval_to_wo_def] \\
+                    disch_then (qspec_then `subst1 s y y2` mp_tac) \\ impl_tac
+                    >- (
+                      simp[exp_rel_subst] \\ gen_tac \\
+                      `eval_to k' (subst1 s y' y1) ≠ INL Type_error` by (
+                        qpat_x_assum `∀k''. _ ≠ INL Type_error`
+                          (qspec_then `SUC (k' + j + (k-1))` mp_tac) \\
+                        `eval_to (k' + j + (k-1)) x1 = eval_to (j+k-1) x1` by (
+                          irule eval_to_mono \\ fs[]) \\ strip_tac \\
+                        CCONTR_TAC \\
+                        `eval_to k' (subst1 s y' y1) ≠ INL Diverge` by fs[] \\
+                        `eval_to (k' + j + (k-1)) (subst1 s y' y1)
+                        = eval_to k' (subst1 s y' y1)` by (
+                          irule eval_to_mono \\ simp[]) \\
+                        last_x_assum (qspec_then `SUC (k' + j + (k-1))` mp_tac) \\
+                        gs[]))
+                    >- (
+                        strip_tac \\
+                        `eval_to (j+j'+k-1) x1 = INR y'` by (
+                          `eval_to (j+j'+k-1) x1 = eval_to (j + k − 1) x1` by (
+                            irule eval_to_mono \\ simp[]) \\ fs[]) \\
+                        Cases_on `eval_to (k-1) (subst1 s y y2)` \\ gvs[]
+                        >- ((*INL x*)
+                          Cases_on `x` \\ gvs[]
+                          >- ((*x = Type_error*)
+                              qexists `j + j'` \\ fs[] \\
+                              `eval_to (j + (j'+k)-1) (subst1 s y' y1)
+                              = eval_to (j'+k-1) (subst1 s y' y1)` by (
+                                irule eval_to_mono \\ fs[] \\ CCONTR_TAC \\
+                              qpat_x_assum `($= +++ v_rel) _ (INL Type_error)` mp_tac \\
+                              fs[]) \\ pop_assum SUBST1_TAC \\ metis_tac[SUM_REL_THM])
+                          >- ((*x = Diverge*)
+                              qexists_tac `j'` \\ fs[] \\
+                              Cases_on `eval_to (j' + k - 1) x1` \\ gvs[]
+                              >- (
+                                CCONTR_TAC \\
+                                `eval_to (j'+k-1) x1 = INL Type_error` by (
+                                  Cases_on `x` \\ gvs[]) \\ metis_tac[])
+                              >- (
+                                `y'' = y'` by (
+                                  qspecl_then [`j'+k-1`, `x1`, `j+(j'+k)-1`]
+                                    mp_tac eval_to_mono \\
+                                  simp[]) \\ metis_tac[])))
+                        >- ((*INR y*)
+                            qexists `j + j'` \\ fs[] \\
+                            `eval_to (j + (j'+k)-1) (subst1 s y' y1)
+                            = eval_to (j' + k − 1) (subst1 s y' y1)` by (
+                              irule eval_to_mono \\ fs[] \\
+                              CCONTR_TAC \\ metis_tac[SUM_REL_THM]) \\
+                            pop_assum SUBST1_TAC \\ metis_tac[SUM_REL_THM])))))))
+
+(* OLD PROOF
+      ‘∀k. eval_to k x1 ≠ INL Type_error’
+        by (qx_gen_tac ‘j’
+            \\ strip_tac
+            \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
+            \\ simp [eval_to_def]
+            \\ qexists_tac ‘j + 1’
+            \\ simp [])
+      \\ simp [eval_to_def]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        qexists_tac ‘0’
+        \\ simp [])
+      \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) x1)
+                                 (eval_to (k - 1) x2)’
+        by (first_x_assum irule \\ simp [eval_to_wo_def])
+      \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+      >- (
+        qexists_tac ‘j’
+        \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs [])
+      \\ ‘∀j1. eval_to (j1 + j + k - 1) x1 = eval_to (j + k - 1) x1’
+        by (gen_tac \\ irule eval_to_mono \\ gs []
+            \\ strip_tac \\ gs [])
+      \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
+      \\ rename1 ‘v_rel u v’
+      \\ ‘∀k. eval_to k (subst1 s u y1) ≠ INL Type_error’
+        by (qx_gen_tac ‘j1’
+            \\ strip_tac
+            \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
+            \\ simp [eval_to_def]
+            \\ qexists_tac ‘j + j1 + k’ \\ simp []
+            \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
+            \\ irule eval_to_mono \\ gs [])
+      \\ Cases_on ‘eval_to (k - 1) (subst1 s v y2) = INL Diverge’
+      >- (
+        Cases_on ‘eval_to (k - 1) x1 = INL Diverge’
+        >- (
+          qexists_tac ‘0’
+          \\ simp [])
+        \\ ‘∀j. eval_to (j + k - 1) x1 = eval_to (k - 1) x1’
+          by (gen_tac \\ irule eval_to_mono \\ gs [])
+        \\ Cases_on ‘eval_to (k - 1) x1’ \\ gs []
+        \\ ‘∀j. j + k - 1 = j + (k - 1)’ by gs []
+        \\ asm_simp_tac std_ss []
+        \\ qpat_assum ‘_ = INL Diverge’ (SUBST1_TAC o SYM)
+        \\ first_x_assum irule
+        \\ rgs [eval_to_wo_def]
+        \\ irule exp_rel_subst \\ gs [])
+      \\ Q.REFINE_EXISTS_TAC ‘j1 + j’ \\ gs []
+      \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
+      \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) (eval_to _ lhs) (eval_to _ rhs)’
+      \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) lhs)
+                                 (eval_to (k - 1) rhs)’
+        suffices_by (
+          disch_then (qx_choose_then ‘j1’ assume_tac)
+          \\ qexists_tac ‘j1’
+          \\ ‘eval_to (j + j1 + k - 1) lhs = eval_to (j1 + k - 1) lhs’
+            by (irule eval_to_mono \\ gs []
+                \\ strip_tac \\ gs []
+                \\ Cases_on ‘eval_to (k - 1) rhs’ \\ gs [])
+          \\ gs [])
+      \\ first_x_assum irule
+      \\ unabbrev_all_tac
+      \\ gs [eval_to_wo_def, subst1_commutes]
+      \\ irule exp_rel_subst \\ gs [])
+    \\ strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      qexists_tac ‘0’
+      \\ simp [])
+    \\ ‘∀k. eval_to k x1 ≠ INL Type_error’
+      by (qx_gen_tac ‘j’
+          \\ strip_tac
+          \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
+          \\ simp [eval_to_def]
+          \\ qexists_tac ‘j + 1’
+          \\ simp [])
+    \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) x1) (eval_to (k - 1) x2)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def])
+    \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    >- (
+      qexists_tac ‘j’
+      \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs [])
+    \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
+    \\ ‘∀k. eval_to k y1 ≠ INL Type_error’
+      by (qx_gen_tac ‘j1’
+          \\ strip_tac
+          \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
+          \\ simp [eval_to_def]
+          \\ qexists_tac ‘j1 + j + k’ \\ simp []
+          \\ ‘eval_to (j + (j1 + k) - 1) x1 = eval_to (j + k - 1) x1’
+            by (irule eval_to_mono \\ gs [])
+          \\ simp []
+          \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
+          \\ irule eval_to_mono \\ simp [])
+    \\ Cases_on ‘eval_to (k - 1) y2 = INL Diverge’ \\ gs []
+    >- (
+      Cases_on ‘eval_to (k - 1) x1 = INL Diverge’
+      >- (
+        qexists_tac ‘0’
+        \\ simp [])
+      \\ ‘∀j. eval_to (j + k - 1) x1 = eval_to (k - 1) x1’
+        by (gen_tac \\ irule eval_to_mono \\ gs [])
+      \\ Cases_on ‘eval_to (k - 1) x1’ \\ gs []
+      \\ ‘∀j. j + k - 1 = j + (k - 1)’ by gs []
+      \\ asm_simp_tac std_ss []
+      \\ qpat_assum ‘_ = INL Diverge’ (SUBST1_TAC o SYM)
+      \\ first_x_assum irule
+      \\ simp [eval_to_wo_def])
+    \\ ‘∀j1. eval_to (j1 + j + k - 1) x1 = eval_to (j + k - 1) x1’
+      by (gen_tac \\ irule eval_to_mono \\ gs []
+          \\ strip_tac \\ gs [])
+    \\ Q.REFINE_EXISTS_TAC ‘j + j1’ \\ gs []
+    \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
+    \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) (eval_to _ lhs) (eval_to _ rhs)’
+    \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) lhs)
+                               (eval_to (k - 1) rhs)’
+      suffices_by (
+        disch_then (qx_choose_then ‘j1’ assume_tac)
+        \\ qexists_tac ‘j1’
+        \\ ‘eval_to (j + j1 + k - 1) lhs = eval_to (j1 + k - 1) lhs’
+          by (irule eval_to_mono \\ gs []
+              \\ strip_tac \\ gs []
+              \\ Cases_on ‘eval_to (k - 1) rhs’ \\ gs [])
+        \\ gs [])
+    \\ first_x_assum irule
+    \\ simp [eval_to_wo_def]
+*)
+
+  >~ [`Letrec f x`] >- (
+    ntac 2 strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      qexists_tac ‘0’
+      \\ simp [])
+    \\ rename1 ‘exp_rel x y’
+    \\ ‘∀j. j + k - 1 = j + (k - 1)’
+      by gs []
+    \\ asm_simp_tac std_ss []
+    \\ first_x_assum irule
+    \\ simp [eval_to_wo_def, exp_size_def, subst_funs_def]
+    \\ irule_at Any exp_rel_subst
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP, LAMBDA_PROD,
+             GSYM FST_THM]
+    \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
+    \\ irule_at Any LIST_EQ
+    \\ gs [EL_MAP]
+    \\ qx_gen_tac ‘j’
+    \\ strip_tac
+    \\ qpat_x_assum ‘∀k. eval_to _ (Letrec _ _) ≠ _’ mp_tac
+    \\ simp [eval_to_def, subst_funs_def]
+    \\ qexists_tac ‘j + 1’ \\ simp [ELIM_UNCURRY])
+
   >~ [‘Var v’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
+
   >~ [‘App f x’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
@@ -957,35 +1203,12 @@ Proof
       by (strip_tac \\ Cases_on ‘eval_to (k - 1) X2’ \\ gs [])
     \\ drule_then (qspec_then ‘j + j1 + j2 + k - 1’ assume_tac) eval_to_mono
     \\ gs [])
+
   >~ [‘Lam s x’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
-  >~ [‘Letrec f x’] >- (
-    ntac 2 strip_tac
-    \\ rw [Once exp_rel_cases]
-    \\ simp [eval_to_def]
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      qexists_tac ‘0’
-      \\ simp [])
-    \\ rename1 ‘exp_rel x y’
-    \\ ‘∀j. j + k - 1 = j + (k - 1)’
-      by gs []
-    \\ asm_simp_tac std_ss []
-    \\ first_x_assum irule
-    \\ simp [eval_to_wo_def, exp_size_def, subst_funs_def]
-    \\ irule_at Any exp_rel_subst
-    \\ simp [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP, LAMBDA_PROD,
-             GSYM FST_THM]
-    \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
-    \\ irule_at Any LIST_EQ
-    \\ gs [EL_MAP]
-    \\ qx_gen_tac ‘j’
-    \\ strip_tac
-    \\ qpat_x_assum ‘∀k. eval_to _ (Letrec _ _) ≠ _’ mp_tac
-    \\ simp [eval_to_def, subst_funs_def]
-    \\ qexists_tac ‘j + 1’ \\ simp [ELIM_UNCURRY])
+
   >~ [‘Force x’] >- (
     strip_tac
     \\ rw [Once exp_rel_cases]
@@ -1244,6 +1467,7 @@ Proof
     \\ drule eval_to_mono \\ strip_tac
     \\ first_x_assum $ qspec_then `j + (j1 + k) - 1` assume_tac
     \\ gvs [])
+
   >~ [‘If x1 y1 z1’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
@@ -1356,10 +1580,12 @@ Proof
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs []
     \\ IF_CASES_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs [])
+
   >~ [‘Delay x’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
+
   >~ [‘MkTick x’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
@@ -1375,247 +1601,12 @@ Proof
     \\ rpt strip_tac
     \\ first_x_assum (qspec_then ‘k’ mp_tac)
     \\ simp [eval_to_def])
+
   >~ [‘Value v’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
-  >~ [‘Let bv x1 y1’] >- (
-    Cases_on ‘bv’
-    >~ [‘Let (SOME s) x1 y1’] >- (
-      strip_tac
-      \\ rw [Once exp_rel_cases]
-      >- ((* D2B *) cheat
-(*        pop_assum mp_tac
-        \\ simp [Once eval_to_def]
-        \\ simp [Once eval_to_def, subst_def]
-        \\ simp [Once eval_to_def]
-        \\ simp [Once eval_to_def]
-        \\ simp [Once eval_to_def, dest_anyThunk_def, subst_funs_def]
-        \\ strip_tac
-        \\ rename1 ‘exp_rel x1 x2’ \\ rename1 ‘exp_rel y1 y2’
-        \\ ‘∀k. eval_to k x1 ≠ INL Type_error’
-          by (qx_gen_tac ‘j’
-              \\ strip_tac
-              \\ qpat_x_assum ‘∀k. _ ≠ _’ mp_tac \\ simp []
-              \\ qexists_tac ‘j + 3’ \\ simp [])
-        \\ once_rewrite_tac [eval_to_def]
-        \\ IF_CASES_TAC \\ gs []
-        >- (
-          qexists_tac ‘0’
-          \\ simp [])
-        \\ simp [Once eval_to_def, subst_def]
-        \\ ‘∃j1. ($= +++ v_rel) (eval_to (j1 + (k - 1)) x1)
-                                    (eval_to (k - 1) x2)’
-          by (first_x_assum irule
-              \\ simp [eval_to_wo_def])
-        \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
-        >- (
-          rename1 ‘_ = INL err’
-          \\ Cases_on ‘err’ \\ Cases_on ‘eval_to (j1 + k - 1) x1’ \\ gs []
-          \\ simp [Once eval_to_def, Once eval_to_def, Once eval_to_def,
-                   dest_anyThunk_def, subst_funs_def]
-          \\ qexists_tac ‘j1 + 2’
-          \\ simp [])
-        \\ Cases_on ‘eval_to (j1 + k - 1) x1’ \\ gs []
-        \\ rename1 ‘v_rel v u’
-        \\ ‘∀k. eval_to k (subst1 w v (subst1 s (Thunk x1) y1)) ≠
-                INL Type_error’
-          by (qx_gen_tac ‘j’
-              \\ strip_tac
-              \\ qpat_x_assum ‘∀k. (COND _ _ _) ≠ _’ mp_tac \\ simp []
-              \\ qexists_tac ‘j + j1 + k + 2’
-              \\ simp []
-              \\ ‘eval_to (j + (j1 + k) - 1) x1 = eval_to (j1 + k -1) x1’
-                by (irule eval_to_mono \\ gs []) \\ gs []
-              \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
-              \\ irule eval_to_mono \\ simp [])
-        \\ qpat_x_assum ‘∀k. COND _ _ _ ≠ _’ kall_tac
-        \\ once_rewrite_tac [eval_to_def] \\ simp []
-        \\ IF_CASES_TAC \\ gs []
-        >- (
-          qexists_tac ‘0’
-          \\ simp [])
-        \\ once_rewrite_tac [eval_to_def] \\ simp []
-        \\ once_rewrite_tac [eval_to_def]
-        \\ simp [dest_anyThunk_def, subst_funs_def]
-        \\ simp [Once subst1_commutes]
-        \\ qmatch_goalsub_abbrev_tac ‘_ _ (eval_to _ X2)’
-        \\ Cases_on ‘eval_to (k - 2) X2 = INL Diverge’ \\ gs [Abbr ‘X2’]
-        >- (
-          Cases_on ‘eval_to (k - 3) x1 = INL Diverge’ \\ gs []
-          >- (
-            qexists_tac ‘0’
-            \\ simp [])
-          \\ ‘∀j. eval_to (j + k - 3) x1 = eval_to (j1 + k - 1) x1’
-            by (qx_gen_tac ‘j2’
-                \\ drule_then (qspec_then ‘j1 + k - 1’ assume_tac) eval_to_mono
-                \\ drule_then (qspec_then ‘j2 + k - 3’ assume_tac) eval_to_mono
-                \\ gs [])
-          \\ gs []
-          \\ Cases_on ‘k ≤ 2’ \\ gs []
-          >- (
-            qexists_tac ‘0’
-            \\ simp [])
-          \\ ‘∀j. j + k - 2 = j + (k - 2)’ by gs []
-          \\ asm_simp_tac std_ss []
-          \\ qpat_assum ‘_ = INL Diverge’ (SUBST1_TAC o SYM)
-          \\ first_x_assum irule
-          \\ simp [eval_to_wo_def, subst1_commutes]
-          \\ irule exp_rel_subst \\ simp []
-          \\ irule exp_rel_subst \\ simp []
-          \\ irule v_rel_D2B
-          \\ gs [SF SFY_ss])
-        \\ Q.REFINE_EXISTS_TAC ‘2 + j’ \\ simp []
-        \\ qabbrev_tac ‘X1 = subst1 s (Thunk x1) (subst1 w v y1) ’
-        \\ qmatch_goalsub_abbrev_tac ‘_ _ (eval_to _ X2)’
-        \\ ‘∃j2. ($= +++ v_rel) (eval_to (j2 + (k - 2)) X1)
-                                    (eval_to (k - 2) X2)’
-          by (first_x_assum irule
-              \\ gs [Abbr ‘X1’, Abbr ‘X2’, eval_to_wo_def, subst1_commutes]
-              \\ irule exp_rel_subst \\ simp []
-              \\ irule exp_rel_subst \\ simp []
-              \\ irule v_rel_D2B
-              \\ gs [SF SFY_ss])
-        \\ qexists_tac ‘j1 + j2’
-        \\ ‘eval_to (j1 + j2 + k - 1) x1 = eval_to (j1 + k - 1) x1’
-          by (irule eval_to_mono \\ gs [])
-        \\ gs []
-        \\ Cases_on ‘eval_to (j2 + k - 2) X1’ \\ gs [subst1_commutes]
-        >- (
-          rename1 ‘_ = INL err’ \\ Cases_on ‘err’ \\ gs []
-          \\ Cases_on ‘eval_to (k - 2) X2’ \\ gs [])
-        \\ Cases_on ‘eval_to (k - 2) X2’ \\ gs []
-        \\ ‘eval_to (j1 + j2 + k) X1 = eval_to (j2 + k - 2) X1’
-          suffices_by rw []
-        \\ irule eval_to_mono \\ gs []*))
-      \\ ‘∀k. eval_to k x1 ≠ INL Type_error’
-        by (qx_gen_tac ‘j’
-            \\ strip_tac
-            \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
-            \\ simp [eval_to_def]
-            \\ qexists_tac ‘j + 1’
-            \\ simp [])
-      \\ simp [eval_to_def]
-      \\ IF_CASES_TAC \\ gs []
-      >- (
-        qexists_tac ‘0’
-        \\ simp [])
-      \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) x1)
-                                 (eval_to (k - 1) x2)’
-        by (first_x_assum irule \\ simp [eval_to_wo_def])
-      \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
-      >- (
-        qexists_tac ‘j’
-        \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs [])
-      \\ ‘∀j1. eval_to (j1 + j + k - 1) x1 = eval_to (j + k - 1) x1’
-        by (gen_tac \\ irule eval_to_mono \\ gs []
-            \\ strip_tac \\ gs [])
-      \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
-      \\ rename1 ‘v_rel u v’
-      \\ ‘∀k. eval_to k (subst1 s u y1) ≠ INL Type_error’
-        by (qx_gen_tac ‘j1’
-            \\ strip_tac
-            \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
-            \\ simp [eval_to_def]
-            \\ qexists_tac ‘j + j1 + k’ \\ simp []
-            \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
-            \\ irule eval_to_mono \\ gs [])
-      \\ Cases_on ‘eval_to (k - 1) (subst1 s v y2) = INL Diverge’
-      >- (
-        Cases_on ‘eval_to (k - 1) x1 = INL Diverge’
-        >- (
-          qexists_tac ‘0’
-          \\ simp [])
-        \\ ‘∀j. eval_to (j + k - 1) x1 = eval_to (k - 1) x1’
-          by (gen_tac \\ irule eval_to_mono \\ gs [])
-        \\ Cases_on ‘eval_to (k - 1) x1’ \\ gs []
-        \\ ‘∀j. j + k - 1 = j + (k - 1)’ by gs []
-        \\ asm_simp_tac std_ss []
-        \\ qpat_assum ‘_ = INL Diverge’ (SUBST1_TAC o SYM)
-        \\ first_x_assum irule
-        \\ rgs [eval_to_wo_def]
-        \\ irule exp_rel_subst \\ gs [])
-      \\ Q.REFINE_EXISTS_TAC ‘j1 + j’ \\ gs []
-      \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
-      \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) (eval_to _ lhs) (eval_to _ rhs)’
-      \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) lhs)
-                                 (eval_to (k - 1) rhs)’
-        suffices_by (
-          disch_then (qx_choose_then ‘j1’ assume_tac)
-          \\ qexists_tac ‘j1’
-          \\ ‘eval_to (j + j1 + k - 1) lhs = eval_to (j1 + k - 1) lhs’
-            by (irule eval_to_mono \\ gs []
-                \\ strip_tac \\ gs []
-                \\ Cases_on ‘eval_to (k - 1) rhs’ \\ gs [])
-          \\ gs [])
-      \\ first_x_assum irule
-      \\ unabbrev_all_tac
-      \\ gs [eval_to_wo_def, subst1_commutes]
-      \\ irule exp_rel_subst \\ gs [])
-    \\ strip_tac
-    \\ rw [Once exp_rel_cases]
-    \\ simp [eval_to_def]
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      qexists_tac ‘0’
-      \\ simp [])
-    \\ ‘∀k. eval_to k x1 ≠ INL Type_error’
-      by (qx_gen_tac ‘j’
-          \\ strip_tac
-          \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
-          \\ simp [eval_to_def]
-          \\ qexists_tac ‘j + 1’
-          \\ simp [])
-    \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) x1) (eval_to (k - 1) x2)’
-      by (first_x_assum irule \\ simp [eval_to_wo_def])
-    \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
-    >- (
-      qexists_tac ‘j’
-      \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs [])
-    \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
-    \\ ‘∀k. eval_to k y1 ≠ INL Type_error’
-      by (qx_gen_tac ‘j1’
-          \\ strip_tac
-          \\ qpat_x_assum ‘∀k. eval_to _ (Let _ _ _) ≠ INL Type_error’ mp_tac
-          \\ simp [eval_to_def]
-          \\ qexists_tac ‘j1 + j + k’ \\ simp []
-          \\ ‘eval_to (j + (j1 + k) - 1) x1 = eval_to (j + k - 1) x1’
-            by (irule eval_to_mono \\ gs [])
-          \\ simp []
-          \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
-          \\ irule eval_to_mono \\ simp [])
-    \\ Cases_on ‘eval_to (k - 1) y2 = INL Diverge’ \\ gs []
-    >- (
-      Cases_on ‘eval_to (k - 1) x1 = INL Diverge’
-      >- (
-        qexists_tac ‘0’
-        \\ simp [])
-      \\ ‘∀j. eval_to (j + k - 1) x1 = eval_to (k - 1) x1’
-        by (gen_tac \\ irule eval_to_mono \\ gs [])
-      \\ Cases_on ‘eval_to (k - 1) x1’ \\ gs []
-      \\ ‘∀j. j + k - 1 = j + (k - 1)’ by gs []
-      \\ asm_simp_tac std_ss []
-      \\ qpat_assum ‘_ = INL Diverge’ (SUBST1_TAC o SYM)
-      \\ first_x_assum irule
-      \\ simp [eval_to_wo_def])
-    \\ ‘∀j1. eval_to (j1 + j + k - 1) x1 = eval_to (j + k - 1) x1’
-      by (gen_tac \\ irule eval_to_mono \\ gs []
-          \\ strip_tac \\ gs [])
-    \\ Q.REFINE_EXISTS_TAC ‘j + j1’ \\ gs []
-    \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
-    \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) (eval_to _ lhs) (eval_to _ rhs)’
-    \\ ‘∃j. ($= +++ v_rel) (eval_to (j + (k - 1)) lhs)
-                               (eval_to (k - 1) rhs)’
-      suffices_by (
-        disch_then (qx_choose_then ‘j1’ assume_tac)
-        \\ qexists_tac ‘j1’
-        \\ ‘eval_to (j + j1 + k - 1) lhs = eval_to (j1 + k - 1) lhs’
-          by (irule eval_to_mono \\ gs []
-              \\ strip_tac \\ gs []
-              \\ Cases_on ‘eval_to (k - 1) rhs’ \\ gs [])
-        \\ gs [])
-    \\ first_x_assum irule
-    \\ simp [eval_to_wo_def])
+
   >~ [‘Prim op xs’] >- (
     ntac 2 strip_tac
     \\ rw [Once exp_rel_cases]
@@ -1963,8 +1954,9 @@ Proof
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ first_x_assum (qspec_then ‘j’ assume_tac)
       \\ rpt CASE_TAC \\ gs []))
-  >~ [`Monad mop xs`]
-  >- (strip_tac >> rw[Once exp_rel_cases] >> gvs[eval_to_def])
+
+  >~ [`Monad mop xs`] >- (
+    strip_tac >> rw[Once exp_rel_cases] >> gvs[eval_to_def])
 QED
 
 Theorem exp_rel_eval_to[allow_rebind] =
