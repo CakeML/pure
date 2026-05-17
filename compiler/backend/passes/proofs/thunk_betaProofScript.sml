@@ -783,11 +783,98 @@ Proof
   \\ Cases \\ gs []
   >~ [‘Let bv x1 y1’] >- (
     Cases_on ‘bv’
-    >~ [`Seq x1 y1`] >- (cheat)
+    >~ [`Seq x1 y1`] >- (
+      `∀k e1 e2. (eval_to k e1 = INL Type_error) ⇒
+      eval_to (k+1) (Seq e1 e2) = INL Type_error` by (
+        simp[eval_to_def]) \\ strip_tac \\ rw[Once exp_rel_cases]
+      >- ((*stuck*)
+          cheat)
+      >- (
+          Cases_on `k=0`
+          >- (qexists `0` \\ simp[eval_to_def])
+          >- (
+            simp[eval_to_def] \\
+            `∀k. eval_to k x1 ≠ INL Type_error` by (
+              metis_tac[eval_to_def]) \\
+            first_assum (qspecl_then [`k-1`, `x1`] assume_tac) \\
+            `eval_to_wo (k-1, x1) (k, Seq x1 y1)` by simp[eval_to_wo_def] \\
+            fs[] \\ first_x_assum (qspec_then `x2` assume_tac) \\
+            `∀k. eval_to k x1 ≠ INL Type_error` by (
+              CCONTR_TAC \\ fs[] \\
+              last_assum (qspecl_then [`k'`, `x1`, `x2`] assume_tac) \\
+              fs[] \\ metis_tac[]) \\
+            Cases_on `eval_to (k-1) x2`
+            >- ((*eval_to (k-1) x2 = INL x*)
+              `∃j. ($= +++ v_rel) (eval_to (j + (k − 1)) x1) (INL x)` by (
+                first_x_assum irule \\ metis_tac[]) \\
+              Cases_on `eval_to (j+k-1) x1` \\
+              qexists `j` \\ gs[eval_to_def])
+            >- ((*eval_to (k-1) x2 = INR y*)
+                `∃j. ($= +++ v_rel) (eval_to (j + (k − 1)) x1) (INR y)` by (
+                  first_x_assum irule \\ metis_tac[]) \\
+                Cases_on `eval_to (j+k-1) x1`
+                >- (
+                  qexists `j` \\ simp[eval_to_def] \\
+                  Cases_on `eval_to (k-1) y2` \\
+                  gs[eval_to_def, SUM_REL_THM])
+                >- (
+                  `∀k. eval_to k y1 ≠ INL Type_error` by (
+                    CCONTR_TAC \\ fs[] \\
+                    qpat_x_assum `∀k. eval_to k (Seq x1 y1)
+                      ≠ INL Type_error` mp_tac \\ simp[] \\
+                    qexists `MAX k' (j+k-1) + 1` \\
+                    qabbrev_tac `maximum=MAX k' (j+k-1)` \\
+                    simp[eval_to_def] \\
+                    `eval_to maximum x1 = eval_to (j+k-1) x1` by (
+                      irule eval_to_mono \\ unabbrev_all_tac \\
+                      fs[arithmeticTheory.MAX_DEF]) \\
+                    `eval_to maximum y1 = eval_to k' y1` by (
+                      irule eval_to_mono \\ unabbrev_all_tac \\
+                      fs[arithmeticTheory.MAX_DEF]) \\
+                    gvs[]) \\ simp[] \\
+                    first_assum (qspecl_then [`k - 1`, `y1`] mp_tac) \\
+                    impl_tac
+                    >- (fs[eval_to_wo_def])
+                    >- (
+                      disch_then (qspec_then `y2` mp_tac) \\ impl_tac
+                      >- (simp[])
+                      >- (
+                        disch_then (qx_choose_then `j''` assume_tac) \\
+                        Cases_on `eval_to (k-1) y2`
+                        >- ((*eval_to (k-1) y2 = INL x*)
+                          `eval_to (j''+j+k-1) x1 = eval_to (j+k-1) x1` by (
+                            irule eval_to_mono \\ fs[]) \\ Cases_on `x`
+                          >- ((*x = Type_error*)
+                            `eval_to (j'' + (k-1)) y1 = INL Type_error` by (
+                              CCONTR_TAC \\
+                              qpat_x_assum `($= +++ v_rel) _ _` mp_tac \\
+                              Cases_on `eval_to (j'' + (k − 1)) y1` \\ fs[]) \\
+                            `eval_to (j'' + j + k - 1) y1
+                            = eval_to (j''+k-1) y1` by (
+                              irule eval_to_mono \\ fs[] \\
+                              metis_tac[]) \\ metis_tac[])
+                          >- ((*x = Diverge*)
+                            `eval_to (j'' + (k-1)) y1 = INL Diverge` by (
+                              Cases_on `eval_to (j'' + (k-1)) y1` \\ fs[]) \\
+                            qexists `j''` \\
+                            Cases_on `eval_to (j'' + k - 1) x1`
+                            >- (Cases_on `x` \\ gvs[])
+                            >- (gs[SUM_REL_THM])))
+
+                        >- ((*eval_to (k-1) y2 = INR _*)
+                          qexists `j'' + j` \\
+                          `eval_to (j'' +j+k-1) x1 = eval_to (j+k-1) x1` by (
+                            irule eval_to_mono \\ fs[]) \\ simp[] \\
+                          `eval_to (j + (j'' + k) − 1) y1
+                          = eval_to (j'' + (k-1)) y1` by (
+                            irule eval_to_mono \\ fs[] \\
+                            Cases_on `eval_to (j'' + (k-1)) y1` \\
+                            fs[cj 4 SUM_REL_THM] \\ gs[]) \\ metis_tac[]))))))))
+
     >~ [`Let (SOME s) x1 y1`] >- (
       strip_tac \\
       rw [Once exp_rel_cases]
-      >- ( (*stuck*)
+      >- ((*stuck*)
         cheat)
 
       >- (
@@ -868,6 +955,7 @@ Proof
                               irule eval_to_mono \\ fs[] \\
                               CCONTR_TAC \\ metis_tac[SUM_REL_THM]) \\
                             pop_assum SUBST1_TAC \\ metis_tac[SUM_REL_THM])))))))
+(*LET end*))
 
 (* OLD PROOF
       ‘∀k. eval_to k x1 ≠ INL Type_error’
