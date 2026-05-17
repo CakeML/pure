@@ -41,7 +41,7 @@ val _ = type_of “main_function” = “:mlstring list -> mlstring -> mlstring�
 
 val main = process_topdecs
   `print (main_function (CommandLine.arguments())
-                        (TextIO.inputAll TextIO.stdIn));`;
+                        (TextIO.inputAll (TextIO.stdIn ())));`;
 
 val prog =
   get_ml_prog_state ()

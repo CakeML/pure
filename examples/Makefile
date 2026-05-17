@@ -34,13 +34,22 @@ lib/basis_ffi.o: lib/basis_ffi.c
 	$(CC) $(CCOPT) -c -o $@ $^ $(LDLIBS)
 
 lib/pure.S:
-	@if [ ! -f "../compiler/binary/$(@F)" ] ; then $(MAKE) download ; else cp ../compiler/binary/$(@F) $@ ; fi
+	@if [ ! -f "../compiler/binary/$(@F)" ] ; then $(MAKE) download_pure ; else cp ../compiler/binary/$(@F) $@ ; fi
 
-download:
+download_pure:
 	@echo "$(red)Could not find \`pure.S\`. Downloading the latest version from PureCake's GitHub releases.$(reset)"
 	wget -q https://github.com/cakeml/pure/releases/latest/download/pure.S -P lib
 
 lib/cake.S:
+	@: "$${CAKEMLDIR:?CAKEMLDIR is not set}"; \
+	if [ ! -f "$$CAKEMLDIR/compiler/bootstrap/compilation/x64/64/$(@F)" ]; then \
+		$(MAKE) download_cake; \
+	else \
+		cp "$$CAKEMLDIR/compiler/bootstrap/compilation/x64/64/$(@F)" $@; \
+	fi
+
+download_cake:
+	@echo "$(red)Could not find \`cake.S\`. Downloading the latest version from CakeML's GitHub releases.$(reset)"
 	wget -q https://github.com/cakeml/cakeml/releases/latest/download/cake-x64-64.tar.gz
 	@tar -zxf cake-x64-64.tar.gz --directory $(@D) --strip-components 1 cake-x64-64/$(@F)
 	@rm cake-x64-64.tar.gz
