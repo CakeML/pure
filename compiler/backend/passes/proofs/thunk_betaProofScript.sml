@@ -773,6 +773,29 @@ Theorem eval_to_WF_IND[local] =
   |> Q.SPEC ‘UNCURRY d2b_goal’
   |> SIMP_RULE std_ss [FORALL_PROD]
 
+Theorem eval_to_Lets:
+eval_to (j + k)
+ (Lets
+  (MAP (λ(b,v). (SOME (FST v),optional_force b v)) rev ls)
+  (Apps f (MAP (Var ∘ FST ∘ SND) vs)))
+=
+eval_to (_)
+  (
+  )
+(*
+grep eval_to_Apps -> eval_to (k-1) (subst _ g)
+"parallel subst of optional force"
+
+j == LENGTH vs'
+eval_to (j+k) (Lets _ e) = eval_to k (subst _ e _)
+*)
+
+
+
+EVAL``Apps f [x; y]``
+m``eval_to _ _ = _``
+Proof
+QED
 
 Theorem exp_rel_eval_to:
   ∀k x. d2b_goal k x
@@ -781,14 +804,21 @@ Proof
   \\ once_rewrite_tac [d2b_goal_def]
   \\ gen_tac
   \\ Cases \\ gs []
+
   >~ [‘Let bv x1 y1’] >- (
     Cases_on ‘bv’
     >~ [`Seq x1 y1`] >- (
       `∀k e1 e2. (eval_to k e1 = INL Type_error) ⇒
       eval_to (k+1) (Seq e1 e2) = INL Type_error` by (
-        simp[eval_to_def]) \\ strip_tac \\ rw[Once exp_rel_cases]
-      >- ((*stuck*)
-          cheat)
+        simp[eval_to_def])
+      \\ strip_tac \\ rw[Once exp_rel_cases]
+      >- (
+        `REVERSE vs' ≠ []` by (
+          `vs ≠ []` suffices_by (
+            CCONTR_TAC \\ fs[])
+          \\ fs[]) \\
+        Cases_on `REVERSE vs'` \\ fs[] \\
+        PairCases_on `h` \\ gvs[optional_force_def, Lets_def])
       >- (
           Cases_on `k=0`
           >- (qexists `0` \\ simp[eval_to_def])
@@ -869,20 +899,41 @@ Proof
                           = eval_to (j'' + (k-1)) y1` by (
                             irule eval_to_mono \\ fs[] \\
                             Cases_on `eval_to (j'' + (k-1)) y1` \\
-                            fs[cj 4 SUM_REL_THM] \\ gs[]) \\ metis_tac[]))))))))
+                            fs[cj 4 SUM_REL_THM] \\ gs[]) \\
+                          metis_tac[]))))))))
 
+kall_tac []
     >~ [`Let (SOME s) x1 y1`] >- (
       strip_tac \\
       rw [Once exp_rel_cases]
       >- ((*stuck*)
-        cheat)
+
+beta
+
+gvs[]
+
+first_x_assum (qspecl_then [`foo`, `f`] mp_tac) \\
+impl_tac \\
+>- cheat
+fs[eval_to_wo_def]
+
+Lets_def
+optional_force_def
+
+`REVERSE vs' ≠ []` by (
+  Cases_on `vs'` \\ fs[]) \\
+Cases_on `REVERSE vs'` \\ fs[] \\
+PairCases_on `h` \\ fs[Lets_def] \\
+
+      )
 
       >- (
         Cases_on `k=0` \\ simp[eval_to_def]
         >- (qexists `0` \\ simp[])
         >- (
             last_assum (qspecl_then [`k-1`, `x1`] assume_tac) \\
-            `eval_to_wo (k-1, x1) (k, Let (SOME s) x1 y1)` by simp[eval_to_wo_def] \\
+            `eval_to_wo (k-1, x1) (k, Let (SOME s) x1 y1)` by (
+              simp[eval_to_wo_def]) \\
             fs[] \\ first_x_assum (qspec_then `x2` assume_tac) \\ fs[] \\
             `∀k. eval_to k x1 ≠ INL Type_error` by (
               CCONTR_TAC \\ fs[] \\
@@ -897,14 +948,16 @@ Proof
                   >-(CCONTR_TAC \\ fs[SUM_REL_THM])
                   >-(fs[SUM_REL_THM])) \\ gs[SUM_REL_THM])
               >- (
-                `∃j. ($= +++ v_rel) (eval_to (j + (k-1)) x1) (INR y)` by simp[] \\
+                `∃j. ($= +++ v_rel) (eval_to (j + (k-1)) x1) (INR y)` by (
+                  simp[]) \\
                 Cases_on `eval_to (j + k-1) x1`
                 >- (CCONTR_TAC \\ gs[SUM_REL_THM])
                 >- (
                     `v_rel y' y` by (
                       `eval_to (j+ (k-1)) x1 = INR y'` by fs[] \\
                       fs[SUM_REL_THM]) \\
-                    last_x_assum (qspecl_then [`k-1`, `subst1 s y' y1`] mp_tac) \\
+                    last_x_assum
+                      (qspecl_then [`k-1`, `subst1 s y' y1`] mp_tac) \\
                     impl_tac \\ simp[eval_to_wo_def] \\
                     disch_then (qspec_then `subst1 s y y2` mp_tac) \\ impl_tac
                     >- (
@@ -919,7 +972,8 @@ Proof
                         `eval_to (k' + j + (k-1)) (subst1 s y' y1)
                         = eval_to k' (subst1 s y' y1)` by (
                           irule eval_to_mono \\ simp[]) \\
-                        last_x_assum (qspec_then `SUC (k' + j + (k-1))` mp_tac) \\
+                        last_x_assum
+                          (qspec_then `SUC (k' + j + (k-1))` mp_tac) \\
                         gs[]))
                     >- (
                         strip_tac \\
@@ -934,8 +988,10 @@ Proof
                               `eval_to (j + (j'+k)-1) (subst1 s y' y1)
                               = eval_to (j'+k-1) (subst1 s y' y1)` by (
                                 irule eval_to_mono \\ fs[] \\ CCONTR_TAC \\
-                              qpat_x_assum `($= +++ v_rel) _ (INL Type_error)` mp_tac \\
-                              fs[]) \\ pop_assum SUBST1_TAC \\ metis_tac[SUM_REL_THM])
+                              qpat_x_assum `($= +++ v_rel) _ (INL Type_error)`
+                                mp_tac \\
+                              fs[]) \\ pop_assum SUBST1_TAC \\
+                              metis_tac[SUM_REL_THM])
                           >- ((*x = Diverge*)
                               qexists_tac `j'` \\ fs[] \\
                               Cases_on `eval_to (j' + k - 1) x1` \\ gvs[]
@@ -954,8 +1010,8 @@ Proof
                             = eval_to (j' + k − 1) (subst1 s y' y1)` by (
                               irule eval_to_mono \\ fs[] \\
                               CCONTR_TAC \\ metis_tac[SUM_REL_THM]) \\
-                            pop_assum SUBST1_TAC \\ metis_tac[SUM_REL_THM])))))))
-(*LET end*))
+                            pop_assum SUBST1_TAC
+                            \\ metis_tac[SUM_REL_THM])))))))
 
 (* OLD PROOF
       ‘∀k. eval_to k x1 ≠ INL Type_error’
