@@ -773,28 +773,162 @@ Theorem eval_to_WF_IND[local] =
   |> Q.SPEC ‘UNCURRY d2b_goal’
   |> SIMP_RULE std_ss [FORALL_PROD]
 
-Theorem eval_to_Lets:
-eval_to (j + k)
- (Lets
-  (MAP (λ(b,v). (SOME (FST v),optional_force b v)) rev ls)
-  (Apps f (MAP (Var ∘ FST ∘ SND) vs)))
-=
-eval_to (_)
-  (
-  )
-(*
-grep eval_to_Apps -> eval_to (k-1) (subst _ g)
-"parallel subst of optional force"
 
-j == LENGTH vs'
-eval_to (j+k) (Lets _ e) = eval_to k (subst _ e _)
-*)
-
-
-
-EVAL``Apps f [x; y]``
-m``eval_to _ _ = _``
+Theorem eval_to_Apps_not_Val_Lams_not_0:
+  ∀vL eL e k. vL ≠ [] ∧ LENGTH vL = LENGTH eL ∧ k ≠ 0 ⇒
+              eval_to k (Apps (Lams vL e)
+                         (MAP Value eL))
+              = eval_to (k - 1) (subst (ZIP (vL, eL)) e)
 Proof
+  Induct using SNOC_INDUCT >> rw [] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  qspecl_then [‘eL’] assume_tac SNOC_CASES >> gs [arithmeticTheory.ADD1] >>
+  rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gs []
+  >- gs [eval_to_def, dest_anyClosure_def] >>
+  gvs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def, SNOC_APPEND] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  gs [subst_def, eval_to_def, dest_anyClosure_def] >>
+  AP_TERM_TAC >>
+  irule EQ_TRANS >> irule_at (Pos hd) subst_commutes >>
+  gs [MEM_FILTER, MAP_FST_FILTER] >>
+  qspecl_then [‘ZIP (h::vL, eL)’, ‘subst1 v x' e’, ‘{v}’] assume_tac subst_remove >>
+  gs [freevars_subst] >>
+  gs [GSYM subst_APPEND] >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  Cases_on ‘eL’ >> gs [SNOC_APPEND, GSYM ZIP_APPEND]
+QED
+
+Theorem eval_to_Apps_Lams_not_0:
+  ∀vL eL e k. vL ≠ [] ∧ LENGTH vL = LENGTH eL ∧ k ≠ 0 ⇒
+              eval_to k (Apps (Value (Closure (HD vL) (Lams (TL vL) e)))
+                                       (MAP Value eL))
+              = eval_to (k - 1) (subst (ZIP (vL, eL)) e)
+Proof
+  Induct using SNOC_INDUCT >> rw [] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  qspecl_then [‘eL’] assume_tac SNOC_CASES >> gs [arithmeticTheory.ADD1] >>
+  rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gs []
+  >- gs [eval_to_def, dest_anyClosure_def] >>
+  gvs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def, SNOC_APPEND] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  first_x_assum $ qspecl_then [‘eL’, ‘Lam v e’, ‘k’] assume_tac >>
+  gvs [subst_def, eval_to_def, dest_anyClosure_def] >>
+  AP_TERM_TAC >>
+  irule EQ_TRANS >> irule_at Any subst_commutes >>
+  conj_tac >- rw [MAP_FST_FILTER, MAP_ZIP, MEM_FILTER] >>
+  qspecl_then [‘ZIP (h::vL, eL)’, ‘subst1 v x' e’, ‘{v}’]
+    mp_tac subst_remove >> impl_tac
+  >- gs [freevars_subst] >>
+  rw [GSYM subst_APPEND] >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  first_x_assum kall_tac >> first_x_assum kall_tac >>
+  once_rewrite_tac [CONS_APPEND] >>
+  once_rewrite_tac [APPEND_SNOC] >>
+  once_rewrite_tac [SNOC_APPEND] >>
+  qspecl_then [‘[h]++vL’, ‘eL’, ‘[v]’, ‘[x']’] assume_tac ZIP_APPEND >>
+  gs [ZIP]
+QED
+
+Theorem eval_to_Apps_Lams_0:
+  ∀vL eL e. vL ≠ [] ∧ LENGTH vL = LENGTH eL ⇒
+  eval_to 0 (Apps (Value (Closure (HD vL) (Lams (TL vL) e))) (MAP Value eL))
+  = INL Diverge
+Proof
+  Induct using SNOC_INDUCT >> rw [] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  qspecl_then [‘eL’] assume_tac SNOC_CASES >> gs [arithmeticTheory.ADD1] >>
+  rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gs []
+  >- (gs [eval_to_def, dest_anyClosure_def]) >>
+  gs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def, SNOC_APPEND]
+QED
+
+Theorem eval_to_Value:
+  ∀k v. eval_to k (Value v) = INR v
+Proof
+  simp [eval_to_def]
+QED
+
+Theorem eval_to_Tick:
+  ∀k e. k ≠ 0 ⇒ eval_to k (Tick e) = eval_to (k - 1) e
+Proof
+  rw [eval_to_def, subst_funs_def, subst_empty]
+QED
+
+Theorem eval_to_Apps_no_INL:
+  ∀eL e k. eval_to k (Apps e eL) ≠ INL Type_error ∧
+  (∀i. i < LENGTH eL ⇒ eval_to k (EL i eL) ≠ INL Diverge)
+  ⇒ ∃vL. LIST_REL (λe v. eval_to k e = INR v) eL vL ∧
+  eval_to k (Apps e eL) = eval_to k (Apps e (MAP Value vL))
+Proof
+  Induct using SNOC_INDUCT \\ gs [] \\ rw []
+  \\ Q.REFINE_EXISTS_TAC ‘SNOC lst vL’ \\ gs [FOLDL_SNOC, eval_to_def]
+  \\ rename1 ‘SNOC x eL’
+  \\ Cases_on ‘eval_to k x = INL Type_error’ \\ gs []
+  \\ ‘eval_to k x ≠ INL Diverge’ by (
+      first_x_assum $ qspec_then ‘LENGTH eL’ assume_tac \\
+      gs [EL_LENGTH_SNOC])
+  \\ Cases_on ‘eval_to k x’ \\ gs []
+  >~[‘value ≠ Type_error’] >- (Cases_on ‘value’ \\ gs [])
+  \\ Cases_on ‘eval_to k (Apps e eL) = INL Type_error’ \\ gs []
+  \\ last_x_assum $ dxrule_then mp_tac \\ impl_tac
+  >- (rw [] \\ rename1 ‘i < _’
+      \\ last_x_assum $ qspec_then ‘i’ assume_tac
+      \\ gs [EL_SNOC])
+  \\ disch_then $ qx_choose_then ‘vL’ assume_tac
+  \\ rename1 ‘eval_to k x = INR v’ \\ qexists_tac ‘v’ \\ qexists_tac ‘vL’
+  \\ gs [MAP_SNOC, FOLDL_SNOC, eval_to_def,
+         GSYM arithmeticTheory.LESS_EQ_IFF_LESS_SUC]
+  \\ rw [] \\ gs [LIST_REL_SNOC]
+QED
+
+Theorem eval_to_Apps_LIST_INR:
+  ∀eL vL e k. LIST_REL (λe v. ∀j. eval_to (j + k) e = INR v) eL vL
+  ⇒ ∀j. k ≤ j ⇒ eval_to j (Apps e eL) = eval_to j (Apps e (MAP Value vL))
+Proof
+  Induct using SNOC_INDUCT
+  \\ gs [LIST_REL_SNOC, PULL_EXISTS, FOLDL_APPEND, FOLDL_SNOC, SNOC_APPEND]
+  \\ rw [] \\ last_x_assum $ drule_all_then assume_tac
+  \\ gs [eval_to_def]
+  \\ first_x_assum $ qspec_then ‘j - k’ assume_tac
+  \\ gs []
+QED
+
+Theorem eval_to_Apps_arg_Div:
+  ∀eL i k e. eval_to k (Apps e eL) ≠  INL Type_error ∧
+  i < LENGTH eL ∧
+  eval_to k (EL i eL) = INL Diverge
+  ⇒ eval_to k (Apps e eL) = INL Diverge
+Proof
+  Induct using SNOC_INDUCT \\ gs []
+  \\ rw [] \\ gs [GSYM arithmeticTheory.LESS_EQ_IFF_LESS_SUC, FOLDL_SNOC]
+  \\ rename1 ‘SNOC x eL’
+  \\ gs [EL_SNOC, EL_LENGTH_SNOC, eval_to_def]
+  \\ Cases_on ‘eval_to k x’ \\ gs []
+  >~[‘INL err’] >- (Cases_on ‘err’ \\ gs [])
+  \\ Cases_on ‘eval_to k (Apps e eL) = INL Type_error’ \\ gs []
+  \\ last_x_assum $ drule_then assume_tac
+  \\ first_x_assum $ qspec_then `i` assume_tac
+  \\ `i < LENGTH eL ∧ eval_to k eL❲i❳ = INL Diverge` by (
+      `i ≠ LENGTH eL` by (
+        CCONTR_TAC \\ qpat_x_assum `eval_to k x = INR y` mp_tac
+        \\ simp[] \\ `(SNOC x eL)❲i❳ = x` by metis_tac[EL_LENGTH_SNOC]
+        \\ gs[])
+        \\ `eval_to k (SNOC x eL)❲i❳ = eval_to k eL❲i❳` by (
+          `i < LENGTH eL` by simp[] \\ metis_tac[EL_SNOC])
+        \\ gs[]
+      )
+  \\ gs []
+QED
+
+Theorem exp_rel_Apps:
+  ∀l1 l2 x y.
+  LIST_REL exp_rel l1 l2 ∧ exp_rel x y ⇒
+  exp_rel (Apps x l1) (Apps y l2)
+Proof
+  Induct \\ simp[] \\
+  Cases_on `l2` \\ gvs[] \\ rw[] \\
+  last_x_assum irule \\ gs[] \\
+  irule exp_rel_App \\ metis_tac[]
 QED
 
 Theorem exp_rel_eval_to:
@@ -907,24 +1041,16 @@ kall_tac []
       strip_tac \\
       rw [Once exp_rel_cases]
       >- ((*stuck*)
-
-beta
-
-gvs[]
-
-first_x_assum (qspecl_then [`foo`, `f`] mp_tac) \\
-impl_tac \\
->- cheat
-fs[eval_to_wo_def]
-
-Lets_def
-optional_force_def
-
-`REVERSE vs' ≠ []` by (
-  Cases_on `vs'` \\ fs[]) \\
-Cases_on `REVERSE vs'` \\ fs[] \\
-PairCases_on `h` \\ fs[Lets_def] \\
-
+        gvs[] \\
+        qpat_x_assum `Let (SOME s) x1 y1 = Lets _ _` (
+          fn thm => assume_tac o GSYM $ thm) \\ pop_assum SUBST_ALL_TAC \\
+        `EVERY (λ(b,q, option). option ≠ NONE) vs'` by (
+          CCONTR_TAC \\
+          gvs[EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS] \\
+          first_x_assum (qspec_then `LENGTH vs'` mp_tac) \\
+          simp [] \\ (*???*)
+cheat
+        )
       )
 
       >- (
