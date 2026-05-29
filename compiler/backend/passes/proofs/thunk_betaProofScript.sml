@@ -931,6 +931,49 @@ Proof
   irule exp_rel_App \\ metis_tac[]
 QED
 
+Theorem eval_to_Apps_Lams_not_0:
+  ∀vL eL e k. vL ≠ [] ∧ LENGTH vL = LENGTH eL ∧ k ≠ 0 ⇒
+              eval_to k (Apps (Value (Closure (HD vL) (Lams (TL vL) e)))
+                                       (MAP Value eL))
+              = eval_to (k - 1) (subst (ZIP (vL, eL)) e)
+Proof
+  Induct using SNOC_INDUCT >> rw [] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  qspecl_then [‘eL’] assume_tac SNOC_CASES >> gvs [ADD1] >>
+  rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gvs []
+  >- gvs [eval_to_def, dest_anyClosure_def] >>
+  gvs [FOLDR_SNOC, FOLDL_MAP, FOLDL_SNOC, eval_to_def] >>
+  rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
+  first_x_assum $ qspecl_then [‘eL’, ‘Lam v e’, ‘k’] assume_tac >>
+  gvs [subst_def, eval_to_def, dest_anyClosure_def] >>
+  AP_TERM_TAC >>
+  irule EQ_TRANS >> irule_at Any subst_commutes >>
+  conj_tac >- rw [MAP_FST_FILTER, MAP_ZIP, MEM_FILTER] >>
+  qspecl_then [‘ZIP (h::vL, eL)’, ‘subst1 v x' e’, ‘{v}’] mp_tac subst_remove >> impl_tac
+  >- gvs [freevars_subst] >>
+  rw [GSYM subst_APPEND] >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  first_x_assum kall_tac >> first_x_assum kall_tac >>
+  once_rewrite_tac [CONS_APPEND] >>
+  once_rewrite_tac [APPEND_SNOC] >>
+  once_rewrite_tac [SNOC_APPEND] >>
+  qspecl_then [‘[h]++vL’, ‘eL’, ‘[v]’, ‘[x']’] assume_tac ZIP_APPEND >>
+  gvs [ZIP]
+QED
+
+Theorem eval_to_Apps_optional_force:
+  ∀vs. 
+  vs ≠ []
+  ⇒
+  eval_to k (Apps g (MAP (λ(b,v). optional_force b v) vs)) =
+  eval_to (k-1) (subst foo g)
+Proof
+  Induct using SNOC_INDUCT \\ simp[] \\
+  gvs [FOLDR_SNOC, FOLDL_MAP, FOLDL_SNOC, eval_to_def] >>
+optional_force_def
+
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x. d2b_goal k x
 Proof
@@ -1039,9 +1082,46 @@ Proof
 kall_tac []
     >~ [`Let (SOME s) x1 y1`] >- (
       strip_tac \\
+
       rw [Once exp_rel_cases]
       >- ((*stuck*)
         gvs[] \\
+
+`?vss.
+  LIST_REL exp_rel vss (MAP (λ(b,v). optional_force b v) vs) /\
+  !k. eval_to (LENGTH vs' + k) (Lets
+   (MAP (λ(b,v). (SOME (FST v),optional_force b v))
+      (REVERSE vs'))
+   (Apps f (MAP (Var ∘ FST ∘ SND) vs))) =
+  eval_to k (Apps f vss)` by cheat
+
+
+first_x_assum $ qspecl_then [`k`, `Apps f vss`] mp_tac \\
+impl_tac
+>- (cheat)
+simp[eval_to_wo_def, thunkLangTheory.exp_size_def]
+>- (
+  strip_tac \\ drule_all exp_rel_Apps \\ strip_tac
+  first_x_assum (qspec_then `Apps g (MAP (λ(b,v). optional_force b v) vs)` mp_tac)
+simp[]
+impl_tac
+>- (cheat)
+>- (
+  strip_tac \\ qexists_tac `LENGTH vs' + j` \\
+  qpat_x_assum `∀k. eval_to (LENGTH vs' + k) _ = _` $
+    qspec_then `j + k` assume_tac \\
+  fs[]))
+
+
+m``eval_to _ (Lets _ _) = eval_to _ (subst _ _)``
+
+
+qexists `LENGTH vs'` \\ pop_assum SUBST1_TAC
+
+eval_to_wo_def
+
+optional_force_def
+
         qpat_x_assum `Let (SOME s) x1 y1 = Lets _ _` (
           fn thm => assume_tac o GSYM $ thm) \\ pop_assum SUBST_ALL_TAC \\
         `EVERY (λ(b,q, option). option ≠ NONE) vs'` by (
