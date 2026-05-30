@@ -1082,57 +1082,74 @@ Proof
 kall_tac []
     >~ [`Let (SOME s) x1 y1`] >- (
       strip_tac \\
-
       rw [Once exp_rel_cases]
-      >- ((*stuck*)
+      >- (
         gvs[] \\
+        `?vss.
+            LIST_REL exp_rel vss (MAP (λ(b,v). optional_force b v) vs) /\
+            !k. ?j.
+              eval_to (j + k)
+              (Lets
+                (MAP (λ(b,v). (SOME (FST v),optional_force b v))
+                  (REVERSE vs'))
+                (Apps f (MAP (Var ∘ FST ∘ SND) vs)))
+        = eval_to (j + k) (Apps f vss)` by (
+          qexists `MAP (λ(b,v). optional_force b v) vs'` \\
+          conj_tac
+          >- (
+            gs[LIST_REL_EL_EQN, LENGTH_MAP] \\
+            simp[EL_MAP] \\ rpt strip_tac \\
+            qpat_x_assum `!n. n < LENGTH vs ⇒ _` $
+              qspec_then `n` assume_tac \\
+            gs[OPTREL_def, EL_MAP] \\
+            `FST(SND(vs❲n❳)) = FST(SND(vs'❲n❳))` by (
+              `(MAP (FST o SND) vs)❲n❳ = (MAP (FST o SND) vs)❲n❳` by fs[] \\
+              `FST(SND vs❲n❳) = (MAP (FST o SND) vs)❲n❳` by fs[EL_MAP] \\
+              `FST(SND vs'❲n❳) = (MAP (FST o SND) vs')❲n❳` by fs[EL_MAP] \\
+              metis_tac[LIST_EQ_REWRITE]) \\
+            `FST(vs❲n❳) = FST(vs'❲n❳)` by (
+              `(MAP FST vs)❲n❳ = (MAP FST vs)❲n❳` by fs[] \\
+              `FST(vs❲n❳) = (MAP FST vs)❲n❳` by fs[EL_MAP] \\
+              `FST(vs'❲n❳) = (MAP FST vs')❲n❳` by fs[EL_MAP] \\
+              metis_tac[LIST_EQ_REWRITE]) \\
+            Cases_on `EL n vs'` \\ fs[] \\
+            Cases_on `EL n vs` \\ fs[] \\
+            Cases_on `r` \\ Cases_on `r'` \\
+            gs[] \\ Cases_on `q` \\
+            simp[optional_force_def, exp_rel_Force, exp_rel_Value] \\
+            metis_tac[exp_rel_Force, exp_rel_rules])
+          >- (
+            `MAP (Var o FST o SND) vs = MAP (Var o FST o SND) vs'` by (
+              qpat_x_assum `MAP (FST o SND) vs = _` mp_tac \\
+              simp[Once $ LIST_EQ_REWRITE, EL_MAP] \\
+              `LENGTH vs = LENGTH vs'` by (
+                `LENGTH (MAP FST vs) =
+                  LENGTH (MAP FST vs')` by metis_tac [LENGTH_MAP] \\
+                metis_tac [LENGTH_MAP]) \\ fs[] \\ strip_tac \\
+              Cases_on `LENGTH vs = 0` \\ simp[] \\
+              irule $ iffRL LIST_EQ_REWRITE \\
+              fs[EL_MAP, LENGTH_MAP]) \\ 
+            pop_assum SUBST_ALL_TAC \\
+            qpat_x_assum `ALL_DISTINCT _` mp_tac \\
+            qpat_x_assum `DISJOINT _ _` mp_tac \\
+            pop_assum mp_tac \\ qid_spec_tac `vs'` \\
+            Induct using SNOC_INDUCT \\ rw[Lets_def] \\
+            cheat
+          )) \\
 
-`?vss.
-  LIST_REL exp_rel vss (MAP (λ(b,v). optional_force b v) vs) /\
-  !k. eval_to (LENGTH vs' + k) (Lets
-   (MAP (λ(b,v). (SOME (FST v),optional_force b v))
-      (REVERSE vs'))
-   (Apps f (MAP (Var ∘ FST ∘ SND) vs))) =
-  eval_to k (Apps f vss)` by cheat
-
-
-first_x_assum $ qspecl_then [`k`, `Apps f vss`] mp_tac \\
-impl_tac
->- (cheat)
-simp[eval_to_wo_def, thunkLangTheory.exp_size_def]
->- (
-  strip_tac \\ drule_all exp_rel_Apps \\ strip_tac
-  first_x_assum (qspec_then `Apps g (MAP (λ(b,v). optional_force b v) vs)` mp_tac)
-simp[]
-impl_tac
->- (cheat)
->- (
-  strip_tac \\ qexists_tac `LENGTH vs' + j` \\
-  qpat_x_assum `∀k. eval_to (LENGTH vs' + k) _ = _` $
-    qspec_then `j + k` assume_tac \\
-  fs[]))
-
-
-m``eval_to _ (Lets _ _) = eval_to _ (subst _ _)``
-
-
-qexists `LENGTH vs'` \\ pop_assum SUBST1_TAC
-
-eval_to_wo_def
-
-optional_force_def
-
-        qpat_x_assum `Let (SOME s) x1 y1 = Lets _ _` (
-          fn thm => assume_tac o GSYM $ thm) \\ pop_assum SUBST_ALL_TAC \\
-        `EVERY (λ(b,q, option). option ≠ NONE) vs'` by (
-          CCONTR_TAC \\
-          gvs[EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS] \\
-          first_x_assum (qspec_then `LENGTH vs'` mp_tac) \\
-          simp [] \\ (*???*)
-cheat
-        )
-      )
-
+        first_x_assum $ qspecl_then [`k`, `Apps f vss`] mp_tac \\
+        impl_tac
+        >- (cheat)
+        >- (
+          strip_tac \\ drule_all exp_rel_Apps \\ strip_tac \\
+          first_x_assum (qspec_then
+            `Apps g (MAP (λ(b,v). optional_force b v) vs)` mp_tac) \\
+          simp[] \\ impl_tac
+          >- (cheat)
+          >- (
+            strip_tac \\ qexists_tac `LENGTH vs' + j` \\
+            qpat_x_assum `∀k. eval_to (LENGTH vs' + k) _ = _` $
+              qspec_then `j + k` assume_tac \\ fs[]))))
       >- (
         Cases_on `k=0` \\ simp[eval_to_def]
         >- (qexists `0` \\ simp[])
