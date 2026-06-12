@@ -1206,407 +1206,404 @@ Proof
                             fs[cj 4 SUM_REL_THM] \\ gs[]) \\
                           metis_tac[]))))))))
 
-kall_tac []
     >~ [`Let (SOME s) x1 y1`] >- (
       strip_tac \\
       rw [Once exp_rel_cases]
       >- (
         gvs[] \\
-        `?vss. LIST_REL exp_rel vss (MAP (λ(b,v). optional_force b v) vs) /\
-          (exp_size (Apps f vss) <
+        qabbrev_tac`vss = MAP (λ(b,v). optional_force b v) vs'` \\
+        `LIST_REL exp_rel vss (MAP (λ(b,v). optional_force b v) vs)` by (
+          qunabbrev_tac`vss` \\
+          gs[LIST_REL_EL_EQN, LENGTH_MAP] \\
+          simp[EL_MAP] \\ rpt strip_tac \\
+          qpat_x_assum `!n. n < LENGTH vs ⇒ _` $
+            qspec_then `n` assume_tac \\
+          gs[OPTREL_def, EL_MAP] \\
+          `FST(SND(vs❲n❳)) = FST(SND(vs'❲n❳))` by (
+            `(MAP (FST o SND) vs)❲n❳ = (MAP (FST o SND) vs)❲n❳` by fs[] \\
+            `FST(SND vs❲n❳) = (MAP (FST o SND) vs)❲n❳` by fs[EL_MAP] \\
+            `FST(SND vs'❲n❳) = (MAP (FST o SND) vs')❲n❳` by fs[EL_MAP] \\
+            metis_tac[LIST_EQ_REWRITE]) \\
+          `FST(vs❲n❳) = FST(vs'❲n❳)` by (
+            `(MAP FST vs)❲n❳ = (MAP FST vs)❲n❳` by fs[] \\
+            `FST(vs❲n❳) = (MAP FST vs)❲n❳` by fs[EL_MAP] \\
+            `FST(vs'❲n❳) = (MAP FST vs')❲n❳` by fs[EL_MAP] \\
+            metis_tac[LIST_EQ_REWRITE]) \\
+          Cases_on `EL n vs'` \\ fs[] \\
+          Cases_on `EL n vs` \\ fs[] \\
+          Cases_on `r` \\ Cases_on `r'` \\
+          gs[] \\ Cases_on `q` \\
+          simp[optional_force_def, exp_rel_Force, exp_rel_Value] \\
+          metis_tac[exp_rel_Force, exp_rel_rules]) \\
+        `(exp_size (Apps f vss) <
             exp_size
             (Lets
               (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))
-              (Apps f (MAP (Var o FST o SND) vs)))) /\
-          !k. ?j. eval_to (j + k)
+              (Apps f (MAP (Var o FST o SND) vs))))` by (
+          qunabbrev_tac`vss` \\
+          simp[exp_size_Apps] \\
+          qabbrev_tac `bindings = MAP (λ(b,v).
+            (SOME (FST v), optional_force b v)) (REVERSE vs')` \\
+          qspecl_then [`bindings`, `Apps f (MAP (Var o FST o SND) vs)`]
+            assume_tac exp_size_Lets \\
+          gvs[Abbr `bindings`,
+              exp_size_Apps, MAP_MAP_o,
+              combinTheory.o_DEF] \\
+          `SUM (MAP (λ(b,v). exp_size (optional_force b v) + 1)
+            (REVERSE vs'))
+          = SUM (MAP (λ(b,v). exp_size (optional_force b v) + 1)
+            vs')` by (
+            metis_tac[SUM_REVERSE, MAP_REVERSE]) \\
+          `exp_size (Apps f
+            (MAP (λ(b,v). optional_force b v) vs'))
+          = exp_size f +
+            SUM (MAP (λx. exp_size x + 1)
+              (MAP (λ(b,v). optional_force b v) vs'))` by (
+            fs[exp_size_Apps]) \\
+          `exp_size (Apps f (MAP (Var o FST o SND) vs))
+           + SUM (MAP (λ(v,x). exp_size x + 1) bindings)
+          = exp_size f + SUM (MAP (λx. exp_size x + 1)
+            (MAP (Var o FST o SND) vs))
+           + SUM (MAP (λ(v,x). exp_size x + 1) bindings)` by (
+            gvs[exp_size_Apps]) \\
+          `LENGTH vs = LENGTH vs'` by (
+            metis_tac[LENGTH_MAP]) \\
+          qabbrev_tac `A =
+            SUM (MAP (λx. list_size char_size (FST (SND x)) + 2) vs)` \\
+          qabbrev_tac `B = SUM (MAP
+            (λ(b,v). exp_size (optional_force b v) + 1) (REVERSE vs'))` \\
+          qabbrev_tac `B'= SUM (MAP
+            (λ(b,v). exp_size (optional_force b v) + 1) vs') ` \\
+          `0 < A` by (
+            simp[Abbr `A`] \\ Cases_on `vs` \\ gvs[]) \\
+          simp[pairTheory.LAMBDA_PROD] \\
+          `exp_size (Apps f (MAP (Var o FST o SND) vs))
+          = exp_size f + SUM (MAP (λx. exp_size x + 1)
+            (MAP (Var o FST o SND) vs))` by (gvs[]) \\
+          `exp_size f ≤ exp_size (Apps f (MAP (Var o FST o SND) vs))` by (
+            gvs[]) \\
+          gvs [Abbr `A`, Abbr `B`, Abbr `B'`,
+               SUM_REVERSE, MAP_REVERSE, pairTheory.LAMBDA_PROD]) \\
+        `!k. ?j. eval_to (j + k)
           (Lets
             (MAP (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))
             (Apps f (MAP (Var ∘ FST ∘ SND) vs)))
-        = eval_to (j + k) (Apps f vss)` by (
-          qexists `MAP (λ(b,v). optional_force b v) vs'` \\
-          conj_tac
+            = eval_to k (Apps f vss)` by (
+          cheat
+          (*
+          `MAP (Var o FST o SND) vs = MAP (Var o FST o SND) vs'` by (
+            qpat_x_assum `MAP (FST o SND) vs = _` mp_tac \\
+            simp[Once $ LIST_EQ_REWRITE, EL_MAP] \\
+            `LENGTH vs = LENGTH vs'` by (
+              `LENGTH (MAP FST vs) =
+                LENGTH (MAP FST vs')` by metis_tac [LENGTH_MAP] \\
+              metis_tac [LENGTH_MAP]) \\ fs[] \\ strip_tac \\
+            Cases_on `LENGTH vs = 0` \\ simp[] \\
+            irule $ iffRL LIST_EQ_REWRITE \\
+            fs[EL_MAP, LENGTH_MAP]) \\
+          pop_assum SUBST_ALL_TAC \\
+          qpat_x_assum `ALL_DISTINCT _` mp_tac \\
+          qpat_x_assum `DISJOINT _ _` mp_tac \\
+          pop_assum mp_tac \\ qid_spec_tac `vs'` \\
+          (* Generalise for induction *)
+          qsuff_tac `∀vs' tail.
+            EVERY (λa. ∃u. a = Value u) tail ∧
+            DISJOINT (freevars f) (set (MAP (FST ∘ SND) vs')) ∧
+            ALL_DISTINCT (MAP (FST ∘ SND) vs') ∧
+            (∀k'. eval_to k'
+              (Lets (MAP
+                (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))
+                (Apps f (MAP (Var ∘ FST ∘ SND) vs' ++ tail)))
+              ≠ INL Type_error) ⇒
+            ∀k. ∃j. eval_to (j+k)
+              (Lets (MAP
+                (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))
+                (Apps f (MAP (Var ∘ FST ∘ SND) vs' ⧺ tail)))
+              = eval_to (j+k)
+                (Apps f (MAP (λ(b,v). optional_force b v) vs' ++ tail))`
           >- (
-            gs[LIST_REL_EL_EQN, LENGTH_MAP] \\
-            simp[EL_MAP] \\ rpt strip_tac \\
-            qpat_x_assum `!n. n < LENGTH vs ⇒ _` $
-              qspec_then `n` assume_tac \\
-            gs[OPTREL_def, EL_MAP] \\
-            `FST(SND(vs❲n❳)) = FST(SND(vs'❲n❳))` by (
-              `(MAP (FST o SND) vs)❲n❳ = (MAP (FST o SND) vs)❲n❳` by fs[] \\
-              `FST(SND vs❲n❳) = (MAP (FST o SND) vs)❲n❳` by fs[EL_MAP] \\
-              `FST(SND vs'❲n❳) = (MAP (FST o SND) vs')❲n❳` by fs[EL_MAP] \\
-              metis_tac[LIST_EQ_REWRITE]) \\
-            `FST(vs❲n❳) = FST(vs'❲n❳)` by (
-              `(MAP FST vs)❲n❳ = (MAP FST vs)❲n❳` by fs[] \\
-              `FST(vs❲n❳) = (MAP FST vs)❲n❳` by fs[EL_MAP] \\
-              `FST(vs'❲n❳) = (MAP FST vs')❲n❳` by fs[EL_MAP] \\
-              metis_tac[LIST_EQ_REWRITE]) \\
-            Cases_on `EL n vs'` \\ fs[] \\
-            Cases_on `EL n vs` \\ fs[] \\
-            Cases_on `r` \\ Cases_on `r'` \\
-            gs[] \\ Cases_on `q` \\
-            simp[optional_force_def, exp_rel_Force, exp_rel_Value] \\
-            metis_tac[exp_rel_Force, exp_rel_rules])
+              rpt strip_tac \\
+              first_x_assum $ qspecl_then [`vs''`, `[]`] assume_tac \\
+              fs[])
           >- (
-            conj_tac
-            >- (
-              simp[exp_size_Apps] \\
-              qabbrev_tac `bindings = MAP (λ(b,v).
-                (SOME (FST v), optional_force b v)) (REVERSE vs')` \\
-              qspecl_then [`bindings`, `Apps f (MAP (Var o FST o SND) vs)`]
-                assume_tac exp_size_Lets \\
-              gvs[Abbr `bindings`,
-                  exp_size_Apps, MAP_MAP_o,
-                  combinTheory.o_DEF] \\
-              `SUM (MAP (λ(b,v). exp_size (optional_force b v) + 1)
-                (REVERSE vs'))
-              = SUM (MAP (λ(b,v). exp_size (optional_force b v) + 1)
-                vs')` by (
-                metis_tac[SUM_REVERSE, MAP_REVERSE]) \\
-              `exp_size (Apps f
-                (MAP (λ(b,v). optional_force b v) vs'))
-              = exp_size f +
-                SUM (MAP (λx. exp_size x + 1)
-                  (MAP (λ(b,v). optional_force b v) vs'))` by (
-                fs[exp_size_Apps]) \\
-              `exp_size (Apps f (MAP (Var o FST o SND) vs))
-               + SUM (MAP (λ(v,x). exp_size x + 1) bindings)
-              = exp_size f + SUM (MAP (λx. exp_size x + 1)
-                (MAP (Var o FST o SND) vs))
-               + SUM (MAP (λ(v,x). exp_size x + 1) bindings)` by (
-                gvs[exp_size_Apps]) \\
-              `LENGTH vs = LENGTH vs'` by (
-                metis_tac[LENGTH_MAP]) \\
-              qabbrev_tac `A =
-                SUM (MAP (λx. list_size char_size (FST (SND x)) + 2) vs)` \\
-              qabbrev_tac `B = SUM (MAP
-                (λ(b,v). exp_size (optional_force b v) + 1) (REVERSE vs'))` \\
-              qabbrev_tac `B'= SUM (MAP
-                (λ(b,v). exp_size (optional_force b v) + 1) vs') ` \\
-              `0 < A` by (
-                simp[Abbr `A`] \\ Cases_on `vs` \\ gvs[]) \\
-              simp[pairTheory.LAMBDA_PROD] \\
-              `exp_size (Apps f (MAP (Var o FST o SND) vs))
-              = exp_size f + SUM (MAP (λx. exp_size x + 1)
-                (MAP (Var o FST o SND) vs))` by (gvs[]) \\
-              `exp_size f ≤ exp_size (Apps f (MAP (Var o FST o SND) vs))` by (
-                gvs[]) \\
-              gvs [Abbr `A`, Abbr `B`, Abbr `B'`,
-                   SUM_REVERSE, MAP_REVERSE, pairTheory.LAMBDA_PROD])
-            >- (
-              `MAP (Var o FST o SND) vs = MAP (Var o FST o SND) vs'` by (
-                qpat_x_assum `MAP (FST o SND) vs = _` mp_tac \\
-                simp[Once $ LIST_EQ_REWRITE, EL_MAP] \\
-                `LENGTH vs = LENGTH vs'` by (
-                  `LENGTH (MAP FST vs) =
-                    LENGTH (MAP FST vs')` by metis_tac [LENGTH_MAP] \\
-                  metis_tac [LENGTH_MAP]) \\ fs[] \\ strip_tac \\
-                Cases_on `LENGTH vs = 0` \\ simp[] \\
-                irule $ iffRL LIST_EQ_REWRITE \\
-                fs[EL_MAP, LENGTH_MAP]) \\
-              pop_assum SUBST_ALL_TAC \\
-              qpat_x_assum `ALL_DISTINCT _` mp_tac \\
-              qpat_x_assum `DISJOINT _ _` mp_tac \\
-              pop_assum mp_tac \\ qid_spec_tac `vs'` \\
-              (* Generalise for induction *)
-              qsuff_tac `∀vs' tail.
-                EVERY (λa. ∃u. a = Value u) tail ∧
-                DISJOINT (freevars f) (set (MAP (FST ∘ SND) vs')) ∧
-                ALL_DISTINCT (MAP (FST ∘ SND) vs') ∧
-                (∀k'. eval_to k'
-                  (Lets (MAP
-                    (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))
-                    (Apps f (MAP (Var ∘ FST ∘ SND) vs' ++ tail)))
-                  ≠ INL Type_error) ⇒
-                ∀k. ∃j. eval_to (j+k)
-                  (Lets (MAP
-                    (λ(b,v). (SOME (FST v),optional_force b v)) (REVERSE vs'))
-                    (Apps f (MAP (Var ∘ FST ∘ SND) vs' ⧺ tail)))
-                  = eval_to (j+k)
-                    (Apps f (MAP (λ(b,v). optional_force b v) vs' ++ tail))`
-              >- (
-                  rpt strip_tac \\
-                  first_x_assum $ qspecl_then [`vs''`, `[]`] assume_tac \\
-                  fs[])
-              >- (
-                Induct using SNOC_INDUCT \\
-                rw[Lets_def] \\ PairCases_on `x` \\
-                gvs [REVERSE_SNOC, MAP_SNOC, SNOC_APPEND, Lets_def] \\
-                Cases_on `x2`
-                >- ((* x2 = NONE *)
-                  qpat_x_assum `∀tail. _ ∧ _ ⇒ _` $
-                    qspec_then `tail` assume_tac \\
-                  `ALL_DISTINCT (MAP (FST o SND) vs'')` by (
-                    metis_tac[ALL_DISTINCT_APPEND]) \\
-                  first_x_assum $ qspec_then `2` assume_tac \\
-                  CCONTR_TAC \\ qpat_x_assum `eval_to 2 _ ≠ _` mp_tac \\
-                  simp[eval_to_def] \\ Cases_on `x0` \\
-                  simp[optional_force_def,
-                       Once $ eval_to_def,
-                       Once $ eval_to_def])
-                >- ((* x2 = SOME _ *)
-                  qabbrev_tac `opt = optional_force x0 (x1', SOME x)` \\
-                  `∀n. eval_to n opt ≠ INL Type_error` by (
-                    CCONTR_TAC \\ gs[] \\
-                    qpat_x_assum `∀k'. eval_to k' _ ≠ _` $
-                      qspec_then `n+1` mp_tac \\
-                    gs[Abbr `opt`, Once eval_to_def]) \\
-                  qmatch_goalsub_abbrev_tac ‘Let (SOME x1') opt INNER_BODY’ \\
-                  Cases_on `∃m e. eval_to m opt = INR e`
-                  >- ((*opt CONVERGES*)
-                    gs [] \\
-                    `∀n. m ≤ n ⇒ eval_to m opt = INR e` by (
-                      metis_tac[eval_to_mono]) \\
-                    `subst1 x1' e INNER_BODY
-                      = Lets
+            Induct using SNOC_INDUCT \\
+            rw[Lets_def] \\ PairCases_on `x` \\
+            gvs [REVERSE_SNOC, MAP_SNOC, SNOC_APPEND, Lets_def] \\
+            Cases_on `x2`
+            >- ((* x2 = NONE *)
+              qpat_x_assum `∀tail. _ ∧ _ ⇒ _` $
+                qspec_then `tail` assume_tac \\
+              `ALL_DISTINCT (MAP (FST o SND) vs'')` by (
+                metis_tac[ALL_DISTINCT_APPEND]) \\
+              first_x_assum $ qspec_then `2` assume_tac \\
+              CCONTR_TAC \\ qpat_x_assum `eval_to 2 _ ≠ _` mp_tac \\
+              simp[eval_to_def] \\ Cases_on `x0` \\
+              simp[optional_force_def,
+                   Once $ eval_to_def,
+                   Once $ eval_to_def])
+            >- ((* x2 = SOME _ *)
+              qabbrev_tac `opt = optional_force x0 (x1', SOME x)` \\
+              `∀n. eval_to n opt ≠ INL Type_error` by (
+                CCONTR_TAC \\ gs[] \\
+                qpat_x_assum `∀k'. eval_to k' _ ≠ _` $
+                  qspec_then `n+1` mp_tac \\
+                gs[Abbr `opt`, Once eval_to_def]) \\
+              qmatch_goalsub_abbrev_tac ‘Let (SOME x1') opt INNER_BODY’ \\
+              Cases_on `∃m e. eval_to m opt = INR e`
+              >- ((*opt CONVERGES*)
+                gs [] \\
+                `∀n. m ≤ n ⇒ eval_to m opt = INR e` by (
+                  metis_tac[eval_to_mono]) \\
+                `subst1 x1' e INNER_BODY
+                  = Lets
+                  (MAP (λ(b,v). (SOME (FST v),optional_force b v))
+                    (REVERSE vs''))
+                  (Apps f (MAP (Var ∘ FST ∘ SND) vs''
+                  ++ [Value e] ++ tail))` by (
+                  simp [Abbr `INNER_BODY`] \\
+                  DEP_REWRITE_TAC [subst_Lets] \\
+                  conj_tac
+                  >- (
+                    `ALL_DISTINCT (MAP (FST o SND) vs'')` by (
+                      fs[ALL_DISTINCT_APPEND]) \\
+                      metis_tac [ALL_DISTINCT_REVERSE, MAP_REVERSE])
+                  >- (
+                    (*Remove filter*)
+                    `¬MEM x1' (MAP (FST o SND) vs'')` by (
+                      CCONTR_TAC \\ fs[] \\
+                      `ALL_DISTINCT (MAP (FST o SND) vs'' ++ [x1'])
+                      =ALL_DISTINCT (SNOC x1' (MAP (FST o SND) vs''))` by (
+                        simp[SNOC_APPEND]) \\
+                      metis_tac[ALL_DISTINCT_SNOC]) \\
+                    `FILTER (λ(n,x).
+                      ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'')))
+                      [(x1',e)] = [(x1',e)]` by (
+                      fs[FILTER] \\ metis_tac[MEM_REVERSE, MAP_REVERSE]) \\
+                    (*
+                       subst1 x1' e (optional_force b v)
+                       = optional_force b v
+                       for any (b, v) that does not mention x1'
+                    *)
+                    `MAP (λ(b,v).
+                      (SOME (FST v), subst1 x1' e (optional_force b v)))
+                      (REVERSE vs'')
+                    = MAP (λ(b,v). (SOME (FST v), optional_force b v))
+                        (REVERSE vs'')` by (
+                      rw [MAP_EQ_f, FORALL_PROD, MEM_REVERSE] \\
+                      simp[subst_optional_force_eq, pre_force_subst_def] \\
+                      Cases_on `p_2` \\ fs[] \\
+                      `x1' ≠ p_1'` by (
+                        `MEM p_1' (MAP (FST o SND) vs'')` by (
+                          irule $ iffRL MEM_MAP \\
+                          qexists `(p_1, p_1', NONE)` \\
+                          simp[]) \\
+                        metis_tac[]) \\ fs[]) \\
+                    simp[subst_Apps, subst_def] \\
+                    `MAP (subst [(x1',e)]) (MAP (Var ∘ FST ∘ SND) vs'')
+                    = (MAP (Var o FST o SND) vs'')` by (
+                      rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD, MEM_REVERSE] \\
+                      `x1' ≠ p_1'` by (
+                        `MEM p_1' (MAP (FST o SND) vs'')` by (
+                          irule $ iffRL MEM_MAP \\
+                          qexists `(p_1, p_1', p_2)` \\
+                          simp[]) \\
+                        metis_tac[]) \\
+                      simp[subst1_def]) \\
+                    `subst1 x1' e f = f` by fs[subst1_notin_frees] \\
+                    fs[] \\
+                    `MAP (subst [(x1', e)]) tail = tail` by (
+                        irule MAP_ID_ON \\ fs[EVERY_MEM] \\
+                        rw[] \\ metis_tac[subst1_def]) \\ fs[])) \\
+                    qabbrev_tac `BODY_e = Lets
                       (MAP (λ(b,v). (SOME (FST v),optional_force b v))
                         (REVERSE vs''))
                       (Apps f (MAP (Var ∘ FST ∘ SND) vs''
-                      ++ [Value e] ++ tail))` by (
-                      simp [Abbr `INNER_BODY`] \\
-                      DEP_REWRITE_TAC [subst_Lets] \\
-                      conj_tac
-                      >- (
-                        `ALL_DISTINCT (MAP (FST o SND) vs'')` by (
-                          fs[ALL_DISTINCT_APPEND]) \\
-                          metis_tac [ALL_DISTINCT_REVERSE, MAP_REVERSE])
-                      >- (
-                        (*Remove filter*)
-                        `¬MEM x1' (MAP (FST o SND) vs'')` by (
-                          CCONTR_TAC \\ fs[] \\
-                          `ALL_DISTINCT (MAP (FST o SND) vs'' ++ [x1'])
-                          =ALL_DISTINCT (SNOC x1' (MAP (FST o SND) vs''))` by (
-                            simp[SNOC_APPEND]) \\
-                          metis_tac[ALL_DISTINCT_SNOC]) \\
-                        `FILTER (λ(n,x).
-                          ¬MEM n (MAP (FST ∘ SND) (REVERSE vs'')))
-                          [(x1',e)] = [(x1',e)]` by (
-                          fs[FILTER] \\ metis_tac[MEM_REVERSE, MAP_REVERSE]) \\
-                        (*
-                           subst1 x1' e (optional_force b v)
-                           = optional_force b v
-                           for any (b, v) that does not mention x1'
-                        *)
-                        `MAP (λ(b,v).
-                          (SOME (FST v), subst1 x1' e (optional_force b v)))
-                          (REVERSE vs'')
-                        = MAP (λ(b,v). (SOME (FST v), optional_force b v))
-                            (REVERSE vs'')` by (
-                          rw [MAP_EQ_f, FORALL_PROD, MEM_REVERSE] \\
-                          simp[subst_optional_force_eq, pre_force_subst_def] \\
-                          Cases_on `p_2` \\ fs[] \\
-                          `x1' ≠ p_1'` by (
-                            `MEM p_1' (MAP (FST o SND) vs'')` by (
-                              irule $ iffRL MEM_MAP \\
-                              qexists `(p_1, p_1', NONE)` \\
-                              simp[]) \\
-                            metis_tac[]) \\ fs[]) \\
-                        simp[subst_Apps, subst_def] \\
-                        `MAP (subst [(x1',e)]) (MAP (Var ∘ FST ∘ SND) vs'')
-                        = (MAP (Var o FST o SND) vs'')` by (
-                          rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD, MEM_REVERSE] \\
-                          `x1' ≠ p_1'` by (
-                            `MEM p_1' (MAP (FST o SND) vs'')` by (
-                              irule $ iffRL MEM_MAP \\
-                              qexists `(p_1, p_1', p_2)` \\
-                              simp[]) \\
-                            metis_tac[]) \\
-                          simp[subst1_def]) \\
-                        `subst1 x1' e f = f` by fs[subst1_notin_frees] \\
-                        fs[] \\
-                        `MAP (subst [(x1', e)]) tail = tail` by (
-                            irule MAP_ID_ON \\ fs[EVERY_MEM] \\
-                            rw[] \\ metis_tac[subst1_def]) \\ fs[])) \\
-                        qabbrev_tac `BODY_e = Lets
-                          (MAP (λ(b,v). (SOME (FST v),optional_force b v))
-                            (REVERSE vs''))
-                          (Apps f (MAP (Var ∘ FST ∘ SND) vs''
-                          ++ [Value e] ++ tail))` \\
-                        qpat_x_assum `∀tail. _` $
-                          qspec_then `[Value e] ++ tail` assume_tac \\
-                        `EVERY (λa. ∃u. a = Value u) ([Value e] ++ tail)` by (
-                          fs[]) \\
-                        `DISJOINT (freevars f) (set(MAP(FST o SND) vs''))` by (
-                          fs[DISJOINT_SYM]) \\
-                        `ALL_DISTINCT (MAP (FST o SND) vs'')` by (
-                          metis_tac[ALL_DISTINCT_SNOC, SNOC_APPEND]) \\
-                        `∀k'. eval_to k' (subst1 x1' e INNER_BODY)
-                        ≠ INL Type_error` by (
-                          CCONTR_TAC \\ fs[] \\
-                          qabbrev_tac `N = MAX m k'` \\
-                          `eval_to N opt = INR e` by (
+                      ++ [Value e] ++ tail))` \\
+                    qpat_x_assum `∀tail. _` $
+                      qspec_then `[Value e] ++ tail` assume_tac \\
+                    `EVERY (λa. ∃u. a = Value u) ([Value e] ++ tail)` by (
+                      fs[]) \\
+                    `DISJOINT (freevars f) (set(MAP(FST o SND) vs''))` by (
+                      fs[DISJOINT_SYM]) \\
+                    `ALL_DISTINCT (MAP (FST o SND) vs'')` by (
+                      metis_tac[ALL_DISTINCT_SNOC, SNOC_APPEND]) \\
+                    `∀k'. eval_to k' (subst1 x1' e INNER_BODY)
+                    ≠ INL Type_error` by (
+                      CCONTR_TAC \\ fs[] \\
+                      qabbrev_tac `N = MAX m k'` \\
+                      `eval_to N opt = INR e` by (
+                        rpt strip_tac \\
+                        qpat_assum `_ = INR e` assume_tac \\
+                        pop_assum $ SUBST1_TAC o GSYM \\
+                        irule eval_to_mono \\ simp[Abbr `N`]) \\
+                      `eval_to N (subst1 x1' e INNER_BODY)
+                      = eval_to k' (subst1 x1' e INNER_BODY)` by (
+                        irule eval_to_mono \\ simp[Abbr `N`]) \\
+                      `eval_to (N + 1) (Let (SOME x1') opt INNER_BODY)
+                      = INL Type_error` by (
+                        pure_rewrite_tac[eval_to_def, subst1_def] \\
+                        gvs[]) \\
+                      qpat_assum `!k'. eval_to k'
+                        (Let (SOME x1') _ _) ≠ INL Type_error` $
+                        qspec_then `N+1` assume_tac \\ fs[]) \\ gvs[] \\
+                      qpat_x_assum `∀k'. ∃j. _` $
+                        qspec_then ‘m + k'’ assume_tac \\
+                      pop_assum $ qx_choose_then `j'` assume_tac \\
+                      qabbrev_tac `FUEL = j' + m + k'` \\
+                      Cases_on `eval_to FUEL (subst1 x1' e INNER_BODY)
+                        = INL Diverge`
+                      >- ((* = INL Diverge *)
+                        qexists `j' + m` \\
+                        `∀F. m ≤ F  ⇒
+                          eval_to F (Apps f
+                            (MAP (λ(b,v). optional_force b v) vs''
+                            ++ [Value e] ++ tail))
+                          = eval_to F (Apps f
+                            (MAP (λ(b,v). optional_force b v) vs''
+                            ++ [opt] ++ tail))` by (
                             rpt strip_tac \\
-                            qpat_assum `_ = INR e` assume_tac \\
-                            pop_assum $ SUBST1_TAC o GSYM \\
-                            irule eval_to_mono \\ simp[Abbr `N`]) \\
-                          `eval_to N (subst1 x1' e INNER_BODY)
-                          = eval_to k' (subst1 x1' e INNER_BODY)` by (
-                            irule eval_to_mono \\ simp[Abbr `N`]) \\
-                          `eval_to (N + 1) (Let (SOME x1') opt INNER_BODY)
-                          = INL Type_error` by (
-                            pure_rewrite_tac[eval_to_def, subst1_def] \\
-                            gvs[]) \\
-                          qpat_assum `!k'. eval_to k'
-                            (Let (SOME x1') _ _) ≠ INL Type_error` $
-                            qspec_then `N+1` assume_tac \\ fs[]) \\ gvs[] \\
-                          qpat_x_assum `∀k'. ∃j. _` $
-                            qspec_then ‘m + k'’ assume_tac \\
-                          pop_assum $ qx_choose_then `j'` assume_tac \\
-                          qabbrev_tac `FUEL = j' + m + k'` \\
-                          Cases_on `eval_to FUEL (subst1 x1' e INNER_BODY)
-                            = INL Diverge`
-                          >- ((* = INL Diverge *)
-                            qexists `j' + m` \\
-                            `∀F. m ≤ F  ⇒
-                              eval_to F (Apps f
-                                (MAP (λ(b,v). optional_force b v) vs''
-                                ++ [Value e] ++ tail))
-                              = eval_to F (Apps f
-                                (MAP (λ(b,v). optional_force b v) vs''
-                                ++ [opt] ++ tail))` by (
-                                rpt strip_tac \\
-                                `∃tail'. tail = MAP Value tail'` by (
-                                  qpat_x_assum `EVERY _ tail` mp_tac \\
-                                  rpt (pop_assum kall_tac) \\
-                                  Induct_on `tail` \\ rw[] \\ gvs[] \\
-                                  qexists `u::tail'` \\ simp[]) \\
-                                pop_assum SUBST1_TAC \\
-                                `Apps f (MAP (λ(b,v). optional_force b v) vs''
-                                  ++ [opt] ++ MAP Value tail') =
-                                 Apps (Apps f
-                                  (MAP (λ(b,v). optional_force b v) vs''))
-                                  (opt :: MAP Value tail')`
-                                   by rw[FOLDL_APPEND] \\
-                                `Apps f (MAP (λ(b,v). optional_force b v) vs''
-                                  ++ [Value e] ++ MAP Value tail') =
-                                 Apps (Apps f
-                                  (MAP (λ(b,v). optional_force b v) vs''))
-                                  (MAP Value (e :: tail'))`
-                                   by rw[FOLDL_APPEND] \\
-                                ntac 2 $ pop_assum SUBST1_TAC \\
-                                irule (GSYM eval_to_Apps_LIST_INR) \\
-                                qexists `m` \\ gvs[] \\ conj_tac
-                                >- ((*eval_to _ opt = INR _*)
-                                  strip_tac \\
-                                  `eval_to (j+m) opt = eval_to m opt` by (
-                                    irule eval_to_mono \\ fs[]) \\
-                                  metis_tac[])
-                                >- ((*LIST_REL _ (MAP Value tail') tail'*)
-                                  simp[LIST_REL_EL_EQN] \\ rpt strip_tac \\
-                                  simp[EL_MAP, Once eval_to_def])) \\
-                            pop_assum $ qspec_then `FUEL` assume_tac \\
-                            `m ≤ FUEL` by (simp[Abbr `FUEL`]) \\
-                            simp[Once eval_to_def] \\ IF_CASES_TAC \\ rw[] \\
-                            Cases_on `eval_to (FUEL-1) opt` \\ gvs[]
-                            >- (Cases_on `x'` \\ metis_tac[])
-                            >- (
-                              `eval_to (m+FUEL-1) opt = INR e` by (
-                                qpat_assum `_ = INR e` $ SUBST1_TAC o GSYM \\
-                                irule eval_to_mono \\ simp[]) \\
-                              `eval_to (m+FUEL-1) opt = INR y` by (
-                                qpat_assum `_ = INR y` $ SUBST1_TAC o GSYM \\
-                                irule eval_to_mono \\ simp[]) \\
-                              `eval_to (FUEL-1) (subst1 x1' e INNER_BODY)
-                              = INL Diverge` by (
-                                CCONTR_TAC \\
-                                drule eval_to_mono \\ simp[] \\
-                                qexists `FUEL` \\ gvs[]) \\
-                              `y = e` by fs[] \\ fs[]))
-                          >- ((* <> INL Diverge *)
-                            qexists `j' + m + 1` \\
-                            `j'+m+1+k' = FUEL+1` by simp[Abbr `FUEL`] \\
+                            `∃tail'. tail = MAP Value tail'` by (
+                              qpat_x_assum `EVERY _ tail` mp_tac \\
+                              rpt (pop_assum kall_tac) \\
+                              Induct_on `tail` \\ rw[] \\ gvs[] \\
+                              qexists `u::tail'` \\ simp[]) \\
                             pop_assum SUBST1_TAC \\
-                            `eval_to FUEL opt = INR e` by (
-                              qpat_assum `eval_to m opt = INR e` $
-                                SUBST1_TAC o GSYM \\
-                              irule eval_to_mono \\ simp[Abbr `FUEL`]) \\
-                            `eval_to (FUEL + 1) (Let (SOME x1') opt INNER_BODY)
-                            = eval_to FUEL (subst1 x1' e INNER_BODY)` by (
-                              simp[Once eval_to_def] \\ gs[]) \\
-                            pop_assum SUBST1_TAC \\ fs[] \\
-                            `eval_to (FUEL + 1)
-                              (Apps f
-                                 (MAP (λ(b,v). optional_force b v) vs''
-                              ++ [Value e] ++ tail))
-                            = eval_to FUEL
-                              (Apps f
-                                 (MAP (λ(b,v). optional_force b v) vs''
-                              ++ [Value e] ++ tail))` by (
-                              irule eval_to_mono \\ fs[Abbr `FUEL`] \\
-                              metis_tac[]) \\ pop_assum $ SUBST1_TAC o GSYM \\
-                            `∀F. m ≤ F  ⇒
-                              eval_to F (Apps f
-                                (MAP (λ(b,v). optional_force b v) vs''
-                                ++ [Value e] ++ tail))
-                              = eval_to F (Apps f
-                                (MAP (λ(b,v). optional_force b v) vs''
-                                ++ [opt] ++ tail))` by (
-                                rpt strip_tac \\
-                                `∃tail'. tail = MAP Value tail'` by (
-                                  qpat_x_assum `EVERY _ tail` mp_tac \\
-                                  rpt (pop_assum kall_tac) \\
-                                  Induct_on `tail` \\ rw[] \\ gvs[] \\
-                                  qexists `u::tail'` \\ simp[]) \\
-                                pop_assum SUBST1_TAC \\
-                                `Apps f (MAP (λ(b,v). optional_force b v) vs''
-                                  ++ [opt] ++ MAP Value tail') =
-                                 Apps (Apps f
-                                  (MAP (λ(b,v). optional_force b v) vs''))
-                                  (opt :: MAP Value tail')`
-                                   by rw[FOLDL_APPEND] \\
-                                `Apps f (MAP (λ(b,v). optional_force b v) vs''
-                                  ++ [Value e] ++ MAP Value tail') =
-                                 Apps (Apps f
-                                  (MAP (λ(b,v). optional_force b v) vs''))
-                                  (MAP Value (e :: tail'))`
-                                   by rw[FOLDL_APPEND] \\
-                                ntac 2 $ pop_assum SUBST1_TAC \\
-                                irule (GSYM eval_to_Apps_LIST_INR) \\
-                                qexists `m` \\ gvs[] \\ conj_tac
-                                >- ((*eval_to _ opt = INR _*)
-                                  strip_tac \\
-                                  `eval_to (j+m) opt = eval_to m opt` by (
-                                    irule eval_to_mono \\ fs[]) \\
-                                  metis_tac[])
-                                >- ((*LIST_REL _ (MAP Value tail') tail'*)
-                                  simp[LIST_REL_EL_EQN] \\ rpt strip_tac \\
-                                  simp[EL_MAP, Once eval_to_def])) \\
-                            pop_assum $ qspec_then `FUEL + 1` assume_tac \\
-                            UNABBREV_ALL_TAC \\ gvs[]))
-                  >- ((*opt DIVERGES*)
-                    `∀n. eval_to n opt = INL Diverge` by (
-                      fs[] \\ gen_tac \\
-                      Cases_on `eval_to n opt`
-                      >- (Cases_on `x'` \\ fs[] \\ metis_tac[])
-                      >- (metis_tac[])) \\
-                    `∀n body.
-                      eval_to n (Let (SOME x1') opt body) = INL Diverge` by (
-                      rpt gen_tac \\
-                      simp [Once $ eval_to_def]) \\
-                      `∀n. eval_to n
-                         (Apps f
-                           (MAP (λ(b,v). optional_force b v)
-                             vs'' ++ [opt] ++ tail)) = INL Diverge` by (
-                        ‘∀tail body m.
-                            EVERY (λa. ∃u. a = Value u) tail ∧
-                            eval_to m body = INL Diverge ⇒
-                          eval_to m (Apps body tail) = INL Diverge’ by (
-                          Induct using SNOC_INDUCT
-                          >- (gs [])
-                          >-(
-                            rw [] \\ gs [EVERY_SNOC, FOLDL_SNOC] \\
-                            last_x_assum (drule_all_then assume_tac) \\
-                            gvs [] \\ simp [eval_to_def])) \\
-                        gen_tac \\
-                        `Apps f (MAP (λ(b,v). optional_force b v) vs''
-                          ++ [opt] ++ tail) =
-                         Apps (App (Apps f (MAP (λ(b,v). optional_force b v)
-                          vs'')) opt) tail` by rw[FOLDL_APPEND] \\
-                        pop_assum SUBST1_TAC \\ first_x_assum irule \\
-                        simp[Once eval_to_def]) \\ fs[])))))) \\
+                            `Apps f (MAP (λ(b,v). optional_force b v) vs''
+                              ++ [opt] ++ MAP Value tail') =
+                             Apps (Apps f
+                              (MAP (λ(b,v). optional_force b v) vs''))
+                              (opt :: MAP Value tail')`
+                               by rw[FOLDL_APPEND] \\
+                            `Apps f (MAP (λ(b,v). optional_force b v) vs''
+                              ++ [Value e] ++ MAP Value tail') =
+                             Apps (Apps f
+                              (MAP (λ(b,v). optional_force b v) vs''))
+                              (MAP Value (e :: tail'))`
+                               by rw[FOLDL_APPEND] \\
+                            ntac 2 $ pop_assum SUBST1_TAC \\
+                            irule (GSYM eval_to_Apps_LIST_INR) \\
+                            qexists `m` \\ gvs[] \\ conj_tac
+                            >- ((*eval_to _ opt = INR _*)
+                              strip_tac \\
+                              `eval_to (j+m) opt = eval_to m opt` by (
+                                irule eval_to_mono \\ fs[]) \\
+                              metis_tac[])
+                            >- ((*LIST_REL _ (MAP Value tail') tail'*)
+                              simp[LIST_REL_EL_EQN] \\ rpt strip_tac \\
+                              simp[EL_MAP, Once eval_to_def])) \\
+                        pop_assum $ qspec_then `FUEL` assume_tac \\
+                        `m ≤ FUEL` by (simp[Abbr `FUEL`]) \\
+                        simp[Once eval_to_def] \\ IF_CASES_TAC \\ rw[] \\
+                        Cases_on `eval_to (FUEL-1) opt` \\ gvs[]
+                        >- (Cases_on `x'` \\ metis_tac[])
+                        >- (
+                          `eval_to (m+FUEL-1) opt = INR e` by (
+                            qpat_assum `_ = INR e` $ SUBST1_TAC o GSYM \\
+                            irule eval_to_mono \\ simp[]) \\
+                          `eval_to (m+FUEL-1) opt = INR y` by (
+                            qpat_assum `_ = INR y` $ SUBST1_TAC o GSYM \\
+                            irule eval_to_mono \\ simp[]) \\
+                          `eval_to (FUEL-1) (subst1 x1' e INNER_BODY)
+                          = INL Diverge` by (
+                            CCONTR_TAC \\
+                            drule eval_to_mono \\ simp[] \\
+                            qexists `FUEL` \\ gvs[]) \\
+                          `y = e` by fs[] \\ fs[]))
+                      >- ((* <> INL Diverge *)
+                        qexists `j' + m + 1` \\
+                        `j'+m+1+k' = FUEL+1` by simp[Abbr `FUEL`] \\
+                        pop_assum SUBST1_TAC \\
+                        `eval_to FUEL opt = INR e` by (
+                          qpat_assum `eval_to m opt = INR e` $
+                            SUBST1_TAC o GSYM \\
+                          irule eval_to_mono \\ simp[Abbr `FUEL`]) \\
+                        `eval_to (FUEL + 1) (Let (SOME x1') opt INNER_BODY)
+                        = eval_to FUEL (subst1 x1' e INNER_BODY)` by (
+                          simp[Once eval_to_def] \\ gs[]) \\
+                        pop_assum SUBST1_TAC \\ fs[] \\
+                        `eval_to (FUEL + 1)
+                          (Apps f
+                             (MAP (λ(b,v). optional_force b v) vs''
+                          ++ [Value e] ++ tail))
+                        = eval_to FUEL
+                          (Apps f
+                             (MAP (λ(b,v). optional_force b v) vs''
+                          ++ [Value e] ++ tail))` by (
+                          irule eval_to_mono \\ fs[Abbr `FUEL`] \\
+                          metis_tac[]) \\ pop_assum $ SUBST1_TAC o GSYM \\
+                        `∀F. m ≤ F  ⇒
+                          eval_to F (Apps f
+                            (MAP (λ(b,v). optional_force b v) vs''
+                            ++ [Value e] ++ tail))
+                          = eval_to F (Apps f
+                            (MAP (λ(b,v). optional_force b v) vs''
+                            ++ [opt] ++ tail))` by (
+                            rpt strip_tac \\
+                            `∃tail'. tail = MAP Value tail'` by (
+                              qpat_x_assum `EVERY _ tail` mp_tac \\
+                              rpt (pop_assum kall_tac) \\
+                              Induct_on `tail` \\ rw[] \\ gvs[] \\
+                              qexists `u::tail'` \\ simp[]) \\
+                            pop_assum SUBST1_TAC \\
+                            `Apps f (MAP (λ(b,v). optional_force b v) vs''
+                              ++ [opt] ++ MAP Value tail') =
+                             Apps (Apps f
+                              (MAP (λ(b,v). optional_force b v) vs''))
+                              (opt :: MAP Value tail')`
+                               by rw[FOLDL_APPEND] \\
+                            `Apps f (MAP (λ(b,v). optional_force b v) vs''
+                              ++ [Value e] ++ MAP Value tail') =
+                             Apps (Apps f
+                              (MAP (λ(b,v). optional_force b v) vs''))
+                              (MAP Value (e :: tail'))`
+                               by rw[FOLDL_APPEND] \\
+                            ntac 2 $ pop_assum SUBST1_TAC \\
+                            irule (GSYM eval_to_Apps_LIST_INR) \\
+                            qexists `m` \\ gvs[] \\ conj_tac
+                            >- ((*eval_to _ opt = INR _*)
+                              strip_tac \\
+                              `eval_to (j+m) opt = eval_to m opt` by (
+                                irule eval_to_mono \\ fs[]) \\
+                              metis_tac[])
+                            >- ((*LIST_REL _ (MAP Value tail') tail'*)
+                              simp[LIST_REL_EL_EQN] \\ rpt strip_tac \\
+                              simp[EL_MAP, Once eval_to_def])) \\
+                        pop_assum $ qspec_then `FUEL + 1` assume_tac \\
+                        UNABBREV_ALL_TAC \\ gvs[]))
+              >- ((*opt DIVERGES*)
+                `∀n. eval_to n opt = INL Diverge` by (
+                  fs[] \\ gen_tac \\
+                  Cases_on `eval_to n opt`
+                  >- (Cases_on `x'` \\ fs[] \\ metis_tac[])
+                  >- (metis_tac[])) \\
+                `∀n body.
+                  eval_to n (Let (SOME x1') opt body) = INL Diverge` by (
+                  rpt gen_tac \\
+                  simp [Once $ eval_to_def]) \\
+                  `∀n. eval_to n
+                     (Apps f
+                       (MAP (λ(b,v). optional_force b v)
+                         vs'' ++ [opt] ++ tail)) = INL Diverge` by (
+                    ‘∀tail body m.
+                        EVERY (λa. ∃u. a = Value u) tail ∧
+                        eval_to m body = INL Diverge ⇒
+                      eval_to m (Apps body tail) = INL Diverge’ by (
+                      Induct using SNOC_INDUCT
+                      >- (gs [])
+                      >-(
+                        rw [] \\ gs [EVERY_SNOC, FOLDL_SNOC] \\
+                        last_x_assum (drule_all_then assume_tac) \\
+                        gvs [] \\ simp [eval_to_def])) \\
+                    gen_tac \\
+                    `Apps f (MAP (λ(b,v). optional_force b v) vs''
+                      ++ [opt] ++ tail) =
+                     Apps (App (Apps f (MAP (λ(b,v). optional_force b v)
+                      vs'')) opt) tail` by rw[FOLDL_APPEND] \\
+                    pop_assum SUBST1_TAC \\ first_x_assum irule \\
+                    simp[Once eval_to_def]) \\ fs[])))*)) \\
         first_x_assum $ qspecl_then [`k`, `Apps f vss`] mp_tac \\
         impl_tac
-        >- (fs[eval_to_wo_def])
+        >- fs[eval_to_wo_def]
         >- (
           strip_tac \\ drule_all exp_rel_Apps \\ strip_tac \\
           first_x_assum (qspec_then
@@ -1622,15 +1619,9 @@ kall_tac []
             strip_tac \\
             qpat_x_assum `∀k. ∃j. eval_to (j + k) _ = _` $
               qspec_then `j + k` assume_tac \\
-            pop_assum $ qx_choose_then `j'` assume_tac \\
-            Cases_on `eval_to (j+k) (Apps f vss) = INL Diverge` \\ fs[]
-            >- ((*eval_to (j+k) (Apps f vss) = INL Diverge*)
-              qexists `j + j' + k`
-              cheat
-            )
-            >- ((*eval_to (j+k) (Apps f vss) <> INL Diverge*)
-              cheat
-            )))))
+            pop_assum $ qx_choose_then `i` assume_tac \\
+            qexists_tac`i + j` \\ simp[])
+            ))
       >- (
         Cases_on `k=0` \\ simp[eval_to_def]
         >- (qexists `0` \\ simp[])
