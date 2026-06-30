@@ -293,6 +293,12 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   #endif
 }
 
+/* custom FFI (no-op; newer CakeML runtimes emit calls to this) */
+void fficustom (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(0 <= alen);
+  assert(0 <= clen);
+}
+
 // ---------------------------------------------------------------------------
 // Functions on doubles for the Double module
 // ---------------------------------------------------------------------------
