@@ -1229,7 +1229,7 @@ Proof
           \\ Cases_on ‘op’
           \\ fs [dest_Message_def]
           \\ Cases_on ‘xs’ \\ fs [cexp_wwf_def, op_args_ok_def]
-          \\ strip_tac \\ fs [mlstringTheory.implode_def])
+          \\ strip_tac \\ fs [])
       \\ fs [cexp_wwf_def, op_args_ok_def]
       \\ conj_tac
       >- fs [MEM_EL, PULL_EXISTS, EVERY_EL, EL_MAP]

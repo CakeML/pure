@@ -586,7 +586,7 @@ Proof
       imp_res_tac ALOOKUP_MEM >> simp[SF SFY_ss]) >>
     first_x_assum $ drule_at Concl >> simp[] >> strip_tac >>
     gvs[MEM_MAP, implodeEQ, FORALL_PROD] >>
-    gvs[GSYM implodeEQ] >> gs[mlstringTheory.implode_def]
+    gvs[GSYM implodeEQ] >> gs[]
     )
   >- simp[num_atomop_args_ok_def]
   >- (
@@ -1956,4 +1956,3 @@ QED
 
 
 (********************)
-

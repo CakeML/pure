@@ -13,7 +13,7 @@ Libs
 
 
 Definition Letrec_imm_def:
-  (Letrec_imm vs ((Var v):env_cexp$cexp) ⇔ MEM v vs) ∧
+  (Letrec_imm vs ((Var v):env_cexp$cexp) ⇔ F) ∧
   (Letrec_imm vs (Lam _ _) ⇔ T) ∧
   (Letrec_imm vs _ ⇔ F)
 End

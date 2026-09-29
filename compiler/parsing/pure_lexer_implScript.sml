@@ -381,9 +381,9 @@ Definition processIdent_def:
        | "" => LexErrorT
        | c::s =>
            if isAlpha c then
-             AlphaT (c::s)
+             AlphaT (implode (c::s))
            else
-             SymbolT (c::s)
+             SymbolT (implode (c::s))
 End
 
 Definition get_token_def[nocompute]:
@@ -417,13 +417,14 @@ Definition token_of_sym_def:
   token_of_sym s =
     case s of
     | ErrorS    => LexErrorT
-    | StringS s => StringT s
+    | StringS s => StringT (implode s)
     | CharS c => CharT c
     | NumberS i => IntT i
     | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
-                   LongidT (Mod s1 End) (case s2 of "" => "" | (c::cs) => cs)
-    | FFIS s => FFIT s
+                   LongidT (Mod (implode s1) End)
+                           (case s2 of "" => «» | (c::cs) => implode cs)
+    | FFIS s => FFIT (implode s)
     | OtherS s  => get_token s
 End
 
@@ -460,4 +461,3 @@ End
 Definition lexer_fun_def:
   lexer_fun input = lexer_fun_aux input (POSN 1 1)
 End
-

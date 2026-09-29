@@ -75,7 +75,7 @@ Theorem type_wh_PrimTy_Bool_eq_wh_Constructor[local]:
     wh = wh_Constructor "False" []
 Proof
   rw[type_wh_cases] >> gvs[Once type_tcexp_cases,
-    mlstringTheory.implode_def,cons_types_EQ_Atom,
+    cons_types_EQ_Atom,
     tcons_to_type_def]
   >- (Cases_on `arg_tys` >> gvs[Functions_def])
   >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
@@ -142,7 +142,7 @@ Theorem type_wh_Tuple_eq_wh_Constructor[local]:
     wh = wh_Diverge ∨ ∃es. wh = wh_Constructor "" es
 Proof
   rw[type_wh_cases] >>
-  gvs[Once type_tcexp_cases, exp_of_def, mlstringTheory.implode_def,
+  gvs[Once type_tcexp_cases, exp_of_def,
     Monad_cons_types,Array_cons_types,tcons_to_type_def,
     cons_types_EQ_Atom,cons_types_Atom_EQ] >>
   Cases_on `arg_tys` >>
@@ -530,7 +530,7 @@ Theorem tcexp_prim_cons_not_monad_cns:
   s ∉ monad_cns
 Proof
   rpt strip_tac >>
-  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[mlstringTheory.implode_def] >>
+  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[] >>
   gvs[monad_cns_def] >>
   gvs[oneline tcexp_destruct_type_cons_def,AllCaseEqs(),
       tcexp_type_cons_def
@@ -540,7 +540,7 @@ Proof
   gvs[type_exception_def,tcexp_namespace_ok_def,reserved_cns_def] >>
   imp_res_tac ALOOKUP_MEM >>
   imp_res_tac LLOOKUP_MEM >>
-  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,mlstringTheory.implode_def,
+  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,
       FORALL_PROD,MEM_FLAT] >>
   metis_tac[]
 QED
@@ -561,7 +561,7 @@ Theorem tcexp_prim_cons_length_eq:
   LENGTH tys = LENGTH ces
 Proof
   rpt strip_tac >>
-  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[mlstringTheory.implode_def] >>
+  qhdtm_x_assum ‘type_tcexp’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [type_tcexp_cases] >> gvs[] >>
   gvs[oneline tcexp_destruct_type_cons_def,AllCaseEqs(),
       tcexp_type_cons_def
      ] >>
@@ -570,7 +570,7 @@ Proof
   gvs[type_exception_def,tcexp_namespace_ok_def(*,reserved_cns_def*)] >>
   imp_res_tac ALOOKUP_MEM >>
   imp_res_tac LLOOKUP_MEM >>
-  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,mlstringTheory.implode_def,
+  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,SF DNF_ss,
       FORALL_PROD,MEM_FLAT] >>
   imp_res_tac LIST_REL_LENGTH >>
   gvs[] >>
@@ -651,14 +651,14 @@ Proof
     rw[tcons_to_type_def,cons_types_def] >>
     drule type_wh_PrimTy_Bool_eq_wh_Constructor >>
     rw[] >>
-    simp[mlstringTheory.implode_def]
+    simp[]
   )
   >- (
     drule tcons_to_type_split_ty_cons >>
     rw[tcons_to_type_def,cons_types_def] >>
     drule type_wh_Tuple_eq_wh_Constructor >>
     rw[] >>
-    simp[mlstringTheory.implode_def] >>
+    simp[] >>
     gvs[Once type_wh_cases] >>
     gvs[Once type_tcexp_cases] >>
     gvs[cons_types_Atom_EQ,LIST_REL_EL_EQN,Monad_cons_types,
@@ -738,7 +738,7 @@ Proof
           assume_tac $ GEN_ALL eval_op_type_safe >> gvs[] >>
         Cases_on `pt = Bool` >> gvs[]
         >- (IF_CASES_TAC >> simp[type_wh_cases] >>
-            simp[Once type_tcexp_cases, mlstringTheory.implode_def]) >>
+            simp[Once type_tcexp_cases]) >>
         simp[type_wh_cases] >> simp[Once type_tcexp_cases, get_PrimTys_def] >>
         simp[type_atom_op_cases]
         ) >>
@@ -768,8 +768,7 @@ Proof
         assume_tac $ GEN_ALL eval_op_type_safe >> gvs[] >>
       Cases_on `pt = Bool` >> gvs[]
       >- (IF_CASES_TAC >>
-          simp[type_wh_cases, Once type_tcexp_cases,
-               mlstringTheory.implode_def]) >>
+          simp[type_wh_cases, Once type_tcexp_cases]) >>
       simp[type_wh_cases] >>
       simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases]
       )
@@ -1385,7 +1384,7 @@ Proof
       simp[type_wh_cases, PULL_EXISTS] >> irule_at Any EQ_REFL >>
       simp[Once type_tcexp_cases] >> gvs[type_exp_def] >>
       drule_at Any type_tcexp_type_ok >>
-      gvs[type_ok, mlstringTheory.implode_def] >>
+      gvs[type_ok] >>
       simp[kind_ok_cons_types,PULL_EXISTS,kind_ok]
       )
     >- (
@@ -1436,7 +1435,7 @@ Proof
     goal_assum $ drule_at Any >> simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (AtomOp $ Lit $ Str y) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    simp[Once type_tcexp_cases,mlstringTheory.implode_def] >>
+    simp[Once type_tcexp_cases] >>
     disj1_tac >>
     simp[Once type_tcexp_cases,get_PrimTys_def,
       type_atom_op_cases,type_lit_cases]
@@ -1465,8 +1464,7 @@ Proof
       irule_at Any EQ_REFL >> drule type_tcexp_weaken >>
       disch_then $ qspecl_then [`[]`,`[t']`,`[]`] mp_tac >> simp[]
       ) >>
-    simp[type_wh_cases, Once type_tcexp_cases, PULL_EXISTS,
-         mlstringTheory.implode_def] >>
+    simp[type_wh_cases, Once type_tcexp_cases, PULL_EXISTS] >>
     qexists_tac `Prim (AtomOp $ Lit $ Loc $ LENGTH state) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
     simp[Once type_tcexp_cases, oEL_THM, EL_APPEND_EQN] >>
@@ -1490,8 +1488,7 @@ Proof
     qmatch_goalsub_abbrev_tac `Lit a` >>
     qexists_tac `Prim (AtomOp $ Lit a) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    simp[Once type_tcexp_cases,type_atom_op_cases,
-      mlstringTheory.implode_def] >>
+    simp[Once type_tcexp_cases,type_atom_op_cases] >>
     unabbrev_all_tac >>
     simp[Once type_tcexp_cases,get_PrimTys_def,
       type_atom_op_cases,type_lit_cases]
@@ -1524,15 +1521,15 @@ Proof
       >- (Cases_on `i` >> gvs[]) >>
       strip_tac >> gvs[] >>
       goal_assum $ drule o GSYM >>
-      simp[Once type_tcexp_cases, mlstringTheory.implode_def]
+      simp[Once type_tcexp_cases]
       ) >>
     first_x_assum irule >> simp[type_config_def] >>
     goal_assum $ drule_at Any >> simp[] >>
     simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (Cons «Subscript») []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    ntac 2 $ simp[Once type_tcexp_cases, mlstringTheory.implode_def] >>
-    gvs[EVERY_EL, mlstringTheory.implode_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases] >>
+    gvs[EVERY_EL] >>
     drule type_exception_Subscript >> PairCases_on `ns` >>
     gvs[]
     )
@@ -1560,7 +1557,7 @@ Proof
       goal_assum $ drule_at Any >> simp[] >>
       simp[type_wh_cases, PULL_EXISTS] >>
       qexists_tac `Prim (Cons «») []` >>
-      simp[exp_of_def, pure_cexpTheory.op_of_def, mlstringTheory.implode_def] >>
+      simp[exp_of_def, pure_cexpTheory.op_of_def] >>
       ntac 2 $ simp[Once type_tcexp_cases] >>
       gvs[LIST_REL_EL_EQN, EVERY_EL] >>
       rw[EL_LUPDATE,cons_types_def] >>
@@ -1573,7 +1570,7 @@ Proof
     simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (Cons «Subscript») []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    ntac 2 $ simp[Once type_tcexp_cases, type_ok, mlstringTheory.implode_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases, type_ok] >>
     drule type_exception_Subscript >> PairCases_on `ns` >>
     gvs[kind_arrows_def]
     )
@@ -1662,4 +1659,3 @@ QED
 
 
 (********************)
-

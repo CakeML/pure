@@ -45,7 +45,7 @@ Definition Lets_def:
 End
 
 Definition Letrec_imm_def:
-  (Letrec_imm vs (Var v) ⇔ MEM v vs) ∧
+  (Letrec_imm vs (Var v) ⇔ F) ∧
   (Letrec_imm vs (Lam (SOME _) _) ⇔ T) ∧
   (Letrec_imm vs _ ⇔ F)
 End
@@ -1148,6 +1148,46 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
+Theorem ALOOKUP_SND[local]:
+  ∀l f x y. ALOOKUP (FILTER (f o SND) l) x = SOME y ⇒ f y
+Proof
+  Induct \\ rw [] \\ gvs []
+  >- (
+    PairCases_on ‘h’ \\ gvs [ALOOKUP_def, AllCaseEqs()]
+    \\ last_x_assum drule \\ gvs [])
+  \\ last_x_assum drule \\ gvs []
+QED
+
+Theorem thunk_or_thunk_loc_rel:
+  v_rel p v1 v2 ∧
+  ¬thunk_or_thunk_loc v1 ⇒
+    ¬thunk_or_thunk_loc v2
+Proof
+  simp [thunk_or_thunk_loc_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ gvs []) \\ rw []
+  >~ [‘v_rel _ (Constructor _ _) v2’] >- rgs [Once v_rel_cases]
+  >~ [‘v_rel _ (Closure _ _ _) v2’] >- rgs [Once v_rel_cases]
+  >~ [‘v_rel _ (Recclosure funs env fn) v2’] >- (
+    gvs [Once dest_anyThunk_def]
+    \\ Cases_on ‘ALOOKUP funs fn’ \\ gvs []
+    >- (
+      rgs [Once v_rel_cases] \\ gvs []
+      >- (
+        TOP_CASE_TAC \\ gvs [dest_anyThunk_def, AllCaseEqs()]
+        \\ drule ALOOKUP_SND \\ gvs [dest_Lam_def])
+      \\ ‘ALL_DISTINCT (MAP FST funs)’ by gvs []
+      \\ drule_all LIST_REL_loc_rel_alt \\ gvs [])
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ rgs [Once v_rel_cases]
+    \\ gvs [AllCaseEqs(), dest_anyThunk_def]
+    >>~- ([‘MEM (_,Lam _ _) funs’], drule ALOOKUP_SND \\ gvs [dest_Lam_def])
+    \\ ‘ALL_DISTINCT (MAP FST funs)’ by gvs []
+    \\ drule_all LIST_REL_loc_rel_alt \\ gvs [])
+  >~ [‘v_rel _ (Thunk _) v2’] >- (
+    rgs [Once v_rel_cases] \\ gvs [dest_anyThunk_def])
+  >~ [‘v_rel _ (Atom l) v2’] >- rgs [Once v_rel_cases]
+QED
+
 Theorem application_thm:
   application op tvs ts tk = (t_0,t_1,t_2) ∧
   application op svs (SOME ss) sk = (s_0,s_1,s_2) ∧
@@ -1178,19 +1218,7 @@ Proof
     \\ rpt strip_tac
     \\ gvs [oEL_THM,state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs [SNOC_APPEND,EL_APPEND1])
-  \\ Cases_on ‘∃t. op = AllocMutThunk t’ \\ rw [] THEN1
-   (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
-    \\ gvs [AllCaseEqs(),step_res_rel_cases]
-    \\ irule_at Any cont_rel_ext \\ simp []
-    \\ irule_at Any v_rel_Ref_Thunk \\ simp []
-    \\ gvs [state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND,SNOC_APPEND]
-    \\ gvs [LIST_REL_EL_EQN] \\ rw []
-    \\ TRY (irule_at Any thunk_rel_ext \\ gvs [thunk_rel_def])
-    \\ TRY (irule_at Any store_rel_ext \\ gvs [store_rel_def])
-    \\ gvs [oEL_THM,state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [SNOC_APPEND,EL_APPEND1])
+  \\ Cases_on ‘∃t. op = AllocMutThunk t’ \\ rw [] THEN1 (suspend "alloc_mut_thunk")
   \\ qexists_tac ‘[]’ \\ fs []
   \\ Cases_on ‘op = ForceMutThunk’ \\ rw [] THEN1
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
@@ -1206,20 +1234,7 @@ Proof
     \\ simp [Once step_res_rel_cases]
     \\ ntac 2 $ simp[Once cont_rel_cases]
     \\ simp[env_rel_def, Once v_rel_cases])
-  \\ Cases_on ‘∃t. op = UpdateMutThunk t’ \\ rw [] THEN1
-   (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
-    \\ Cases_on ‘x’ \\ gvs []
-    \\ Cases_on ‘ts’ \\ gvs []
-    \\ qpat_x_assum ‘v_rel _ (ThunkLoc _) _’ mp_tac
-    \\ once_rewrite_tac [v_rel_cases] \\ simp []
-    \\ rpt strip_tac \\ gvs []
-    \\ Cases_on ‘oEL n x’ \\ fs [continue_def]
-    \\ Cases_on ‘x''’ \\ gvs []
-    \\ Cases_on ‘t'’ \\ gvs []
-    \\ drule_all state_rel_thunk \\ strip_tac \\ gvs []
-    \\ simp [Once step_res_rel_cases, Once v_rel_cases]
-    \\ gvs [oEL_LUPDATE] \\ rw [] \\ gvs [oEL_THM]
-    \\ imp_res_tac find_loc_lemma \\ gvs [oEL_THM])
+  \\ Cases_on ‘∃t. op = UpdateMutThunk t’ \\ rw [] THEN1 (suspend "update_mut_thunk")
   \\ Cases_on ‘∃k. op = Cons k’ \\ rw [] THEN1
    (gvs [application_def,get_atoms_def,value_def,error_def]
     \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
@@ -1277,6 +1292,46 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
+Resume application_thm[alloc_mut_thunk]:
+ gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
+    \\ gvs [AllCaseEqs(),step_res_rel_cases]
+    \\ Cases_on `t` \\ gvs[bad_thunk_update_def]
+    \\ imp_res_tac thunk_or_thunk_loc_rel \\ gvs[]
+    \\ irule_at Any cont_rel_ext \\ simp []
+    \\ irule_at Any v_rel_Ref_Thunk \\ simp []
+    \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND,SNOC_APPEND]
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ TRY (irule_at Any thunk_rel_ext \\ gvs [thunk_rel_def])
+    \\ TRY (irule_at Any store_rel_ext \\ gvs [store_rel_def])
+    \\ gvs [oEL_THM,state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [SNOC_APPEND,EL_APPEND1]
+QED
+
+Resume application_thm[update_mut_thunk]:
+ gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
+    \\ Cases_on ‘x’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ (ThunkLoc _) _’ mp_tac
+    \\ once_rewrite_tac [v_rel_cases] \\ simp []
+    \\ rpt strip_tac \\ gvs []
+    \\ Cases_on `t` \\ gvs[bad_thunk_update_def]
+    \\ imp_res_tac thunk_or_thunk_loc_rel \\ gvs[]
+    \\ Cases_on `store_assign n (ThunkMem t x') x` \\ gvs[]
+    \\ gvs[store_assign_def,store_same_type_def]
+    \\ `∃v. oEL n x = SOME (ThunkMem NotEvaluated v)` by
+         (Cases_on `EL n x` \\ gvs[oEL_THM] \\ FULL_CASE_TAC \\ gvs[])
+    \\ drule_all state_rel_thunk \\ strip_tac \\ gvs[oEL_THM]
+    \\ simp[Once step_res_rel_cases, Once v_rel_cases]
+    \\ gvs[EL_LUPDATE,LENGTH_LUPDATE] \\ rw[] \\ gvs[]
+    \\ imp_res_tac find_loc_lemma \\ gvs[oEL_THM,EL_LUPDATE]
+    \\ Cases_on `thunk_or_thunk_loc x'` \\ gvs[]
+    \\ rw[EL_LUPDATE,LENGTH_LUPDATE] \\ gvs[]
+QED
+
+Finalise application_thm;
+
 Definition make_let_env_def:
   make_let_env [] n env = env ∧
   make_let_env (x::xs) n env = make_let_env xs (n+1) ((FST x,ThunkLoc n)::env)
@@ -1299,7 +1354,8 @@ Proof
   \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
   \\ ntac 5 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
              >- (rw [] \\ fs [is_halt_def])
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+             \\ rewrite_tac [step_n_add,ADD1]
+             \\ simp [step,get_atoms_def,bad_thunk_update_def])
   \\ strip_tac \\ last_x_assum drule
   \\ strip_tac \\ qexists_tac ‘m’ \\ fs []
   \\ gvs [SNOC_APPEND,ADD1]
@@ -1377,73 +1433,80 @@ Proof
   \\ pop_assum mp_tac
   \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
   \\ reverse IF_CASES_TAC
-  >-
-    (ntac 4 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-     \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-                >- (rw [] \\ fs [is_halt_def]) \\ fs []
-                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-     \\ gvs [oEL_THM,EL_APPEND2]
-     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-                >- (rw [] \\ fs [is_halt_def]) \\ fs []
-                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-     \\ gvs [ADD1,LUPDATE_DEF]
-     \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
-     \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
-     \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-     \\ disch_then $ drule_at $ Pos last
-     \\ impl_tac >- fs []
-     \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def])
+  >- suspend "nonimm"
   \\ Cases_on ‘∃v3 e3. h2 = Lam v3 e3’ \\ gvs []
-  >-
-    (ntac 4 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+  >- suspend "lam"
+  \\ suspend "other"
+QED
+
+Resume Letrec_store_thm[nonimm]:
+ ntac 4 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
      \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
      \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
-                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
      \\ gvs [oEL_THM,EL_APPEND2]
      \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
-                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
      \\ gvs [ADD1,LUPDATE_DEF]
      \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
      \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
      \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
      \\ disch_then $ drule_at $ Pos last
      \\ impl_tac >- fs []
-     \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def])
-  \\ Cases_on ‘h2’ \\ gvs [Letrec_imm_def]
-  \\ qpat_assum ‘EVERY _ _’ (fn th => drule (REWRITE_RULE [EVERY_MEM] th))
-  \\ simp []
-  \\ Cases_on ‘ALOOKUP (env1 ++
-           make_let_env delays (LENGTH ss + 1)
-             ((h0,ThunkLoc (LENGTH ss))::env2)) s’ \\ fs []
-  \\ ntac 4 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-  \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-  \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-  \\ gvs [oEL_THM,EL_APPEND2]
-  \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-             >- (rw [] \\ fs [is_halt_def]) \\ fs []
-             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-  \\ gvs [ADD1,LUPDATE_DEF]
-  \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
-  \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
-  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ disch_then $ drule_at $ Pos last
-  \\ impl_tac >- fs []
-  \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def]
-  \\ gvs [ALOOKUP_APPEND]
+     \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def]
 QED
+
+Resume Letrec_store_thm[lam]:
+ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
+     \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
+     \\ gvs [oEL_THM,EL_APPEND2]
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def,bad_thunk_update_def,thunk_or_thunk_loc_def,
+                    store_assign_def,store_same_type_def])
+     \\ gvs [ADD1,LUPDATE_DEF]
+     \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
+     \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
+     \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+     \\ disch_then $ drule_at $ Pos last
+     \\ impl_tac >- fs []
+     \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def]
+QED
+
+Resume Letrec_store_thm[other]:
+  Cases_on ‘h2’ \\ gvs [Letrec_imm_def]
+QED
+
+Finalise Letrec_store_thm;
 
 Theorem step_n_unwind[local]:
   step_n (m+1) s = x ∧ n = m + 1 ⇒ step_n n s = x
@@ -1484,6 +1547,7 @@ Proof
     \\ ntac 1 (irule_at Any step_n_unwind
                \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
     \\ gvs [oEL_THM,EL_APPEND2]
+    \\ simp [bad_thunk_update_def,store_assign_def,store_same_type_def,EL_APPEND]
     \\ ntac 1 (irule_at Any step_n_unwind
                \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
     \\ gvs [ADD1,LUPDATE_DEF]
@@ -1502,6 +1566,8 @@ Proof
     \\ ntac 1 (irule_at Any step_n_unwind
                \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
     \\ gvs [oEL_THM,EL_APPEND2]
+    \\ simp [bad_thunk_update_def,thunk_or_thunk_loc_def,store_assign_def,
+             store_same_type_def,EL_APPEND]
     \\ ntac 1 (irule_at Any step_n_unwind
                \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
     \\ gvs [ADD1,LUPDATE_DEF]
@@ -1513,27 +1579,6 @@ Proof
     \\ impl_tac >- fs [Letrec_store_def]
     \\ strip_tac \\ fs [])
   \\ Cases_on ‘h2’ \\ gvs [Letrec_imm_def]
-  \\ qpat_assum ‘EVERY _ _’ (fn th => drule (REWRITE_RULE [EVERY_MEM] th))
-  \\ simp []
-  \\ Cases_on ‘ALOOKUP (env1 ++
-           make_let_env delays (LENGTH ss + 1)
-             ((h0,ThunkLoc (LENGTH ss))::env2)) s’ \\ fs []
-  \\ ntac 3 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step, get_atoms_def])
-  \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-  \\ ntac 1 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
-  \\ gvs [oEL_THM,EL_APPEND2]
-  \\ ntac 1 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
-  \\ gvs [ADD1,LUPDATE_DEF]
-  \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
-  \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
-  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ simp [LEFT_ADD_DISTRIB] \\ simp_tac std_ss [ADD_ASSOC]
-  \\ disch_then $ qspecl_then [‘(h0,ThunkLoc (LENGTH ss))::env2’,‘k’] mp_tac
-  \\ disch_then irule
-  \\ gvs [Letrec_store_def,ALOOKUP_APPEND]
 QED
 
 Theorem MEM_make_let_env:
@@ -1858,19 +1903,6 @@ Proof
     \\ irule v_rel_Closure \\ fs [])
   \\ ‘∃v. e2 = Var v’ by (Cases_on ‘e2’ \\ fs [Letrec_imm_def])
   \\ gvs [Letrec_imm_def,Letrec_store_def]
-  \\ qpat_x_assum ‘compile_rel e1 _’ mp_tac
-  \\ simp [Once compile_rel_cases,comp_Letrec_not]
-  \\ strip_tac \\ gvs []
-  \\ simp [Once SWAP_EXISTS_THM]
-  \\ qexists_tac ‘1’ \\ fs [step]
-  \\ CASE_TAC
-  >-
-   (qpat_x_assum ‘MAP FST tfns = MAP FST sfns’ (assume_tac o GSYM) \\ gvs []
-    \\ gvs [ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
-    \\ PairCases_on ‘y’ \\ fs [])
-  \\ fs [env_rel_def]
-  \\ first_x_assum drule
-  \\ strip_tac \\ fs []
 QED
 
 Theorem step_n_make_let_env:
@@ -1889,7 +1921,7 @@ Proof
   \\ rewrite_tac [ADD_ASSOC,GSYM (EVAL “1+1+1+1+1:num”)]
   \\ ntac 5 (once_rewrite_tac [step_n_add])
   \\ PairCases_on ‘h’
-  \\ fs [some_alloc_thunk_def,Lets_def,step,get_atoms_def]
+  \\ fs [some_alloc_thunk_def,Lets_def,step,get_atoms_def,bad_thunk_update_def]
   \\ last_x_assum irule
   \\ fs [SNOC_APPEND,ADD1]
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
@@ -1951,46 +1983,6 @@ Proof
   \\ dxrule_all LIST_REL_lemma
   \\ gvs [EXISTS_PROD,FORALL_PROD]
   \\ gvs [loc_rel_def,dest_anyThunk_def]
-QED
-
-Theorem ALOOKUP_SND[local]:
-  ∀l f x y. ALOOKUP (FILTER (f o SND) l) x = SOME y ⇒ f y
-Proof
-  Induct \\ rw [] \\ gvs []
-  >- (
-    PairCases_on ‘h’ \\ gvs [ALOOKUP_def, AllCaseEqs()]
-    \\ last_x_assum drule \\ gvs [])
-  \\ last_x_assum drule \\ gvs []
-QED
-
-Theorem thunk_or_thunk_loc_rel:
-  v_rel p v1 v2 ∧
-  ¬thunk_or_thunk_loc v1 ⇒
-    ¬thunk_or_thunk_loc v2
-Proof
-  simp [thunk_or_thunk_loc_def]
-  \\ ntac 2 (TOP_CASE_TAC \\ gvs []) \\ rw []
-  >~ [‘v_rel _ (Constructor _ _) v2’] >- rgs [Once v_rel_cases]
-  >~ [‘v_rel _ (Closure _ _ _) v2’] >- rgs [Once v_rel_cases]
-  >~ [‘v_rel _ (Recclosure funs env fn) v2’] >- (
-    gvs [Once dest_anyThunk_def]
-    \\ Cases_on ‘ALOOKUP funs fn’ \\ gvs []
-    >- (
-      rgs [Once v_rel_cases] \\ gvs []
-      >- (
-        TOP_CASE_TAC \\ gvs [dest_anyThunk_def, AllCaseEqs()]
-        \\ drule ALOOKUP_SND \\ gvs [dest_Lam_def])
-      \\ ‘ALL_DISTINCT (MAP FST funs)’ by gvs []
-      \\ drule_all LIST_REL_loc_rel_alt \\ gvs [])
-    \\ rpt (TOP_CASE_TAC \\ gvs [])
-    \\ rgs [Once v_rel_cases]
-    \\ gvs [AllCaseEqs(), dest_anyThunk_def]
-    >>~- ([‘MEM (_,Lam _ _) funs’], drule ALOOKUP_SND \\ gvs [dest_Lam_def])
-    \\ ‘ALL_DISTINCT (MAP FST funs)’ by gvs []
-    \\ drule_all LIST_REL_loc_rel_alt \\ gvs [])
-  >~ [‘v_rel _ (Thunk _) v2’] >- (
-    rgs [Once v_rel_cases] \\ gvs [dest_anyThunk_def])
-  >~ [‘v_rel _ (Atom l) v2’] >- rgs [Once v_rel_cases]
 QED
 
 Theorem step_forward:
@@ -2142,31 +2134,7 @@ Proof
       \\ ‘v1 ≠ thk’ by (CCONTR_TAC \\ gvs [])
       \\ imp_res_tac v_rel_thunk_IMP_oEL
       \\ gvs [oEL_THM])
-    >~ [‘BoxK’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def]
-      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
-      \\ Cases_on ‘thunk_or_thunk_loc v1’ \\ gvs []
-      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
-      \\ drule_then drule state_rel_INL
-      \\ simp [oneline dest_anyThunk_def,AllCaseEqs(),oneline dest_Thunk_def]
-      \\ strip_tac
-      \\ disch_then $ drule_at Any
-      \\ simp [Once step_res_rel_cases, PULL_EXISTS]
-      \\ disch_then $ qspecl_then [‘sk’,‘ThunkLoc (LENGTH ss)’] mp_tac
-      \\ impl_tac >-
-       (irule_at Any v_rel_new_Thunk
-        \\ irule_at Any cont_rel_ext
-        \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-      \\ strip_tac
-      \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-      \\ first_x_assum $ irule_at $ Pos hd \\ fs [SF SFY_ss]
-      \\ rpt gen_tac \\ strip_tac
-      \\ gvs [oEL_THM]
-      \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
-      \\ gvs [EL_APPEND1,SNOC_APPEND,state_rel_def]
-      \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-      \\ gvs [EL_APPEND1,SNOC_APPEND,state_rel_def])
+    >~ [‘BoxK’] >- suspend "boxk"
     >~ [‘LetK tenv n te’] >-
      (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
@@ -2345,6 +2313,7 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1+1’
     \\ rewrite_tac [step_n_add,ADD1]
     \\ simp [step,return_def]
+    \\ IF_CASES_TAC \\ gvs [bad_thunk_update_def]
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ simp []
     \\ ‘step_res_rel (p ++ [SOME (Thunk (INR (env1,te)))])
           (Val (Thunk (INR (env1,te)))) (Val (ThunkLoc (LENGTH ss))) ∧
@@ -2427,6 +2396,12 @@ Proof
    (simp [EVERY_MEM,FORALL_PROD,MAP_MAP_o,combinTheory.o_DEF]
     \\ drule_all Letrec_split_ALL_DISTINCT \\ strip_tac
     \\ simp [LAMBDA_PROD,FST_INTRO]
+    \\ conj_tac
+    >- (
+      rw []
+      \\ gvs [IN_DISJOINT]
+      \\ first_x_assum $ qspec_then `p_1` assume_tac \\ gvs []
+      \\ gvs [MEM_MAP])
     \\ fs [ALOOKUP_NONE,MEM_make_let_env,MAP_MAP_o,combinTheory.o_DEF,IN_DISJOINT]
     \\ simp [LAMBDA_PROD,FST_INTRO]
     \\ qpat_x_assum ‘_ = set (MAP _ _)’ (assume_tac o GSYM)
@@ -2459,6 +2434,37 @@ Proof
   \\ first_x_assum $ irule_at $ Pos last \\ fs []
   \\ drule_all Letrec_split_ALL_DISTINCT \\ fs []
 QED
+
+Resume step_forward[boxk]:
+ Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def]
+      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ Cases_on ‘thunk_or_thunk_loc v1’ \\ gvs []
+      \\ drule_all thunk_or_thunk_loc_rel \\ strip_tac
+      \\ simp [bad_thunk_update_def]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ drule_then drule state_rel_INL
+      \\ simp [oneline dest_anyThunk_def,AllCaseEqs(),oneline dest_Thunk_def]
+      \\ strip_tac
+      \\ disch_then $ drule_at Any
+      \\ simp [Once step_res_rel_cases, PULL_EXISTS]
+      \\ disch_then $ qspecl_then [‘sk’,‘ThunkLoc (LENGTH ss)’] mp_tac
+      \\ impl_tac >-
+       (irule_at Any v_rel_new_Thunk
+        \\ irule_at Any cont_rel_ext
+        \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+      \\ strip_tac
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs [SF SFY_ss]
+      \\ rpt gen_tac \\ strip_tac
+      \\ gvs [oEL_THM]
+      \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
+      \\ gvs [EL_APPEND1,SNOC_APPEND,state_rel_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+      \\ gvs [EL_APPEND1,SNOC_APPEND,state_rel_def]
+QED
+
+Finalise step_forward;
 
 Theorem step_backward:
   ∀m zs p sr ss sk sr1 ss1 sk1 tr ts tk.
@@ -2597,24 +2603,7 @@ Proof
       \\ drule_all (state_rel_LUPDATE_anyThunk |> REWRITE_RULE [mk_rec_env_def])
       \\ fs [])
     >~ [‘BoxK’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
-      \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
-      \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
-                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-      \\ strip_tac
-      \\ IF_CASES_TAC \\ gvs [] >- (qexists ‘0’ \\ gvs [])
-      \\ first_x_assum irule
-      \\ first_x_assum $ irule_at Any \\ fs [ADD1]
-      \\ qexists_tac ‘zs’
-      \\ simp [step_res_rel_cases]
-      \\ irule_at Any v_rel_new_Thunk
-      \\ irule_at Any cont_rel_ext
-      \\ first_x_assum $ irule_at Any
-      \\ irule_at Any state_rel_INL \\ gvs []
-      \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH
-      \\ fs [dest_anyThunk_def])
+     suspend "boxk"
     >~ [‘LetK tenv n te’] >-
      (Q.REFINE_EXISTS_TAC ‘ck1+1’
       \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
@@ -2770,24 +2759,7 @@ Proof
     \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
     \\ rpt (first_assum $ irule_at $ Any \\ fs []))
   >~ [‘Delay te’] >-
-   (ntac 2
-     (simp [step]
-      \\ Cases_on ‘n’ \\ fs []
-      >- (rw [] \\ fs [is_halt_def])
-      \\ rewrite_tac [step_n_add,ADD1]
-      \\ simp [step]
-      \\ rename [‘step_n n’])
-    \\ strip_tac
-    \\ last_x_assum irule
-    \\ pop_assum $ irule_at Any \\ fs []
-    \\ qexists_tac ‘zs’ \\ fs []
-    \\ qexists_tac ‘p ++ [SOME (Thunk (INR (env1,te)))]’ \\ fs []
-    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
-    \\ irule_at Any v_rel_new_Thunk
-    \\ irule_at Any cont_rel_ext \\ simp []
-    \\ irule_at Any state_rel_INR \\ fs []
-    \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ gvs [dest_anyThunk_def])
+   suspend "delay"
   >~ [‘App op ys’] >-
    (fs [step,error_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -2816,7 +2788,56 @@ Proof
     >- (qexists_tac ‘0’ \\ gvs [is_halt_def])
     \\ last_x_assum irule
     \\ rpt (last_x_assum $ irule_at Any \\ fs []))
-  \\ rename [‘Letrec tfns te’]
+  \\ suspend "letrec"
+QED
+
+Resume step_backward[boxk]:
+Q.REFINE_EXISTS_TAC ‘ck1+1’
+      \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
+      \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
+      \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+      \\ strip_tac
+      \\ IF_CASES_TAC \\ gvs [] >- (qexists ‘0’ \\ gvs [])
+      \\ drule_all thunk_or_thunk_loc_rel \\ strip_tac
+      \\ gvs [bad_thunk_update_def]
+      \\ first_x_assum irule
+      \\ first_x_assum $ irule_at Any \\ fs [ADD1]
+      \\ qexists_tac ‘zs’
+      \\ simp [step_res_rel_cases]
+      \\ irule_at Any v_rel_new_Thunk
+      \\ irule_at Any cont_rel_ext
+      \\ first_x_assum $ irule_at Any
+      \\ irule_at Any state_rel_INL \\ gvs []
+      \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH
+      \\ fs [dest_anyThunk_def]
+QED
+
+Resume step_backward[delay]:
+ntac 2
+     (simp [step]
+      \\ Cases_on ‘n’ \\ fs []
+      >- (rw [] \\ fs [is_halt_def])
+      \\ rewrite_tac [step_n_add,ADD1]
+      \\ simp [step]
+      \\ rename [‘step_n n’])
+    \\ IF_CASES_TAC \\ gvs [bad_thunk_update_def]
+    \\ strip_tac
+    \\ last_x_assum irule
+    \\ pop_assum $ irule_at Any \\ fs []
+    \\ qexists_tac ‘zs’ \\ fs []
+    \\ qexists_tac ‘p ++ [SOME (Thunk (INR (env1,te)))]’ \\ fs []
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+    \\ irule_at Any v_rel_new_Thunk
+    \\ irule_at Any cont_rel_ext \\ simp []
+    \\ irule_at Any state_rel_INR \\ fs []
+    \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ gvs [dest_anyThunk_def]
+QED
+
+Resume step_backward[letrec]:
+rename [‘Letrec tfns te’]
   \\ rewrite_tac [GSYM step_n_add,ADD1] \\ gvs []
   \\ simp [comp_Letrec_def] \\ pairarg_tac \\ gvs []
   \\ strip_tac
@@ -2825,23 +2846,28 @@ Proof
   \\ pop_assum mp_tac
   \\ Cases_on ‘m’
   >- (gvs [] \\ rw [] \\ gvs [is_halt_def])
-  \\ simp [step_n_add,step,ADD1]
+  \\ suspend "letrec_suc"
+QED
+
+Resume step_backward[letrec_suc]:
+simp [step_n_add,step,ADD1]
   \\ gvs [ADD1]
   \\ imp_res_tac Letrec_split_EVERY
   \\ drule_all Letrec_split_ALL_DISTINCT \\ strip_tac
   \\ fs [] \\ strip_tac
-  \\ drule_at (Pos last) Letrec_store_thm
+  \\ suspend "letrec_main"
+QED
+
+Resume step_backward[letrec_main]:
+drule_at (Pos last) Letrec_store_thm
   \\ simp []
   \\ rpt (disch_then drule)
-  \\ impl_tac
-  >-
-   (simp [EVERY_LAM]
-    \\ fs [ALOOKUP_NONE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,MEM_make_let_env]
-    \\ qpat_x_assum ‘_ = set (MAP _ _)’ (assume_tac o GSYM)
-    \\ simp [FST_INTRO]
-    \\ gvs [IN_DISJOINT,MEM_MAP,FORALL_PROD,EXTENSION,EVERY_MEM]
-    \\ gvs [FORALL_PROD,EXISTS_PROD]
-    \\ metis_tac [])
+  \\ suspend "letrec_after"
+QED
+
+Resume step_backward[letrec_after]:
+impl_tac
+  >- suspend "letrec_cond"
   \\ strip_tac
   \\ ‘k < n + 1’ by fs []
   \\ last_x_assum drule
@@ -2856,6 +2882,18 @@ Proof
   \\ irule (state_rel_Letrec |> REWRITE_RULE [mk_rec_env_def]) \\ fs []
   \\ first_x_assum $ irule_at $ Pos last \\ fs []
 QED
+
+Resume step_backward[letrec_cond]:
+  simp [EVERY_LAM]
+  \\ fs [ALOOKUP_NONE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,MEM_make_let_env]
+  \\ qpat_x_assum ‘_ = set (MAP _ _)’ (assume_tac o GSYM)
+  \\ simp [FST_INTRO]
+  \\ gvs [IN_DISJOINT,MEM_MAP,FORALL_PROD,EXTENSION,EVERY_MEM]
+  \\ gvs [FORALL_PROD,EXISTS_PROD]
+  \\ metis_tac []
+QED
+
+Finalise step_backward;
 
 (* step_until_halt *)
 

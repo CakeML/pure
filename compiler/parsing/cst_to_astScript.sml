@@ -1,7 +1,9 @@
 Theory cst_to_ast
 Ancestors
-  tokenUtils grammar
+  tokenUtils grammar mlstring
   pureNT pureTokenUtils pureAST precparser[qualified]
+Libs
+  mlstringSyntax
 
 Overload lift[local] = “option$OPTION_MAP”
 Overload "'"[local] = “λf a. OPTION_BIND a f”
@@ -19,6 +21,22 @@ Definition mkFunTy_def:
   mkFunTy [] = tyOp "Bool" [] ∧ (* bogus but should never occur *)
   mkFunTy [ty] = ty ∧
   mkFunTy (ty::rest) = tyOp "Fun" [ty; mkFunTy rest]
+End
+
+Definition destAlphaT_str_def:
+  destAlphaT_str t = OPTION_MAP explode (destAlphaT t)
+End
+
+Definition destSymbolT_str_def:
+  destSymbolT_str t = OPTION_MAP explode (destSymbolT t)
+End
+
+Definition destStringT_str_def:
+  destStringT_str t = OPTION_MAP explode (destStringT t)
+End
+
+Definition destFFIT_str_def:
+  destFFIT_str t = OPTION_MAP explode (destFFIT t)
 End
 
 Definition grab_def:
@@ -121,6 +139,26 @@ Proof
   Cases_on ‘rest’ >> simp[grabsepby_def]
 QED
 
+Theorem list_size_MAP_SUM:
+  list_size f l = LENGTH l + SUM (MAP f l)
+Proof
+  Induct_on‘l’ >> simp[listTheory.list_size_def]
+QED
+
+Theorem ptsize_nonzero[simp]:
+  0 < ptsize a
+Proof
+  Cases_on ‘a’ >> simp[parsetree_size_def]
+QED
+
+Theorem NUMS_LT_SUC[local,simp]:
+  (2 < SUC x ⇔ 1 < x) ∧
+  (1 < SUC x ⇔ 0 < x)
+Proof
+  simp[]
+QED
+
+
 Definition astType_def:
   astType nt (Lf _) = NONE ∧
   (astType nt1 (Nd nt2 args) =
@@ -130,7 +168,7 @@ Definition astType_def:
      | [] => NONE
      | [pt] =>
          do
-           s <- destAlphaT ' (destTOK ' (destLf pt));
+           s <- destAlphaT_str ' (destTOK ' (destLf pt));
            c1 <- oHD s;
            if isUpper c1 then SOME $ tyOp s []
            else SOME $ tyVar s
@@ -168,7 +206,7 @@ Definition astType_def:
      | pt::rest =>
          do
            ty1 <- astType nTyApp pt ;
-           (tys, rest') <- astSepType (SymbolT "->") nTyApp rest;
+           (tys, rest') <- astSepType (SymbolT «->») nTyApp rest;
            SOME $ mkFunTy (ty1::tys)
          od
    else if nt1 = nTyApp then
@@ -177,7 +215,7 @@ Definition astType_def:
      | [pt] => astType nTyBase pt
      | op_pt :: rest =>
          do
-           opnm <- destAlphaT ' (destTOK ' (destLf op_pt)) ;
+           opnm <- destAlphaT_str ' (destTOK ' (destLf op_pt)) ;
            ty_args <- astTypeBaseL rest ;
            SOME $ tyOp opnm ty_args
          od
@@ -198,6 +236,12 @@ Definition astType_def:
      tys <- astTypeBaseL rest ;
      SOME (ty1 :: tys)
    od)
+Termination
+  WF_REL_TAC ‘measure (λs. case s of
+                         | INL (_,pt) => ptsize pt
+                         | INR (INL (_,_,pts)) => 1 + SUM (MAP ptsize pts)
+                         | INR (INR pts) => 1 + SUM (MAP ptsize pts))’ >>
+  simp [arithmeticTheory.ZERO_LESS_ADD, list_size_MAP_SUM]
 End
 
 Definition astLit_def:
@@ -208,7 +252,7 @@ Definition astLit_def:
     case args of
       [] => NONE
     | [pt] => (lift litInt $ destIntT ' (destTOK ' (destLf pt))) ++
-              (lift litString $ destStringT ' (destTOK ' (destLf pt)))
+              (lift litString $ destStringT_str ' (destTOK ' (destLf pt)))
     | _ => NONE
 End
 
@@ -221,16 +265,16 @@ Definition astOp_def:
     | [pt] =>
         do
           t <- destTOK ' (destLf pt) ;
-          destSymbolT t ++ (if t = StarT then SOME "*"
+          destSymbolT_str t ++ (if t = StarT then SOME "*"
                             else if t = ColonT then SOME ":"
                             else NONE)
         od
     | [bqt1; idpt; bqt2] =>
         do
-          assert (tokcheck bqt1 (SymbolT "`") ∧
-                  tokcheck bqt2 (SymbolT "`"));
+          assert (tokcheck bqt1 (SymbolT «`») ∧
+                  tokcheck bqt2 (SymbolT «`»));
           t <- destTOK ' (destLf idpt);
-          destAlphaT t
+          destAlphaT_str t
         od
     | _ => NONE
 End
@@ -243,7 +287,7 @@ Proof
 QED
 
 Definition astalpha_def:
-  astalpha pt = destAlphaT ' (destTOK ' (destLf pt))
+  astalpha pt = destAlphaT_str ' (destTOK ' (destLf pt))
 End
 
 
@@ -251,7 +295,7 @@ Definition astlcname_def:
   astlcname pt =
   do
     nm <- astalpha pt;
-    assert (lcname nm);
+    assert (lcname (implode nm));
     return nm;
   od
 End
@@ -260,7 +304,7 @@ Definition astcapname_def:
   astcapname pt =
   do
     nm <- astalpha pt;
-    assert (capname nm);
+    assert (capname (implode nm));
     return nm
   od
 End
@@ -321,9 +365,9 @@ val tabinfo = [
   ("seq", (0, “Right”)),
   ("$!", (0, “Right”))
 ]
-val s = mk_var("s", “:string”)
+val s = mk_var("s", “:mlstring”)
 val def = List.foldr (fn ((t,(i,tm)), A) =>
-              mk_cond(mk_eq(s,stringSyntax.fromMLstring t),
+              mk_cond(mk_eq(s,mk_mlstring t),
                       optionSyntax.mk_some
                          (pairSyntax.mk_pair(
                            numSyntax.mk_numeral (Arbnum.fromInt i), tm)),
@@ -336,8 +380,8 @@ End
 
 Definition tok_action_def:
   tok_action (INL stktok, INL inptok) =
-  do (stkprec, stka) <- tokprec stktok ;
-     (inpprec, inpa) <- tokprec inptok ;
+  do (stkprec, stka) <- tokprec (implode stktok) ;
+     (inpprec, inpa) <- tokprec (implode inptok) ;
      if inpprec < stkprec then SOME Reduce
      else if stkprec < inpprec then SOME Shift
      else if stka ≠ inpa ∨ stka = NonAssoc then NONE
@@ -403,26 +447,6 @@ Definition handlePrecs_def:
 End
 
 
-Theorem list_size_MAP_SUM:
-  list_size f l = LENGTH l + SUM (MAP f l)
-Proof
-  Induct_on‘l’ >> simp[listTheory.list_size_def]
-QED
-
-Theorem ptsize_nonzero[simp]:
-  0 < ptsize a
-Proof
-  Cases_on ‘a’ >> simp[parsetree_size_def]
-QED
-
-Theorem NUMS_LT_SUC[local,simp]:
-  (2 < SUC x ⇔ 1 < x) ∧
-  (1 < SUC x ⇔ 0 < x)
-Proof
-  simp[]
-QED
-
-
 Datatype:
   resolve_decl = resolve_declPattern patAST
                | resolve_declFun string (patAST list)
@@ -469,7 +493,7 @@ Definition astExp_def:
        [] => NONE
      | [pt] =>
          do
-           vnm <- destAlphaT ' (destTOK ' (destLf pt)) ;
+           vnm <- destAlphaT_str ' (destTOK ' (destLf pt)) ;
            SOME $ mkSym vnm
          od ++ (lift expLit $ astLit pt) ++
          do
@@ -477,7 +501,7 @@ Definition astExp_def:
            SOME $ expVar "_"
          od ++
          do
-           ffi_s <- destFFIT ' (destTOK ' (destLf pt)) ;
+           ffi_s <- destFFIT_str ' (destTOK ' (destLf pt)) ;
            return $ expOp (mkFFISym ffi_s) []
          od
      | [lp;rp] =>
@@ -503,7 +527,7 @@ Definition astExp_def:
        [pt] => astExp nIExp pt
      | [do_pt; doblock_pt] =>
          do
-           assert (tokcheck do_pt (AlphaT "do")) ;
+           assert (tokcheck do_pt (AlphaT «do»)) ;
            doblock <- astDoBlock doblock_pt ;
            optLAST expDo dostmt_to_exp doblock ;
          od
@@ -519,10 +543,10 @@ Definition astExp_def:
            SOME $ expIf gd_e then_e else_e;
          od ++
          do
-           assert (tokcheck pt1 (SymbolT "\\"));
+           assert (tokcheck pt1 (SymbolT «\\»));
            (pats,tail) <- grab (astPat nAPat) rest;
            assert (LIST_REL (λP pt. P pt)
-                   [flip tokcheck (SymbolT "->"); K T] tail);
+                   [flip tokcheck (SymbolT «->»); K T] tail);
            body_e <- astExp nExp ' (oEL 1 tail);
            SOME $ FOLDR expAbs body_e pats
          od ++
@@ -608,8 +632,8 @@ Definition astExp_def:
            | resolve_declFun id ps => SOME $ expdecFunbind id ps re
          od ++
          do
-           assert (tokcheck eq_t (SymbolT "::")) ;
-           vnm <- destAlphaT ' (destTOK ' (destLf e1_pt)) ;
+           assert (tokcheck eq_t (SymbolT «::»)) ;
+           vnm <- destAlphaT_str ' (destTOK ' (destLf e1_pt)) ;
            ty <- astType nTy e2_pt;
            SOME (expdecTysig vnm ty)
          od
@@ -629,7 +653,7 @@ Definition astExp_def:
          od
      | [pat_pt; arrow_pt; exp_pt] =>
          do
-           assert (tokcheck arrow_pt (SymbolT "<-"));
+           assert (tokcheck arrow_pt (SymbolT «<-»));
            patexp <- astExp nExp pat_pt  ;
            pat <- exp_to_pat patexp ;
            exp <- astExp nExp exp_pt;
@@ -651,7 +675,7 @@ Definition astExp_def:
      case args of
        [pat_pt; arrow; exp_pt] =>
          do
-           assert (tokcheck arrow (SymbolT "->"));
+           assert (tokcheck arrow (SymbolT «->»));
            ep <- astExp nExp pat_pt ;
            p <- exp_to_pat ep ;
            e <- astExp nExp exp_pt ;
@@ -760,15 +784,15 @@ Definition astDecl_def:
        [vb_pt] => astValBinding vb_pt
      | [idtok; coloncolontok; ty_pt] =>
          do
-           assert (tokcheck coloncolontok (SymbolT "::"));
-           vnm <- destAlphaT ' (destTOK ' (destLf idtok)) ;
+           assert (tokcheck coloncolontok (SymbolT «::»));
+           vnm <- destAlphaT_str ' (destTOK ' (destLf idtok)) ;
            ty <- astType nTy ty_pt;
            return (declTysig vnm ty)
          od
      | (datatok :: dname_tok :: arg1_or_eq :: rest) =>
          do
-           assert (tokcheck datatok (AlphaT "data"));
-           dnm <- destAlphaT ' (destTOK ' (destLf dname_tok));
+           assert (tokcheck datatok (AlphaT «data»));
+           dnm <- destAlphaT_str ' (destTOK ' (destLf dname_tok));
            (args, rhs) <- grab astlcname (arg1_or_eq :: rest);
            assert (2 ≤ LENGTH rhs) ;
            eqpt <- oEL 0 rhs;

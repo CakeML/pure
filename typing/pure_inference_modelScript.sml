@@ -991,8 +991,7 @@ Proof
         simp[monad_cns_def] >>
         gvs[new_vars_def, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, LAMBDA_PROD, pure_vars] >>
-        simp[BIGUNION_SUBSET, PULL_EXISTS, GSYM implodeEQ,
-             mlstringTheory.implode_def] >>
+        simp[BIGUNION_SUBSET, PULL_EXISTS, GSYM implodeEQ] >>
         gen_tac >> DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >> strip_tac >> gvs[] >>
         gvs[pure_vars_iFunctions, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
         first_x_assum irule >> simp[EL_MEM]
@@ -1119,7 +1118,7 @@ Proof
           gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, pure_vars_iFunctions,
               PULL_EXISTS, IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, GSYM CONJ_ASSOC,
               MEM_MAP, EXISTS_PROD, MEM_GENLIST, FLOOKUP_DEF, MEM_ZIP] >>
-          rw[GSYM implodeEQ, mlstringTheory.implode_def]
+          rw[GSYM implodeEQ]
           >- (
             first_x_assum drule_all >> rw[SUBSET_DEF] >>
             first_x_assum drule >> simp[]
@@ -1226,7 +1225,7 @@ Proof
         gvs[new_vars_def, pure_vars, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, BIGUNION_SUBSET, PULL_EXISTS, FORALL_PROD,
             MEM_ZIP, pure_vars_iFunctions] >>
-        simp[GSYM implodeEQ, mlstringTheory.implode_def] >>
+        simp[GSYM implodeEQ] >>
         rw[] >> first_x_assum irule >> simp[EL_MEM]
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>

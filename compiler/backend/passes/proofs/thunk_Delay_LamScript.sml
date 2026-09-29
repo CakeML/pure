@@ -1867,7 +1867,7 @@ Proof
               \\ Cases_on ‘eval_to (k - 1) (subst_funs ys y')’ \\ gvs []
               \\ rpt (IF_CASES_TAC \\ gvs [])
               >>~- ([‘is_anyThunk’],
-                last_x_assum $ qspecl_then [‘e’, ‘binds’, ‘subst_funs ys y'`] mp_tac
+                last_x_assum $ qspecl_then [‘e’, ‘binds’, ‘subst_funs ys y'’] mp_tac
                 \\ simp [] \\ rpt strip_tac
                 >- (
                   gvs [subst_funs_def] \\ irule exp_rel_subst

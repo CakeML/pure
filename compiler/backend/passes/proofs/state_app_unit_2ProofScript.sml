@@ -272,6 +272,49 @@ Proof
   rw [Once compile_rel_cases]
 QED
 
+Theorem dest_anyThunk_Recclosure_Lam:
+  EVERY (λ(n,x). ∃v y. x = Lam v y) f ⇒
+  dest_anyThunk (Recclosure f env n) = NONE
+Proof
+  rw[dest_anyThunk_def] >> Cases_on `ALOOKUP f n` >> gvs[] >>
+  drule ALOOKUP_MEM >> strip_tac >> gvs[EVERY_MEM] >>
+  qpat_x_assum `∀e. MEM e f ⇒ _` (qspec_then `(n,x)` mp_tac) >> rw[] >> simp[]
+QED
+
+Theorem every_lam_compile_rel:
+  EVERY (λ(n,x). ∃v y. x = Lam v y) tfns ∧
+  LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ⇒
+  EVERY (λ(n,x). ∃v y. x = Lam v y) sfns
+Proof
+  qid_spec_tac `sfns` >> Induct_on `tfns` >> Cases_on `sfns` >>
+  rw[] >> PairCases_on `h` >> PairCases_on `h'` >> gvs[] >>
+  drule compile_rel_Lam >> gvs[] >> strip_tac >> gvs[]
+QED
+
+Theorem bad_thunk_update_v_rel:
+  v_rel tv sv ⇒
+  (bad_thunk_update m tv ⇔ bad_thunk_update m sv)
+Proof
+  rw[Once v_rel_cases,bad_thunk_update_def,thunk_or_thunk_loc_def] >>
+  imp_res_tac every_lam_compile_rel >>
+  simp[dest_anyThunk_Recclosure_Lam,dest_anyThunk_def]
+QED
+
+Theorem store_assign_thunk_rel:
+  state_rel st1 st2 ∧ v_rel v1 v2 ⇒
+  OPTREL state_rel
+    (store_assign n (ThunkMem m v1) st1)
+    (store_assign n (ThunkMem m v2) st2)
+Proof
+  rw[state_rel_def,store_assign_def,LIST_REL_EL_EQN] >>
+  Cases_on `n < LENGTH st1` >> gvs[] >> res_tac >>
+  Cases_on `EL n st1` >> Cases_on `EL n st2` >>
+  gvs[store_rel_def,store_same_type_def,LIST_REL_EL_EQN,
+      EL_LUPDATE,LENGTH_LUPDATE] >> rw[] >> res_tac >> gvs[store_rel_def] >>
+  disj1_tac >> qexists `n` >> gvs[store_rel_def] >>
+  TRY (Cases_on `t`) >> TRY (Cases_on `t'`) >> gvs[]
+QED
+
 Theorem application_thm:
   ∀op tvs ts tk tr1 ts1 tk1 ss sk svs.
     application op tvs ts tk = (tr1,ts1,tk1) ∧
@@ -412,29 +455,8 @@ Proof
        \\ res_tac \\ Cases_on ‘EL n x’ \\ gvs [store_rel_def]
        \\ gvs [LIST_REL_EL_EQN])
     \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
-  >~ [‘AllocMutThunk’] >-
-   (gvs [application_def,step,step_res_rel_cases]
-    \\ qpat_x_assum ‘v_rel x h’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ss’ \\ gvs []
-    \\ fs [state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_SNOC,store_rel_def]
-    \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,EL_REPLICATE]
-    \\ gvs [LIST_REL_EL_EQN])
-  >~ [‘UpdateMutThunk’] >-
-   (gvs [application_def,step,step_res_rel_cases]
-    \\ qpat_x_assum ‘v_rel x h’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
-    \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
-    \\ Cases_on ‘EL n x''’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
-    \\ simp [Once v_rel_cases] \\ strip_tac
-    \\ gvs [EL_LUPDATE]
-    \\ IF_CASES_TAC \\ rw [store_rel_def])
+  >~ [‘AllocMutThunk’] >- suspend "alloc_mut_thunk"
+  >~ [‘UpdateMutThunk’] >- suspend "update_mut_thunk"
   >~ [‘ForceMutThunk’] >-
    (once_rewrite_tac [application_def]
     \\ rgs [Once application_def]
@@ -461,6 +483,42 @@ Proof
   \\ imp_res_tac get_atoms_thm \\ gvs [AllCaseEqs()]
   \\ simp [Once v_rel_cases]
 QED
+
+Resume application_thm[alloc_mut_thunk]:
+ gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ss’ \\ gvs []
+    \\ fs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ simp [Once v_rel_cases]
+    \\ fs [LIST_REL_SNOC,store_rel_def]
+    \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,EL_REPLICATE]
+    \\ imp_res_tac every_lam_compile_rel
+    \\ gvs [LIST_REL_EL_EQN,bad_thunk_update_def,
+            thunk_or_thunk_loc_def,dest_anyThunk_def,
+            dest_anyThunk_Recclosure_Lam]
+    \\ simp [state_rel_def,LIST_REL_SNOC,store_rel_def,Once v_rel_cases]
+    \\ gvs [LIST_REL_EL_EQN]
+QED
+
+Resume application_thm[update_mut_thunk]:
+ gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac bad_thunk_update_v_rel
+    \\ imp_res_tac store_assign_thunk_rel
+    \\ gvs [AllCaseEqs(),step_res_rel_cases]
+    \\ simp [Once v_rel_cases]
+    \\ qpat_x_assum `∀n m. OPTREL state_rel _ _`
+         (qspecl_then [`n`,`t`] mp_tac) \\ gvs[] \\ strip_tac \\ gvs[]
+    \\ Cases_on `store_assign n (ThunkMem t h') x''` \\ gvs[]
+    \\ rpt (goal_assum drule) \\ gvs[]
+QED
+
+Finalise application_thm;
 
 Definition step_1_ind_hyp_def:
   step_1_ind_hyp k =

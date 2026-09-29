@@ -1352,7 +1352,7 @@ Theorem MEM_reserved_cn_mlstrings[simp]:
   MEM e reserved_cn_mlstrings ⇔ explode e ∈ reserved_cns
 Proof
   rw[reserved_cn_mlstrings_def, pure_configTheory.reserved_cns_def] >>
-  gvs[GSYM implodeEQ] >> simp[mlstringTheory.implode_def]
+  gvs[GSYM implodeEQ] >> simp[]
 QED
 
 (******************* Translator-friendly version ********************)

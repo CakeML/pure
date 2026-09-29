@@ -117,7 +117,7 @@ End
 
 fun debug_eval tm =
   let val cmp = pure_parse_infer_compset ()
-      val _ = computeLib.extend_compset
+      val cmp = computeLib.extend_compset
                 [computeLib.Defs [
                   fetch "-" "solve_def",
                   fetch "-" "subst_solution_def",

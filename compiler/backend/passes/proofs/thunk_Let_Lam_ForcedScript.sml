@@ -1339,7 +1339,7 @@ Proof
       \\ rw []
       >- gvs [FOLDR_APPEND]
       \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP ll n = SOME _’
-      \\ `ALL_DISTINCT (MAP FST ll)’ by (
+      \\ ‘ALL_DISTINCT (MAP FST ll)’ by (
         unabbrev_all_tac \\ gvs []
         \\ gvs [MAP_REVERSE, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
         \\ last_x_assum drule \\ rw []

@@ -13,24 +13,24 @@ Libs
 
 Overload capp = ``λce1 ce2. ast$App Opapp [ce1; ce2]``;
 Overload int  = ``λi. ast$Lit $ IntLit i``;
-Overload clet = ``λs e1 e2. ast$Let (SOME s) e1 e2``;
+Overload clet = ``λs e1 e2. ast$Let (SOME (implode s)) e1 e2``;
 Overload ifeq = ``λ(a,b) e1 e2. ast$If (App Equality [a;b]) e1 e2``;
-Overload iflt = ``λ(a,b) e1 e2. ast$If (App (Opb Lt) [a;b]) e1 e2``
-Overload var  = ``λs. ast$Var $ Short s``;
-Overload tt = ``Con (SOME $ Short $ "True") []``;
-Overload ff = ``Con (SOME $ Short $ "False") []``;
+Overload iflt = ``λ(a,b) e1 e2. ast$If (App (Test (Compare Lt) IntT) [a;b]) e1 e2``
+Overload var  = ``λs. ast$Ident $ Short (implode s)``;
+Overload tt = ``Con (SOME $ Short $ «True») []``;
+Overload ff = ``Con (SOME $ Short $ «False») []``;
 
 (*
   if v2 = 0 then 0 else Divide v1 v2
 *)
 Overload div =
-  ``ifeq (var "v2", int 0) (int 0) (App (Opn Divide) [var "v1"; var "v2"])``;
+  ``ifeq (var "v2", int 0) (int 0) (App (Arith Div IntT) [var "v1"; var "v2"])``;
 
 (*
   if v2 = 0 then 0 else Modulo v1 v2
 *)
 Overload mod =
-  ``ifeq (var "v2", int 0) (int 0) (App (Opn Modulo) [var "v1"; var "v2"])``;
+  ``ifeq (var "v2", int 0) (int 0) (App (Arith Mod IntT) [var "v1"; var "v2"])``;
 
 (*
   if v2 < 0 then -1 else
@@ -41,7 +41,7 @@ Overload elem_str =
   ``iflt (var "v2", int 0) (int (-1)) $
     clet "strlen" (App Strlen [var "v1"]) $
     iflt (var "v2", var "strlen")
-      (App Ord [App Strsub [var "v1"; var "v2"]])
+      (App (FromTo CharT IntT) [App Strsub [var "v1"; var "v2"]])
       (int (-1))``
 
 (*
@@ -52,12 +52,12 @@ Overload elem_str =
 *)
 Definition char_list_exp_def:
   char_list_exp = [
-    "char_list", "l",
+    «char_list», «l»,
       Mat (var "l") [
-        (Pcon (SOME (Short "[]")) [], Con (SOME (Short "[]")) []);
-        (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
-          Con (SOME (Short "::")) [
-            App Chr [App (Opn Modulo) [var "h"; int 256]];
+        (Pcon (SOME (Short «[]»)) [], Con (SOME (Short «[]»)) []);
+        (Pcon (SOME (Short «::»)) [Pvar «h»; Pvar «t»],
+          Con (SOME (Short «::»)) [
+            App (FromTo IntT CharT) [App (Arith Mod IntT) [var "h"; int 256]];
             (capp (var "char_list") (var "t")) ])
         ]
     ]
@@ -74,8 +74,8 @@ Overload substring2 =
   ``clet "strlen" (App Strlen [var "v1"]) $
     clet "off" (iflt (var "v2", int 0) (int 0) (var "v2")) $
     iflt (var "off", var "strlen")
-      (App CopyStrStr [var "v1"; var "off"; App (Opn Minus) [var "strlen"; var "off"]])
-      (Lit $ StrLit "")``;
+      (App CopyStrStr [var "v1"; var "off"; App (Arith Sub IntT) [var "strlen"; var "off"]])
+      (Lit $ StrLit «»)``;
 
 (*
   λs i l.
@@ -89,14 +89,14 @@ Overload substring2 =
       else ""
 *)
 Overload substring3 =
-  ``iflt (var "l", int 0) (Lit $ StrLit "") $
+  ``iflt (var "l", int 0) (Lit $ StrLit «») $
     clet "strlen" (App Strlen [var "s"]) $
     clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
     iflt (var "off", var "strlen") (
-      clet "off_l" (App (Opn Plus) [var "off"; var "l"]) $
+      clet "off_l" (App (Arith Add IntT) [var "off"; var "l"]) $
       clet "end" (iflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
-      App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
-      (Lit $ StrLit "")``;
+      App CopyStrStr [var "s"; var "off"; App (Arith Sub IntT) [var "end"; var "off"]])
+      (Lit $ StrLit «»)``;
 
 Definition strle_def:
   strle (n : num) s1 s2 len1 len2 =
@@ -111,15 +111,15 @@ End
 
 Definition strle_exp_def:
   strle_exp = [
-    "strle", "n",
-      Fun "s1" $ Fun "s2" $ Fun "len1" $ Fun "len2" $
-      If (App (Opb Leq) [var "len1"; var "n"]) tt $
-      If (App (Opb Leq) [var "len2"; var "n"]) ff $
-      clet "o1" (App Ord [App Strsub [var "s1"; var "n"]]) $
-      clet "o2" (ast$App Ord [App Strsub [var "s2"; var "n"]]) $
+    «strle», «n»,
+      Fun «s1» $ Fun «s2» $ Fun «len1» $ Fun «len2» $
+      If (App (Test (Compare Leq) IntT) [var "len1"; var "n"]) tt $
+      If (App (Test (Compare Leq) IntT) [var "len2"; var "n"]) ff $
+      clet "o1" (App (FromTo CharT IntT) [App Strsub [var "s1"; var "n"]]) $
+      clet "o2" (ast$App (FromTo CharT IntT) [App Strsub [var "s2"; var "n"]]) $
       iflt (var "o1", var "o2") tt $
       ifeq (var "o1", var "o2")
-        (capp (capp (capp (capp (capp (var "strle") (App (Opn Plus) [var "n"; int 1]))
+        (capp (capp (capp (capp (capp (var "strle") (App (Arith Add IntT) [var "n"; int 1]))
           (var "s1")) (var "s2")) (var "len1")) (var "len2"))
 
         ff]
@@ -158,9 +158,9 @@ Overload alloc =
     CopyAw8Str ffi_array 2 len
 *)
 Overload ffi =
-  ``clet "len0" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
-    clet "len1" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
-    clet "len" (App (Opn Plus) [App (Opn Times) [var "len1"; int 256]; var "len0"]) $
+  ``clet "len0" (App (FromTo (WordT W8) IntT) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
+    clet "len1" (App (FromTo (WordT W8) IntT) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
+    clet "len" (App (Arith Add IntT) [App (Arith Mul IntT) [var "len1"; int 256]; var "len0"]) $
     clet "len" (
       iflt (int &max_FFI_return_size, var "len")
       (int &max_FFI_return_size) (var "len")) $
@@ -173,12 +173,12 @@ Overload cunit = ``Attup []``;
 
 Overload compile_exn =
   ``λcn tys:type list.
-      Dexn unknown_loc (explode cn) (REPLICATE (LENGTH tys) cunit)``;
+      Dexn NoLocs cn (REPLICATE (LENGTH tys) cunit)``;
 
 Overload compile_tdef =
-  ``λcndefs. Dtype unknown_loc (* TODO type names? *)
-      [([],"",
-        MAP (λ(cn,tys:type list). (explode cn, MAP (K cunit) tys)) cndefs)]``;
+  ``λcndefs. Dtype NoLocs (* TODO type names? *)
+      [([],«»,
+        MAP (λ(cn,tys:type list). (cn, MAP (K cunit) tys)) cndefs)]``;
 
 
 Definition compile_exndef_def:
@@ -195,7 +195,7 @@ End
 Definition compile_namespace_def:
   compile_namespace ns =
     compile_exndef (FST ns) ++
-    [Dlet unknown_loc Pany $ Con NONE []] ++ (* simplifies a proof considerably *)
+    [Dlet NoLocs Pany $ Con NONE []] ++ (* simplifies a proof considerably *)
     compile_typedefs (SND ns)
 End
 
@@ -203,10 +203,10 @@ Definition preamble_def:
   preamble ns =
     compile_namespace ns ++
     [
-      Dlet unknown_loc (Pvar "ffi_array")
+      Dlet NoLocs (Pvar «ffi_array»)
         (App Aw8alloc [Lit (IntLit (&max_FFI_return_size + 2)); Lit (Word8 0w)]);
-      Dletrec unknown_loc strle_exp;
-      Dletrec unknown_loc char_list_exp;
+      Dletrec NoLocs strle_exp;
+      Dletrec NoLocs char_list_exp;
     ]
 End
 
@@ -215,8 +215,8 @@ End
 
 (* right to left evaluation holds for this too *)
 Definition list_to_exp_def:
-  list_to_exp [] = Con (SOME $ Short "[]") [] ∧
-  list_to_exp (e::es) = Con (SOME $ Short "::") [e; list_to_exp es]
+  list_to_exp [] = Con (SOME $ Short «[]») [] ∧
+  list_to_exp (e::es) = Con (SOME $ Short «::») [e; list_to_exp es]
 End
 
 Definition failure_def:
@@ -229,8 +229,8 @@ End
 
 Definition cexp_pat_row_def:
   cexp_pat_row cn vs =
-    (if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
-      (MAP (Pvar o cexp_var_prefix) vs)
+    (if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short cn))
+      (MAP (Pvar o implode o cexp_var_prefix) vs)
 End
 
 
@@ -241,13 +241,13 @@ Datatype:
 End
 
 Definition compile_atomop_def:
-  compile_atomop Add       = CakeOp $ Opn Plus ∧
-  compile_atomop Sub       = CakeOp $ Opn Minus ∧
-  compile_atomop Mul       = CakeOp $ Opn Times ∧
-  compile_atomop Lt        = CakeOp $ Opb Lt ∧
-  compile_atomop Leq       = CakeOp $ Opb Leq ∧
-  compile_atomop Gt        = CakeOp $ Opb Gt ∧
-  compile_atomop Geq       = CakeOp $ Opb Geq ∧
+  compile_atomop Add       = CakeOp $ Arith Add IntT ∧
+  compile_atomop Sub       = CakeOp $ Arith Sub IntT ∧
+  compile_atomop Mul       = CakeOp $ Arith Mul IntT ∧
+  compile_atomop Lt        = CakeOp $ Test (Compare Lt) IntT ∧
+  compile_atomop Leq       = CakeOp $ Test (Compare Leq) IntT ∧
+  compile_atomop Gt        = CakeOp $ Test (Compare Gt) IntT ∧
+  compile_atomop Geq       = CakeOp $ Test (Compare Geq) IntT ∧
   compile_atomop Eq        = CakeOp $ Equality ∧
   compile_atomop Len       = CakeOp $ Strlen ∧
   compile_atomop StrEq     = CakeOp $ Equality ∧
@@ -283,7 +283,7 @@ Definition compile_op_def:
 End
 
 Definition compile_def:
-  compile (Var v : cexp) = Var (Short (cexp_var_prefix v)) ∧
+  compile (Var v : cexp) = Var (Short (implode (cexp_var_prefix v))) ∧
 
   compile (App op es) = (
     let ces = MAP compile es in
@@ -295,8 +295,8 @@ Definition compile_def:
         | _ => failure)
     | Other =>
         case op of
-        | AtomOp (Lit (Int i)) => Lit (IntLit i)
-        | AtomOp (Lit (Str s)) => Lit (StrLit s)
+        | AtomOp (Lit (Int i)) => ast$Lit (ast$IntLit i)
+        | AtomOp (Lit (Str s)) => ast$Lit (ast$StrLit (implode s))
         | AtomOp Concat => App Strcat [list_to_exp ces]
         | AtomOp Implode => App Implode [capp (var "char_list") (list_to_exp ces)]
         | AtomOp Substring => (
@@ -308,36 +308,36 @@ Definition compile_def:
             | _ => failure)
         | Cons cn => (if cn = «»
                       then Con NONE ces
-                      else Con (SOME $ Short $ explode cn) ces)
+                      else Con (SOME $ Short cn) ces)
         | FFI ch  => (
             case oEL 0 ces of
             | SOME ce =>
                 clet "s" ce $ Let NONE
-                  (App (FFI $ explode ch) [var "s"; var "ffi_array"]) $ ffi
+                  (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi
             | NONE => failure)
         | _ => failure) ∧
 
-  compile (Lam (SOME x) e) = Fun (cexp_var_prefix x) (compile e) ∧
+  compile (Lam (SOME x) e) = Fun (implode (cexp_var_prefix x)) (compile e) ∧
 
   compile (Letrec funs e) = (
     let cfuns =
-      MAP (λ(v,x,e). cexp_var_prefix v, cexp_var_prefix x, compile e) funs in
+      MAP (λ(v,x,e). implode (cexp_var_prefix v), implode (cexp_var_prefix x), compile e) funs in
     Letrec cfuns (compile e)) ∧
 
   compile (Let (SOME x) e1 e2) =
-    Let (SOME $ cexp_var_prefix x) (compile e1) (compile e2) ∧
+    Let (SOME $ implode (cexp_var_prefix x)) (compile e1) (compile e2) ∧
 
   compile (If e e1 e2) = If (compile e) (compile e1) (compile e2) ∧
 
   compile (Case v css d) = (
     let ccss = MAP (λ(cn,vs,e). cexp_pat_row cn vs, compile e) css in
     let d_case = (case d of NONE => [] | SOME (_,e) => [(Pany, compile e)]) in
-    Mat (Var (Short (cexp_var_prefix v))) (ccss ++ d_case)) ∧
+    Mat (Var (Short (implode (cexp_var_prefix v)))) (ccss ++ d_case)) ∧
 
   compile (Raise e) = Raise (compile e) ∧
 
   compile (Handle e1 x e2) =
-    Handle (compile e1) [(Pvar $ cexp_var_prefix x, compile e2)] ∧
+    Handle (compile e1) [(Pvar $ implode (cexp_var_prefix x), compile e2)] ∧
 
   compile _ = failure
 Termination
@@ -346,14 +346,14 @@ End
 
 Definition final_gc_def:
   final_gc flag =
-    if flag then [Dlet unknown_loc (Pvar "gc") $ (App ConfigGC [int 0; int 0])] else []
+    if flag then [Dlet NoLocs (Pvar «gc») $ (App ConfigGC [int 0; int 0])] else []
 End
 
 (* Remove initial built-in datatypes from ns *)
 Definition compile_with_preamble_def:
   compile_with_preamble c ns e =
     preamble ((TL ## TL) ns) ++
-    [Dlet unknown_loc (Pvar "prog") $ compile e] ++
+    [Dlet NoLocs (Pvar «prog») $ compile e] ++
     final_gc c.do_final_gc
 End
 

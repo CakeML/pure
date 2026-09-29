@@ -1,14 +1,18 @@
 Theory pureTokenUtils
 Ancestors
-  tokenUtils
+  tokenUtils mlstring
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
 
+Definition fst_opt_def:
+  fst_opt s = oHD $ explode s
+End
+
 Definition capname_def:
   capname nm ⇔
   do
-    c1 <- oHD nm ;
+    c1 <- fst_opt nm ;
     assert $ isUpper c1
   od = SOME ()
 End
@@ -22,14 +26,14 @@ Definition capname_tok_def:
 End
 
 Definition keywords_def:
-  keywords = ["data"; "where"; "let"; "in"; "if"; "then"; "else"; "do";]
+  keywords = [«data»; «where»; «let»; «in»; «if»; «then»; «else»; «do»;]
 End
 
 Definition lcname_def:
   lcname s ⇔
     do
       assert (¬MEM s keywords);
-      c1 <- oHD s;
+      c1 <- fst_opt s;
       assert $ isLower c1
     od = SOME ()
 End
@@ -47,7 +51,6 @@ Definition isSymbolOpT_def:
   isSymbolOpT t ⇔
   do
     s <- destSymbolT t ;
-    assert (s ≠ "<-" ∧ s ≠ "::" ∧ s ≠ "->" ∧ s ≠ "`");
+    assert (s ≠ «<-» ∧ s ≠ «::» ∧ s ≠ «->» ∧ s ≠ «`»);
   od = SOME ()
 End
-

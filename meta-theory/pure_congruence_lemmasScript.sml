@@ -2,6 +2,12 @@ Theory pure_congruence_lemmas
 Ancestors
   list pred_set finite_map pure_congruence pure_exp_lemmas
 
+Theorem exp_eq_intro_cong:
+  a1 ≅ a2 ⇒ b1 ≅ b2 ⇒ (a1 ≅ b1 ⇔ a2 ≅ b2)
+Proof
+  metis_tac[exp_eq_sym, exp_eq_trans]
+QED
+
 Theorem Apps_APPEND:
   ∀f xs ys. Apps f (xs ++ ys) = Apps (Apps f xs) ys
 Proof
@@ -94,4 +100,3 @@ Proof
   >- simp[FUNION_DEF, DOMSUB_FAPPLY_THM]
   >- simp[FUNION_DEF, DOMSUB_FAPPLY_THM]
 QED
-

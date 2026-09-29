@@ -525,11 +525,9 @@ Proof
   \\ gvs [SUBSET_DEF, PULL_EXISTS]
   \\ rw []
   >- (disj1_tac \\ disj1_tac
-      \\  irule_at Any EQ_REFL \\ simp []
-      \\ strip_tac \\ gs [MEM_MAP])
+      \\ strip_tac \\ gvs [MEM_MAP, implode_explode])
   >- (disj1_tac
-      \\  irule_at Any EQ_REFL \\ simp []
-      \\ strip_tac \\ gs [MEM_MAP])
+      \\ strip_tac \\ gvs [MEM_MAP, implode_explode])
 QED
 
 Theorem compute_freevars_soundness_lemma4:

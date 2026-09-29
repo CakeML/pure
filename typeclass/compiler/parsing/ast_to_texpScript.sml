@@ -1072,7 +1072,7 @@ Theorem MEM_monad_cn_mlstrings[local]:
   MEM x monad_cn_mlstrings ⇔ explode x ∈ monad_cns
 Proof
   rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def] >>
-  simp[SRULE [mlstringTheory.implode_def] implodeEQ]
+  simp[SRULE [] implodeEQ]
 QED
 
 Theorem texp_wf_strong_alt_def[compute]:

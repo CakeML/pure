@@ -252,5 +252,3 @@ Proof
       simp[Abbr‘allpes’, ELIM_UNCURRY])
 QED
 
-
-

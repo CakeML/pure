@@ -120,14 +120,14 @@ val _ = temp_set_fixity "*ₑ" (Infixl 600)
 
 
 val _ = app lextest [
-  ("->", “[SymbolT "->"]”),
-  (": :: <-", “[SymbolT ":"; SymbolT "::"; SymbolT "<-"]”),
-  ("do x", “[AlphaT "do"; AlphaT "x"]”),
-  ("foo_bar _", “[AlphaT "foo_bar"; UnderbarT]”),
-  ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”),
-  ("foo #(foo)", “[AlphaT "foo"; FFIT "foo"]”),
-  ("foo\n--bar", “[AlphaT "foo"]”),
-  ("foo\n--bar\n", “[AlphaT "foo"]”)
+  ("->", “[SymbolT «->»]”),
+  (": :: <-", “[SymbolT «:»; SymbolT «::»; SymbolT «<-»]”),
+  ("do x", “[AlphaT «do»; AlphaT «x»]”),
+  ("foo_bar _", “[AlphaT «foo_bar»; UnderbarT]”),
+  ("foo \"bar\\n\" baz", “[AlphaT «foo»; StringT «bar\n»; AlphaT «baz»]”),
+  ("foo #(foo)", “[AlphaT «foo»; FFIT «foo»]”),
+  ("foo\n--bar", “[AlphaT «foo»]”),
+  ("foo\n--bar\n", “[AlphaT «foo»]”)
 ];
 
 val _ = app fptest [
@@ -311,6 +311,7 @@ val _ = app convtest [
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
 
+val _ = new_theory "parsing_selftest"
 
 val handle_inferResult_def = Define‘
   handle_inferResult ires =
