@@ -448,11 +448,12 @@ Proof
   ho_match_mp_tac solve_ind \\ rw []
   \\ simp [Once $ fetch "-" "solve_side_def"]
   \\ rw [] \\ gvs []
-  \\ Cases_on ‘pure_unify_empty x29 x28’
+  \\ rename1 ‘pure_unify_empty t1 t2’
+  \\ Cases_on ‘pure_unify_empty t1 t2’
   \\ gvs [oreturn_def,fail_def,return_def]
   \\ fs [pure_unify_empty_def]
   \\ imp_res_tac pure_unificationTheory.pure_unify_wfs
-  \\ fs []
+  \\ fs [pure_unificationTheory.pure_wfs_FEMPTY]
 QED
 
 val r = solve_side |> update_precondition;
@@ -503,4 +504,3 @@ val r = translate (pure_inferenceTheory.typedefs_ok_impl_def
           |> SIMP_RULE std_ss [intro_every_pair]);
 
 val r = translate pure_inferenceTheory.infer_types_def;
-
