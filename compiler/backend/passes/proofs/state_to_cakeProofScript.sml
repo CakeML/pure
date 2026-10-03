@@ -896,14 +896,14 @@ Proof
 QED
 
 Theorem pats_bindings_MAP_Pvar[simp]:
-  ∀vs f l. pats_bindings (MAP (Pvar o f) vs) l = REVERSE (MAP f vs) ++ l
+  ∀vs f. pats_bindings (MAP (Pvar o f) vs) = REVERSE (MAP f vs)
 Proof
   Induct >> rw[astTheory.pat_bindings_def]
 QED
 
 Theorem pat_bindings_pat_row[simp]:
-  ∀vs cn v l.
-    pat_bindings (pat_row cn vs) l = REVERSE (MAP var_prefix vs) ++ l
+  ∀vs cn.
+    pat_bindings (pat_row cn vs) = REVERSE (MAP var_prefix vs)
 Proof
   Induct >> rw[pat_row_def, astTheory.pat_bindings_def] >> simp[MAP_REVERSE]
 QED
@@ -2796,8 +2796,15 @@ Proof
     simp[dstep, astTheory.pat_bindings_def, smallStepTheory.collapse_env_def] >>
     ntac 6 (qrefine `SUC m` >> simp[cstep, dstep, do_app_def]) >>
     simp[astTheory.pat_bindings_def, pmatch_def] >>
-    ntac 2 (qrefine `SUC m` >> simp[dstep]) >> simp[dstep_rel_cases]
-    )
+    simp[semanticPrimitivesTheory.check_exp_constructors_def] >>
+    qrefine `SUC m` >> simp[dstep] >>
+    qrefine `SUC m` >>
+    simp[dstep, cstep, do_app_def,
+         semanticPrimitivesTheory.check_exp_constructors_def] >>
+    simp[dstep_rel_cases, astTheory.pat_bindings_def, pmatch_def,
+         smallStepTheory.collapse_env_def] >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
+    simp[dstep_rel_cases])
   >- (
     reverse $ Cases_on `sk'` >> gvs[]
     >- (qexists0 >> simp[dstep, dstep_rel_cases] >> irule_at Any EQ_REFL) >>
@@ -2932,13 +2939,23 @@ Proof
   >- (
     qrefine `SUC m` >> simp[dstep] >>
     simp[astTheory.pat_bindings_def, pmatch_def] >>
-    reverse $ rw[final_gc_def] >> ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
-    simp[dstep_rel_cases] >> gvs[Once cont_rel_cases] >>
-    simp[astTheory.pat_bindings_def] >>
+    reverse $ rw[final_gc_def]
+    >- (
+      simp[dstep_rel_cases] >> gvs[Once cont_rel_cases] >>
+      ntac 2 (qrefine `SUC m` >> simp[dstep])) >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
+    simp[dstep, astTheory.pat_bindings_def, smallStepTheory.collapse_env_def] >>
     ntac 6 (qrefine `SUC m` >> simp[cstep, dstep, do_app_def]) >>
     simp[astTheory.pat_bindings_def, pmatch_def] >>
-    ntac 2 (qrefine `SUC m` >> simp[dstep])
-    ) >>
+    simp[semanticPrimitivesTheory.check_exp_constructors_def] >>
+    qrefine `SUC m` >> simp[dstep] >>
+    qrefine `SUC m` >>
+    simp[dstep, cstep, do_app_def,
+         semanticPrimitivesTheory.check_exp_constructors_def] >>
+    simp[dstep_rel_cases, astTheory.pat_bindings_def, pmatch_def,
+         smallStepTheory.collapse_env_def] >>
+    qrefine `SUC m` >> simp[dstep] >>
+    gvs[Once cont_rel_cases]) >>
   qexists0 >> simp[dstep, store_lookup_def] >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
   irule_at Any EQ_REFL >> goal_assum drule >> gvs[state_rel] >>
@@ -3775,11 +3792,13 @@ Proof
   rw[] >> ntac 2 (qrefine `SUC n` >> simp[dstep]) >>
   PairCases_on `ns` >> rename1 `(exndef,tdefs)` >> gvs[compile_namespace_def] >>
   qspecl_then [`exndef`,`benv`,`dst`,`empty_dec_env`,`empty_dec_env`, `empty_dec_env`,
-    `k`, `Dlet unknown_loc Pany (Con NONE [])`,`compile_typedefs tdefs ++ p::prog`]
+    `k`, `Dlet NoLocs Pany (Con NONE [])`,`compile_typedefs tdefs ++ p::prog`]
   assume_tac step_over_exndef >> gvs[] >>
   qrefine `m + n` >> simp[itree_semanticsPropsTheory.step_n_add, APPEND_ASSOC_CONS] >>
   qrefine `SUC m` >> simp[dstep, astTheory.pat_bindings_def] >>
-  qrefine `SUC m` >> simp[dstep, cstep, do_con_check_def, build_conv_def] >>
+  qrefine `SUC m` >>
+  simp[dstep, cstep, do_con_check_def, build_conv_def,
+       semanticPrimitivesTheory.check_exp_constructors_def] >>
   qrefine `SUC m` >> simp[dstep, pmatch_def, astTheory.pat_bindings_def] >>
   simp[GSYM smallStepTheory.empty_dec_env_def] >>
   qmatch_goalsub_abbrev_tac `Dstep dst'` >>
@@ -3789,7 +3808,8 @@ Proof
     `k`,`p`,`prog`] assume_tac >> gvs[] >>
   qrefine `m + n'` >> simp[itree_semanticsPropsTheory.step_n_add] >>
   qexists0 >> simp[dstep] >> unabbrev_all_tac >>
-  gvs[dstate_component_equality, extend_dec_env_def]
+  gvs[dstate_component_equality, extend_dec_env_def,
+      semanticPrimitivesTheory.check_exp_constructors_def]
 QED
 
 Theorem every_exp_one_con_check_list_to_exp:
@@ -3834,7 +3854,49 @@ Proof
   >- (gvs[cnenv_rel_def] >> first_x_assum drule >> simp[])
 QED
 
+Theorem check_exp_constructors_list_to_exp:
+  EVERY (check_exp_constructors env) es ∧
+  nsLookup env (Short «[]») = SOME (0,stamp1) ∧
+  nsLookup env (Short «::») = SOME (2,stamp2)
+  ⇒ check_exp_constructors env (list_to_exp es)
+Proof
+  Induct_on `es` >>
+  rw[list_to_exp_def, semanticPrimitivesTheory.check_exp_constructors_def,
+     do_con_check_def]
+QED
 
+Theorem check_exp_constructors_cexp_compile_rel:
+  cexp_compile_rel cnenv se ce ∧ cnenv_rel cnenv cml_ns
+  ⇒ check_exp_constructors cml_ns ce
+Proof
+  Induct_on ‘cexp_compile_rel’ >> reverse $ rw[] >>
+  gvs[semanticPrimitivesTheory.check_exp_constructors_def,
+      do_con_check_def, EVERY_EL, LIST_REL_EL_EQN] >> rw[] >> gvs[]
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (
+    irule check_exp_constructors_list_to_exp >> gvs[EVERY_EL] >>
+    gvs[cnenv_rel_def, prim_types_ok_def] >> metis_tac[]
+    )
+  >- (
+    irule check_exp_constructors_list_to_exp >> gvs[EVERY_EL] >>
+    gvs[cnenv_rel_def, prim_types_ok_def] >> metis_tac[]
+    )
+  >- (
+    gvs[cnenv_rel_def, prim_types_ok_def] >>
+    first_x_assum $ qspec_then ‘«False»’ mp_tac >> simp[]
+    )
+  >- (
+    gvs[cnenv_rel_def, prim_types_ok_def] >>
+    first_x_assum $ qspec_then ‘«True»’ mp_tac >> simp[]
+    )
+  >- (
+    gvs[cnenv_rel_def, prim_types_ok_def] >>
+    first_x_assum $ qspec_then ‘«False»’ mp_tac >> simp[]
+    )
+  >- (gvs[cnenv_rel_def] >> first_x_assum drule >> simp[])
+QED
 
 (********** Key namespace result **********)
 
@@ -3999,8 +4061,6 @@ Proof
     )
 QED
 
-
-
 (****************************** compile_correct ******************************)
 
 Theorem compile_correct:
@@ -4040,14 +4100,19 @@ Proof
   pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac `Dstep dst'` >> qpat_abbrev_tac `cml_ns = nsAppend _ _` >>
   simp[Abbr `ffi_array`] >>
-    ntac 6 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+    ntac 6 (qrefine `SUC m` >>
+            simp[dstep, cstep, astTheory.pat_bindings_def,
+                 semanticPrimitivesTheory.check_exp_constructors_def, do_app_def,
+                 integerTheory.INT_ADD_CALCULATE, store_alloc_def]) >>
     simp[do_app_def, integerTheory.INT_ADD_CALCULATE, store_alloc_def] >>
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def, pmatch_def] >>
   simp[Abbr `strle_dec`, strle_exp_def] >>
     ntac 2 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
     qmatch_goalsub_abbrev_tac `COND condition` >>
     `condition` by (
-      unabbrev_all_tac >> simp[do_con_check_def, SF CONJ_ss] >>
+      unabbrev_all_tac >>
+      simp[semanticPrimitivesTheory.check_exp_constructors_def,
+           do_con_check_def, SF CONJ_ss] >>
       simp[smallStepTheory.collapse_env_def, extend_dec_env_def] >>
       once_rewrite_tac[DECIDE ``x ∧ y ⇔ (x = T) ∧ (y = T)``] >>
       rewrite_tac[AllCaseEqs()] >>
@@ -4055,16 +4120,20 @@ Proof
       rpt $ irule_at Any OR_INTRO_THM2 >> simp[nsLookup_nsAppend_none] >>
       DEP_REWRITE_TAC[nsLookup_build_typedefs_NONE, nsLookup_build_exns_NONE] >>
       simp[start_env_def, nsLookup_def] >>
-      qmatch_goalsub_abbrev_tac `cn` >>
+      qmatch_goalsub_abbrev_tac `implode cn` >>
       gvs[namespace_ok_def, initial_namespace_def, ALL_DISTINCT_APPEND] >>
-      gvs[reserved_cns_def]) >>
+      ntac 2 $ first_x_assum $ qspec_then `implode cn` mp_tac >>
+      simp[Abbr `cn`, MEM_MAP] >>
+      DEP_REWRITE_TAC[MEM_SET_TO_LIST] >> simp[reserved_cns_def]) >>
     simp[] >> ntac 2 $ pop_assum kall_tac >>
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def] >>
   simp[Abbr `char_list_dec`, char_list_exp_def] >>
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def] >>
     qmatch_goalsub_abbrev_tac `COND condition` >>
     `condition` by (
-      unabbrev_all_tac >> simp[do_con_check_def, SF CONJ_ss] >>
+      unabbrev_all_tac >>
+      simp[semanticPrimitivesTheory.check_exp_constructors_def,
+           do_con_check_def, SF CONJ_ss] >>
       simp[smallStepTheory.collapse_env_def, extend_dec_env_def] >>
       once_rewrite_tac[DECIDE ``x ∧ y ⇔ (x = T) ∧ (y = T)``] >>
       rewrite_tac[AllCaseEqs()] >>
@@ -4089,7 +4158,10 @@ Proof
   rpt $ irule_at Any compile_cexp_compile_rel >> rpt $ goal_assum $ drule_at Any >>
   PairCases_on `ns'` >> rename1 `append_ns _ (exns,tdefs)` >>
   drule ns_to_cml_ns >> gvs[start_dstate_def] >> strip_tac >> gvs[] >>
-  rpt $ goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def]
+  rpt $ goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def] >>
+  irule check_exp_constructors_cexp_compile_rel >>
+  irule_at Any compile_cexp_compile_rel >>
+  simp[cnenv_rel_def, prim_types_ok_def] >> rpt $ goal_assum drule
 QED
 
 (**********)

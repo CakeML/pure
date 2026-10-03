@@ -17,7 +17,7 @@ Overload clet = ``λs e1 e2. ast$Let (SOME s) e1 e2``;
 Overload ifeq = ``λ(a,b) e1 e2. ast$If (App Equality [a;b]) e1 e2``;
 Overload iflt = ``λ(a,b) e1 e2.
                     ast$If (App (Test (Compare Lt) IntT) [a;b]) e1 e2``
-Overload var  = ``λs. ast$Var $ Short s``;
+Overload var  = ``λs. ast$Ident $ Short s``;
 Overload tt = ``Con (SOME $ Short $ «True») []``;
 Overload ff = ``Con (SOME $ Short $ «False») []``;
 
@@ -182,10 +182,10 @@ Overload cunit = ``Attup []``;
 
 Overload compile_exn =
   ``λcn tys:type list.
-      Dexn unknown_loc cn (REPLICATE (LENGTH tys) cunit)``;
+      Dexn NoLocs cn (REPLICATE (LENGTH tys) cunit)``;
 
 Overload compile_tdef =
-  ``λcndefs. Dtype unknown_loc (* TODO type names? *)
+  ``λcndefs. Dtype NoLocs (* TODO type names? *)
       [([],«»,
         MAP (λ(cn,tys:type list). (cn, MAP (K cunit) tys)) cndefs)]``;
 
@@ -204,7 +204,7 @@ End
 Definition compile_namespace_def:
   compile_namespace ns =
     compile_exndef (FST ns) ++
-    [Dlet unknown_loc Pany $ Con NONE []] ++ (* simplifies a proof considerably *)
+    [Dlet NoLocs Pany $ Con NONE []] ++ (* simplifies a proof considerably *)
     compile_typedefs (SND ns)
 End
 
@@ -212,10 +212,10 @@ Definition preamble_def:
   preamble ns =
     compile_namespace ns ++
     [
-      Dlet unknown_loc (Pvar «ffi_array»)
+      Dlet NoLocs (Pvar «ffi_array»)
         (App Aw8alloc [Lit (IntLit (&max_FFI_return_size + 2)); Lit (Word8 0w)]);
-      Dletrec unknown_loc strle_exp;
-      Dletrec unknown_loc char_list_exp;
+      Dletrec NoLocs strle_exp;
+      Dletrec NoLocs char_list_exp;
     ]
 End
 
@@ -355,14 +355,14 @@ End
 
 Definition final_gc_def:
   final_gc flag =
-    if flag then [Dlet unknown_loc (Pvar «gc») $ (App ConfigGC [int 0; int 0])] else []
+    if flag then [Dlet NoLocs (Pvar «gc») $ (App ConfigGC [int 0; int 0])] else []
 End
 
 (* Remove initial built-in datatypes from ns *)
 Definition compile_with_preamble_def:
   compile_with_preamble c ns e =
     preamble ((TL ## TL) ns) ++
-    [Dlet unknown_loc (Pvar «prog») $ compile e] ++
+    [Dlet NoLocs (Pvar «prog») $ compile e] ++
     final_gc c.do_final_gc
 End
 
