@@ -107,7 +107,7 @@ Definition to_state_def:
   to_state (Force x) =
     App ForceMutThunk [to_state x] ∧
   to_state (Letrec xs y) =
-    (let (delays,funs) = Letrec_split  xs in
+    (let (delays,funs) = Letrec_split xs in
      let delays = MAP (λ(m,n,x). (m,n,to_state x)) delays in
      let funs = MAP (λ(m,n,x). (m,n,to_state x)) funs in
        Lets (MAP some_alloc_thunk delays) $

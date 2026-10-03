@@ -4,4 +4,5 @@ INCLUDES = .. ../../languages/properties \
            $(CAKEMLDIR)/semantics/proofs \
            $(CAKEMLDIR)/semantics/alt_semantics \
            $(CAKEMLDIR)/semantics/alt_semantics/proofs \
-           $(HOLDIR)/examples/algorithms
+           $(HOLDIR)/examples/algorithms \
+           $(HOLDIR)/examples/data-structures/balanced_bst

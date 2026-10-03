@@ -2889,7 +2889,7 @@ Proof
       \\ PairCases_on ‘p’ \\ fs []
       \\ gvs[SF DNF_ss] >> goal_assum drule
       )
-  >~ [‘find (Lams  namel (_ e))’]
+  >~ [‘find (Lams namel (_ e))’]
   >- (rw []
       \\ first_assum $ qspecl_then [‘cexp_size f e’] assume_tac
       \\ fs [cexp_size_def, letrecs_distinct_Lams]

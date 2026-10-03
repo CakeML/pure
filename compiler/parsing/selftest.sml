@@ -311,6 +311,7 @@ val _ = app convtest [
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
 
+val _ = new_theory "parsing_selftest"
 
 val handle_inferResult_def = Define‘
   handle_inferResult ires =

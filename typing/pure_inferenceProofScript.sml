@@ -834,7 +834,7 @@ QED
 Theorem CARD_has_fmap_linv:
   ∀f. (∃g. fmap_linv f g) ⇔ CARD (FDOM f) = CARD (FRANGE f)
 Proof
-  rw[miscTheory.has_fmap_linv_inj, CARD_fmap_injection] >>
+  rw[pure_miscTheory.has_fmap_linv_inj, CARD_fmap_injection] >>
   simp[INJ_DEF, FLOOKUP_DEF, FRANGE_DEF] >> eq_tac >> rw[] >>
   goal_assum drule >> gvs[]
 QED
@@ -842,7 +842,7 @@ QED
 Theorem fmap_linv_sym:
   ∀f g. fmap_linv f g ⇔ fmap_linv g f
 Proof
-  rw[miscTheory.fmap_linv_def] >> eq_tac >> rw[] >>
+  rw[pure_miscTheory.fmap_linv_def] >> eq_tac >> rw[] >>
   gvs[FLOOKUP_DEF, FRANGE_DEF, EXTENSION] >> metis_tac[]
 QED
 
@@ -854,9 +854,9 @@ Theorem fmap_linv_alt_def:
     (∀x. x ∈ FDOM g ⇒ f ' (g ' x) = x)
 Proof
   eq_tac >> strip_tac
-  >- (imp_res_tac fmap_linv_sym >> gvs[miscTheory.fmap_linv_def, FLOOKUP_DEF])
+  >- (imp_res_tac fmap_linv_sym >> gvs[pure_miscTheory.fmap_linv_def, FLOOKUP_DEF])
   >- (
-    rw[miscTheory.fmap_linv_def, FLOOKUP_DEF] >>
+    rw[pure_miscTheory.fmap_linv_def, FLOOKUP_DEF] >>
     last_x_assum $ assume_tac o GSYM >> gvs[] >>
     simp[FRANGE_DEF] >> goal_assum drule >> simp[]
     )
@@ -881,7 +881,7 @@ Proof
   rw[pure_apply_subst, isubst_def] >> gvs[freedbvars_def] >>
   gvs[LIST_TO_SET_EQ_SING, EVERY_MAP, EVERY_MEM] >>
   simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f, FLOOKUP_o_f] >>
-  gvs[miscTheory.fmap_linv_def, FLOOKUP_DEF] >>
+  gvs[pure_miscTheory.fmap_linv_def, FLOOKUP_DEF] >>
   Cases_on `n ∈ FDOM sub` >> Cases_on `n ∈ FDOM fm` >> gvs[SUBSET_DEF, isubst_def] >>
   qsuff_tac `fm ' n < CARD (FRANGE fm)` >> rw[] >>
   gvs[FRANGE_DEF, EXTENSION]

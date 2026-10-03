@@ -65,6 +65,29 @@ Proof
   goal_assum $ drule_at Any >> simp[]
 QED
 
+Definition fmap_linv_def:
+  fmap_linv f g ⇔
+    FDOM g = FRANGE f ∧
+    ∀x. x ∈ FDOM f ⇒ FLOOKUP g (f ' x) = SOME x
+End
+
+Theorem INJ_has_fmap_linv:
+  INJ ($' f) (FDOM f) (FRANGE f) ⇒ ∃g. fmap_linv f g
+Proof
+  STRIP_TAC THEN
+  Q.EXISTS_TAC `FUN_FMAP (\x. @y. FLOOKUP f y = SOME x) (FRANGE f)` THEN
+  SRW_TAC[][fmap_linv_def,FLOOKUP_FUN_FMAP,FRANGE_DEF] THEN1 PROVE_TAC[] THEN
+  SELECT_ELIM_TAC THEN
+  FULL_SIMP_TAC (srw_ss()) [INJ_DEF,FRANGE_DEF,FLOOKUP_DEF]
+QED
+
+Theorem has_fmap_linv_inj:
+  (∃g. fmap_linv f g) ⇔ INJ ($' f) (FDOM f) (FRANGE f)
+Proof
+  eq_tac >- (rw [fmap_linv_def,INJ_DEF,FRANGE_DEF,FLOOKUP_DEF] \\ metis_tac [])
+  \\ metis_tac [INJ_has_fmap_linv]
+QED
+
 Theorem CARD_fmap_injection:
   ∀fm. CARD (FDOM fm) = CARD (FRANGE fm) ⇔
     (∀k1 k2 v. FLOOKUP fm k1 = SOME v ∧ FLOOKUP fm k2 = SOME v ⇒ k1 = k2)
@@ -768,4 +791,3 @@ Proof
   \\ gvs [MEM_SPLIT]
   \\ gvs [ALL_DISTINCT_APPEND,SF DNF_ss]
 QED
-

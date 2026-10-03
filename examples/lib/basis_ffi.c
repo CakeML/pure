@@ -376,8 +376,10 @@ void ffidouble_floor(char *c, long clen, char *a, long alen) {
     memcpy(a, d.bytes, sizeof d.bytes);
 }
 
-void cml_clear() {
-  __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
+void *cml_install(uint8_t *src, size_t len, uint8_t *dest) {
+  memmove(dest, src, len);
+  __builtin___clear_cache((char *)dest, (char *)dest + len);
+  return dest;
 }
 
 int main (int local_argc, char **local_argv) {

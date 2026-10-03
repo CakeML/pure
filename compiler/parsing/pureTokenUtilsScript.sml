@@ -53,4 +53,3 @@ Definition isSymbolOpT_def:
     assert (s ≠ «<-» ∧ s ≠ «::» ∧ s ≠ «->» ∧ s ≠ «`»);
   od = SOME ()
 End
-
